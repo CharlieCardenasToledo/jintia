@@ -101,7 +101,7 @@ la configuración personal.
 
 ### Manual
 
-Cada [release](https://github.com/CharlieCardenasToledo/instructional-designer-skill/releases)
+Cada [release](https://github.com/CharlieCardenasToledo/jintia/releases)
 publica tres archivos verificables:
 
 - `jintia-skill-X.Y.Z.zip`, para Claude;

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/CharlieCardenasToledo/instructional-designer-skill/blob/master/release/release-manifest.schema.json",
+  "$id": "https://github.com/CharlieCardenasToledo/jintia/blob/master/release/release-manifest.schema.json",
   "title": "Jintia Skill release manifest",
   "type": "object",
   "additionalProperties": false,

@@ -5,6 +5,7 @@ const root = resolve(import.meta.dirname, "..");
 const read = relative => readFile(resolve(root, relative), "utf8");
 const json = async relative => JSON.parse(await read(relative));
 const failures = [];
+const canonicalRepository = "CharlieCardenasToledo/jintia";
 
 const [skillPackage, brand, claudePlugin, openAiPlugin, openAiMcp, releaseConfig, rootPackage, changelog] = await Promise.all([
   json("skill/package.json"),
@@ -26,6 +27,15 @@ for (const [label, version] of [
   if (version !== expected) failures.push(`${label}: ${version}; esperado ${expected}`);
 }
 if (rootPackage.name !== "@charlie.act7/jintia") failures.push(`paquete npm raíz inesperado: ${rootPackage.name}`);
+if (releaseConfig.repository !== canonicalRepository) failures.push(`releaseConfig.repository debe ser ${canonicalRepository}`);
+for (const [label, repository] of [
+  ["paquete raíz", rootPackage.repository?.url],
+  ["paquete Skill", skillPackage.repository?.url],
+  ["plugin Claude", claudePlugin.repository],
+  ["plugin ChatGPT/Codex", openAiPlugin.repository],
+]) {
+  if (!String(repository || "").includes(canonicalRepository)) failures.push(`${label}: repositorio no canónico`);
+}
 if (rootPackage.private) failures.push("el paquete npm raíz continúa marcado como privado");
 if (rootPackage.bin?.jintia !== "skill/bin/jintia.js") failures.push("el paquete npm no expone el binario jintia");
 if (rootPackage.publishConfig?.access !== "public") failures.push("el paquete npm no declara publicación pública");

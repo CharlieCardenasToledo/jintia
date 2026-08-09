@@ -5,7 +5,7 @@
 **Charlie Cárdenas Toledo** creó Jintia y mantiene la skill de diseño instruccional.
 
 - GitHub: [@CharlieCardenasToledo](https://github.com/CharlieCardenasToledo)
-- Proyecto: [Jintia](https://github.com/CharlieCardenasToledo/instructional-designer-skill)
+- Proyecto: [Jintia](https://github.com/CharlieCardenasToledo/jintia)
 - Aplicación: [Jintia Desktop](https://github.com/CharlieCardenasToledo/jintia-desktop)
 
 ## Contribuciones

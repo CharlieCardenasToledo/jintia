@@ -6,8 +6,8 @@ proponerse en [`jintia-desktop`](https://github.com/CharlieCardenasToledo/jintia
 ## Preparación
 
 ```bash
-git clone https://github.com/CharlieCardenasToledo/instructional-designer-skill.git
-cd instructional-designer-skill
+git clone https://github.com/CharlieCardenasToledo/jintia.git
+cd jintia
 npm ci
 npm run skill:check
 ```
@@ -44,7 +44,7 @@ Después de esa primera publicación, configurar en npm el trusted publisher de
 GitHub Actions con estos valores:
 
 - usuario u organización: `CharlieCardenasToledo`;
-- repositorio: `instructional-designer-skill`;
+- repositorio: `jintia`;
 - workflow: `publish-npm.yml`;
 - acción permitida: `npm publish`.
 

@@ -1,16 +1,16 @@
 {
   "name": "@charlie.act7/jintia",
-  "version": "11.6.5",
+  "version": "11.6.6",
   "description": "Instala y ejecuta Jintia, la skill de diseño instruccional universitario verificable.",
   "license": "MIT",
   "author": "Charlie Cárdenas Toledo <charlie.act7@gmail.com>",
-  "homepage": "https://github.com/CharlieCardenasToledo/instructional-designer-skill",
+  "homepage": "https://github.com/CharlieCardenasToledo/jintia",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CharlieCardenasToledo/instructional-designer-skill.git"
+    "url": "git+https://github.com/CharlieCardenasToledo/jintia.git"
   },
   "bugs": {
-    "url": "https://github.com/CharlieCardenasToledo/instructional-designer-skill/issues"
+    "url": "https://github.com/CharlieCardenasToledo/jintia/issues"
   },
   "keywords": [
     "agent-skill",

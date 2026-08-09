@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/CharlieCardenasToledo/instructional-designer-skill/config/notebooks.schema.json",
+  "$id": "https://github.com/CharlieCardenasToledo/jintia/config/notebooks.schema.json",
   "title": "Jintia NotebookLM registry",
   "type": "object",
   "additionalProperties": false,

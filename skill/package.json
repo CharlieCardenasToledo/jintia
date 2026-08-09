@@ -1,16 +1,16 @@
 {
   "name": "jintia-skill",
-  "version": "11.6.5",
+  "version": "11.6.6",
   "description": "Jintia Skill for evidence-based self-paced instructional design — HTML editorial engine with Vivliostyle PDF support",
   "license": "MIT",
   "bin": {
     "jintia": "bin/jintia.js"
   },
   "author": "Charlie Cárdenas Toledo <charlie.act7@gmail.com>",
-  "homepage": "https://github.com/CharlieCardenasToledo/instructional-designer-skill",
+  "homepage": "https://github.com/CharlieCardenasToledo/jintia",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CharlieCardenasToledo/instructional-designer-skill.git"
+    "url": "https://github.com/CharlieCardenasToledo/jintia.git"
   },
   "engines": {
     "node": ">=18.0.0"

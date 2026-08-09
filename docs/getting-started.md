@@ -37,7 +37,7 @@ El instalador:
 
 ### Opción B — Sin terminal (explorador de archivos)
 
-1. Descarga el repositorio: `https://github.com/CharlieCardenasToledo/instructional-designer-skill`
+1. Descarga el repositorio: `https://github.com/CharlieCardenasToledo/jintia`
 2. Abre tu explorador de archivos y ve a tu carpeta de inicio (`C:\Users\TuNombre` en Windows, `/Users/tunombre` en Mac)
 3. Crea la carpeta `.claude/skills/` si no existe
 4. Copia la carpeta `skill/` del repositorio descargado dentro de `.claude/skills/` y renómbrala `jintia-skill`
@@ -51,7 +51,7 @@ El instalador:
 2. En **Configurar**, sección **Acciones**, haz clic en **Importar desde URL**
 3. Ingresa la URL del plugin:
    ```
-   https://CharlieCardenasToledo.github.io/instructional-designer-skill/openai-plugin
+   https://CharlieCardenasToledo.github.io/jintia/openai-plugin
    ```
 4. Guarda el GPT con el nombre **Jíntia**
 5. Para usar la skill, envía el prompt:

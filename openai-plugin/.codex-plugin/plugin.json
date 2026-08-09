@@ -1,13 +1,13 @@
 {
   "name": "jintia",
-  "version": "11.6.5",
+  "version": "11.6.6",
   "description": "Diseña sílabos, guías semanales, actividades y evaluaciones universitarias con motor editorial HTML y salida PDF mediante Vivliostyle.",
   "author": {
     "name": "Charlie Cárdenas Toledo",
-    "url": "https://github.com/CharlieCardenasToledo/instructional-designer-skill"
+    "url": "https://github.com/CharlieCardenasToledo/jintia"
   },
-  "homepage": "https://github.com/CharlieCardenasToledo/instructional-designer-skill",
-  "repository": "https://github.com/CharlieCardenasToledo/instructional-designer-skill",
+  "homepage": "https://github.com/CharlieCardenasToledo/jintia",
+  "repository": "https://github.com/CharlieCardenasToledo/jintia",
   "license": "MIT",
   "keywords": [
     "educacion",
@@ -28,9 +28,9 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/CharlieCardenasToledo/instructional-designer-skill",
-    "privacyPolicyURL": "https://github.com/CharlieCardenasToledo/instructional-designer-skill/blob/master/PRIVACY.md",
-    "termsOfServiceURL": "https://github.com/CharlieCardenasToledo/instructional-designer-skill/blob/master/TERMS.md",
+    "websiteURL": "https://github.com/CharlieCardenasToledo/jintia",
+    "privacyPolicyURL": "https://github.com/CharlieCardenasToledo/jintia/blob/master/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/CharlieCardenasToledo/jintia/blob/master/TERMS.md",
     "defaultPrompt": [
       "Usa Jintia para crear la guía didáctica de esta semana.",
       "Usa Jintia para revisar la alineación entre resultados, actividades y evaluación."

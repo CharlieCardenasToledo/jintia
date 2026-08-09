@@ -5,6 +5,12 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.6 — 2026-08-09
+
+### Actualizado
+
+- El repositorio canónico de Jintia adopta el slug `jintia`; los manifests, metadatos de distribución y enlaces públicos usan ahora `CharlieCardenasToledo/jintia`.
+
 ## `jintia-skill` 11.6.5 — 2026-08-09
 
 ### Actualizado
@@ -298,7 +304,7 @@ y versionado semántico.
 - Agregado `requirements.txt` con dependencia `pymupdf>=1.24.0`.
 - Agregadas issue templates de GitHub: bug report, feature request, institution config.
 - README: aclarado `[SKILL_PATH]` con rutas concretas por OS; agregado `pip install` previo al script Python.
-- CHANGELOG: corregido titulo (era `instructional-designer-uide`, debe ser `instructional-designer-skill`).
+- CHANGELOG: corregido título para usar la identidad canónica de Jintia.
 
 ## 10.3.0 — 2026-06-16
 

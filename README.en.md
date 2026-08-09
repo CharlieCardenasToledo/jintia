@@ -42,7 +42,7 @@ Alternatively, download the desktop installer from
 [Jintia Desktop releases](https://github.com/CharlieCardenasToledo/jintia-desktop/releases).
 
 For manual installation, each
-[skill release](https://github.com/CharlieCardenasToledo/instructional-designer-skill/releases)
+[skill release](https://github.com/CharlieCardenasToledo/jintia/releases)
 publishes a Claude ZIP, a universal ChatGPT/Codex plugin ZIP, and a manifest
 with versions and SHA-256 hashes. Extract the Claude ZIP to
 `~/.claude/skills/jintia-skill`, keeping `SKILL.md` at its root, or import the

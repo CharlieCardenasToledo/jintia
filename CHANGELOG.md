@@ -5,6 +5,12 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.5 — 2026-08-09
+
+### Actualizado
+
+- El contrato de NotebookLM MCP fija `@charlie.act7/gemini-notebook-mcp@2.3.4`, que administra el Chromium hermético de Patchright mediante su CLI pública `browser install/status`.
+
 ## `jintia-skill` 11.6.4 — 2026-08-08
 
 ### Añadido

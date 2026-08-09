@@ -4,8 +4,8 @@
   "minimumDesktopVersion": "1.1.0",
   "mcp": {
     "package": "@charlie.act7/gemini-notebook-mcp",
-    "version": "2.3.3",
+    "version": "2.3.4",
     "node": ">=22.13.0",
-    "npmIntegrity": "sha512-+USWTG9F07fWz6qxamEXk16Btt6ME/KJxihZJPCB5ODVoNRnxx9cPOAyujcHF4bHvzDRkLrhKtvKBzbs+nzjeA=="
+    "npmIntegrity": "sha512-L5+05Ij2zePaIkPZ99en70LOPRes0xqqhE/MvCizJrAUFp+Sgql3P3ADPr3FqqhT/ZC+Xv/YP4ff8jU7PKVIkA=="
   }
 }

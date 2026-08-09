@@ -5,6 +5,12 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.4 — 2026-08-08
+
+### Añadido
+
+- El paquete npm distribuye el wrapper universal de OpenAI (`.codex-plugin/plugin.json`, `.mcp.json` y README) junto al core canónico de Jintia, sin duplicar la Skill dentro del wrapper.
+
 ## `jintia-skill` 11.6.3 — 2026-08-08
 
 ### Añadido

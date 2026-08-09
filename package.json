@@ -38,7 +38,10 @@
     "skill/themes/",
     "skill/package.json",
     "skill/requirements.txt",
-    "skill/SKILL.md"
+    "skill/SKILL.md",
+    "openai-plugin/.codex-plugin/",
+    "openai-plugin/.mcp.json",
+    "openai-plugin/README.md"
   ],
   "engines": {
     "node": ">=18.0.0"

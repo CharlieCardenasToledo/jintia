@@ -52,10 +52,14 @@ test("rechaza divergencia entre release-config y .mcp.json", () => {
   assert.throws(() => validateContract(fixture));
 });
 
-for (const invalidSpec of ["@latest", "^2.3.5", "~2.3.5"]) {
+for (const invalidSpec of [
+  `${PACKAGE}@latest`,
+  `${PACKAGE}@^2.3.5`,
+  `${PACKAGE}@~2.3.5`,
+]) {
   test(`rechaza spec flotante ${invalidSpec}`, () => {
     const fixture = validFixture();
-    fixture.openaiMcp.notebooklm.args[1] = `${PACKAGE}@${invalidSpec}`;
+    fixture.openaiMcp.notebooklm.args[1] = invalidSpec;
     assert.throws(() => validateContract(fixture));
   });
 }

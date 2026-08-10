@@ -5,6 +5,12 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.8 — 2026-08-09
+
+### Añadido
+
+- El paquete npm publica `release/release-config.json` como contrato técnico canónico de la distribución de Jintia.
+
 ## `jintia-skill` 11.6.7 — 2026-08-09
 
 ### Actualizado

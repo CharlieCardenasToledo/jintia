@@ -1,6 +1,6 @@
 {
   "name": "@charlie.act7/jintia",
-  "version": "11.6.7",
+  "version": "11.6.8",
   "description": "Instala y ejecuta Jintia, la skill de diseño instruccional universitario verificable.",
   "license": "MIT",
   "author": "Charlie Cárdenas Toledo <charlie.act7@gmail.com>",
@@ -41,7 +41,8 @@
     "skill/SKILL.md",
     "openai-plugin/.codex-plugin/",
     "openai-plugin/.mcp.json",
-    "openai-plugin/README.md"
+    "openai-plugin/README.md",
+    "release/release-config.json"
   ],
   "engines": {
     "node": ">=18.0.0"

@@ -5,6 +5,12 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.7 — 2026-08-09
+
+### Actualizado
+
+- La distribución de Jintia fija Gemini Notebook MCP 2.3.5 y su integrity SHA-512 del registry.
+
 ## `jintia-skill` 11.6.6 — 2026-08-09
 
 ### Actualizado

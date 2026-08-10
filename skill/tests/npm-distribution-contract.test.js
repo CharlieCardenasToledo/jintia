@@ -7,7 +7,8 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "../..");
 const PACKAGE = "@charlie.act7/gemini-notebook-mcp";
-const VERSION = "2.3.5";
+const VERSION = "2.3.9";
+const INTEGRITY = "sha512-WOMCABsJ/QEhL7Ym24gads/0HosaSyY7NMQLg+F1avWsl3VKsKdjak/OYhNWhocukteuhoobJM4LZ4TP8anmkw==";
 
 function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
@@ -16,7 +17,7 @@ function readJson(relativePath) {
 function validFixture() {
   return {
     rootPackage: { name: "@charlie.act7/jintia", files: ["skill/", "openai-plugin/", "release/release-config.json"] },
-    releaseConfig: { $schemaVersion: "1.0.0", repository: "CharlieCardenasToledo/jintia", minimumDesktopVersion: "1.1.0", mcp: { package: PACKAGE, version: VERSION, node: ">=22.13.0", npmIntegrity: `sha512-${"A".repeat(86)}==` } },
+    releaseConfig: { $schemaVersion: "1.0.0", repository: "CharlieCardenasToledo/jintia", minimumDesktopVersion: "1.1.0", mcp: { package: PACKAGE, version: VERSION, node: ">=22.13.0", npmIntegrity: INTEGRITY } },
     openaiMcp: { notebooklm: { command: "npx", args: ["-y", `${PACKAGE}@${VERSION}`] } },
   };
 }
@@ -29,6 +30,8 @@ function validateDistributionContract({ rootPackage, releaseConfig, openaiMcp })
   assert.equal(releaseConfig?.repository, "CharlieCardenasToledo/jintia");
   assert.equal(releaseConfig?.minimumDesktopVersion, "1.1.0");
   assert.equal(releaseConfig?.mcp?.package, PACKAGE);
+  assert.equal(releaseConfig?.mcp?.version, VERSION);
+  assert.equal(releaseConfig?.mcp?.npmIntegrity, INTEGRITY);
   assert.match(releaseConfig?.mcp?.version ?? "", /^\d+\.\d+\.\d+$/);
   assert.match(releaseConfig?.mcp?.npmIntegrity ?? "", /^sha512-[A-Za-z0-9+/]+={0,2}$/);
   assert.equal(openaiMcp?.notebooklm?.args?.at(-1), `${releaseConfig.mcp.package}@${releaseConfig.mcp.version}`);

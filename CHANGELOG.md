@@ -5,6 +5,14 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.9 — 2026-08-10
+
+### Actualizado
+
+- Jintia actualiza su contrato técnico canónico de Gemini Notebook MCP de 2.3.5 a 2.3.9.
+- Se publica la nueva integridad SHA-512 validada.
+- El descriptor OpenAI MCP queda sincronizado con el mismo package spec.
+
 ## `jintia-skill` 11.6.8 — 2026-08-09
 
 ### Añadido

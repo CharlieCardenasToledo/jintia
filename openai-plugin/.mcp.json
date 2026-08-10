@@ -1,6 +1,6 @@
 {
   "notebooklm": {
     "command": "npx",
-    "args": ["-y", "@charlie.act7/gemini-notebook-mcp@2.3.5"]
+    "args": ["-y", "@charlie.act7/gemini-notebook-mcp@2.3.9"]
   }
 }

@@ -37,7 +37,7 @@ Uso:
   jintia contract [--json]
   jintia project status <curso> [--json]
   jintia week status <curso> <semana> [--json]
-  jintia install [--providers=claude,codex] [--scope=project|global] [--project RUTA] [--yes]
+  jintia install [--providers=claude,codex] [--scope=project|global] [--project RUTA] [--yes] [--adopt-existing]
   jintia update [--providers=claude,codex] [--scope=project|global] [--project RUTA] [--yes] [--verify-contract]
   jintia status [--providers=claude,codex] [--project RUTA] [--json]
   jintia repair|uninstall [--providers=claude,codex] [--scope=project|global] [--project RUTA] [--yes]
@@ -47,7 +47,7 @@ Uso:
   jintia context <init|read|validate> <curso> [--json]
   jintia agents plan <operación> [--json]
   jintia detect [proyecto] [--providers=claude,codex] [--json]
-  jintia harness <status|install|update|repair|uninstall> [--providers=claude,codex] [--scope=project|global] [--project RUTA] [--yes] [--json]
+  jintia harness <status|install|update|repair|uninstall> [--providers=claude,codex] [--scope=project|global] [--project RUTA] [--yes] [--adopt-existing] [--json]
   jintia audit <README.md> [--json] [--strict]
   jintia state update <curso> <semana> <estado> [archivo-fuente]
   jintia hook post-edit --changed <archivos...>

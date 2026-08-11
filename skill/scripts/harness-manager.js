@@ -65,7 +65,7 @@ async function promptOptions(base) {
       if (!confirm) return { ...base, scope, providers, cancelled: true };
     }
     if (!confirm) throw new Error("La operación modifica archivos. Confirma explícitamente con --yes.");
-    return { ...base, scope, providers, explicitProviders: providers, confirm };
+    return { ...base, scope, providers, explicitProviders: providers, confirm, adoptExisting: args.includes("--adopt-existing") };
   } finally {
     terminal?.close();
   }
@@ -80,7 +80,8 @@ async function main() {
     scope: value("--scope") || "project",
     sourcePath: value("--source"),
     version: value("--version") || skillVersion,
-    confirm: args.includes("--yes")
+    confirm: args.includes("--yes"),
+    adoptExisting: args.includes("--adopt-existing")
   };
   const options = await promptOptions(base);
   if (options.cancelled) {

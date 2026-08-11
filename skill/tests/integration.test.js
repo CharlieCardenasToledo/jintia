@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const { detectInstallationStates, mutate, installPath } = require("../../packages/core");
+const { detectInstallationStates, mutate, installPath, MANIFEST } = require("../../packages/core");
 const { readCourse } = require("../../packages/core");
 
 const root = path.resolve(__dirname, "..");
@@ -120,6 +120,92 @@ test("el gestor instala, actualiza, repara y desinstala sin sobrescribir rutas a
   fs.mkdirSync(foreign, { recursive: true });
   fs.writeFileSync(path.join(foreign, "SKILL.md"), "foreign");
   assert.throws(() => mutate("install", { ...base, providers: ["gemini"] }), /ruta ajena/);
+});
+
+test("una instalación Jintia canónica sin manifest exige adopción explícita", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-adopt-"));
+  try {
+    const source = path.join(root, "source");
+    const project = path.join(root, "project");
+    const target = path.join(project, ".claude", "skills", "jintia-skill");
+    fs.mkdirSync(path.join(source, "bin"), { recursive: true });
+    fs.writeFileSync(path.join(source, "SKILL.md"), "---\nname: jintia-skill\n---\n");
+    fs.writeFileSync(path.join(source, "package.json"), JSON.stringify({ name: "jintia-skill", version: skillVersion }));
+    fs.writeFileSync(path.join(source, "bin", "jintia.js"), "#!/usr/bin/env node\n");
+    fs.cpSync(source, target, { recursive: true });
+    assert.throws(() => mutate("install", { projectRoot: project, sourcePath: source, providers: ["claude"], scope: "project", version: skillVersion, confirm: true }), /ruta ajena/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("adopta una instalación Jintia válida y preserva configuración mutable", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-adopt-valid-"));
+  try {
+    const source = path.join(root, "source");
+    const project = path.join(root, "project");
+    const target = path.join(project, ".claude", "skills", "jintia-skill");
+    fs.mkdirSync(path.join(source, "bin"), { recursive: true });
+    fs.writeFileSync(path.join(source, "SKILL.md"), "---\nname: jintia-skill\n---\n");
+    fs.writeFileSync(path.join(source, "package.json"), JSON.stringify({ name: "jintia-skill", version: skillVersion }));
+    fs.writeFileSync(path.join(source, "bin", "jintia.js"), "#!/usr/bin/env node\n");
+    fs.mkdirSync(path.join(target, "config"), { recursive: true });
+    const institution = Buffer.from('{"institution":"fixture"}');
+    const notebooks = Buffer.from('{"notebooks":["fixture"]}');
+    fs.writeFileSync(path.join(target, "config", "institution.json"), institution);
+    fs.writeFileSync(path.join(target, "config", "notebooks.json"), notebooks);
+    fs.writeFileSync(path.join(target, "SKILL.md"), "---\nname: jintia-skill\n---\n");
+    fs.writeFileSync(path.join(target, "package.json"), JSON.stringify({ name: "jintia-skill", version: skillVersion }));
+    fs.mkdirSync(path.join(target, "bin"), { recursive: true });
+    fs.writeFileSync(path.join(target, "bin", "jintia.js"), "#!/usr/bin/env node\n");
+    const result = mutate("install", { projectRoot: project, sourcePath: source, providers: ["claude"], scope: "project", version: updateVersion, confirm: true, adoptExisting: true });
+    assert.equal(result.results[0].status, "installed");
+    assert.equal(JSON.parse(fs.readFileSync(path.join(target, MANIFEST), "utf8")).managedBy, "jintia");
+    assert.deepEqual(fs.readFileSync(path.join(target, "config", "institution.json")), institution);
+    assert.deepEqual(fs.readFileSync(path.join(target, "config", "notebooks.json")), notebooks);
+    assert.equal(fs.readFileSync(path.join(target, "VERSION"), "utf8").trim(), updateVersion);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("una falsa Jintia continúa protegida incluso con adopción", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-adopt-foreign-"));
+  try {
+    const source = path.join(root, "source");
+    const project = path.join(root, "project");
+    const target = path.join(project, ".claude", "skills", "jintia-skill");
+    fs.mkdirSync(path.join(target, "bin"), { recursive: true });
+    fs.writeFileSync(path.join(target, "SKILL.md"), "---\nname: otra-skill\n---\n");
+    fs.writeFileSync(path.join(target, "package.json"), JSON.stringify({ name: "otra-skill", version: "1.0.0" }));
+    fs.writeFileSync(path.join(target, "bin", "jintia.js"), "foreign\n");
+    fs.mkdirSync(source, { recursive: true });
+    fs.writeFileSync(path.join(source, "SKILL.md"), "managed\n");
+    assert.throws(() => mutate("install", { projectRoot: project, sourcePath: source, providers: ["claude"], scope: "project", version: skillVersion, confirm: true, adoptExisting: true }), /ruta ajena/);
+    assert.equal(fs.readFileSync(path.join(target, "bin", "jintia.js"), "utf8"), "foreign\n");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("la CLI adopta una instalación global con --adopt-existing", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-adopt-cli-"));
+  try {
+    const target = path.join(home, ".claude", "skills", "jintia-skill");
+    fs.mkdirSync(path.join(target, "bin"), { recursive: true });
+    fs.writeFileSync(path.join(target, "SKILL.md"), "---\nname: jintia-skill\n---\n");
+    fs.writeFileSync(path.join(target, "package.json"), JSON.stringify({ name: "jintia-skill", version: skillVersion }));
+    fs.writeFileSync(path.join(target, "bin", "jintia.js"), "#!/usr/bin/env node\n");
+    const env = { ...process.env, HOME: home, USERPROFILE: home };
+    const rejected = spawnSync(process.execPath, [cli, "install", "--providers=claude", "--scope=global", "--yes", "--json"], { encoding: "utf8", env });
+    assert.equal(rejected.status, 1, rejected.stderr);
+    assert.equal(fs.existsSync(path.join(target, MANIFEST)), false);
+    const result = spawnSync(process.execPath, [cli, "install", "--providers=claude", "--scope=global", "--yes", "--adopt-existing", "--json"], { encoding: "utf8", env });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(target, MANIFEST), "utf8")).managedBy, "jintia");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
 });
 
 test("Codex recibe subagentes reales en .codex/agents/, Claude conserva agents/*.md dentro de la skill", () => {

@@ -5,6 +5,14 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.11 — 2026-08-11
+
+### Añadido
+
+- Jintia puede adoptar explícitamente instalaciones canónicas previas con `--adopt-existing`.
+- La adopción conserva la configuración mutable del usuario.
+- Las rutas no identificables como Jintia continúan protegidas.
+
 ## `jintia-skill` 11.6.10 — 2026-08-10
 
 ### Actualizado

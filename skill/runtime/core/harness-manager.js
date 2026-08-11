@@ -53,6 +53,19 @@ function readInstalledState(target, availableVersion) {
   return { exists, installed, managed: Boolean(manifest?.managedBy === "jintia"), manifest, version, availableVersion, status };
 }
 
+function isAdoptableJintiaInstall(target) {
+  const skillFile = path.join(target, "SKILL.md");
+  const packageFile = path.join(target, "package.json");
+  const binFile = path.join(target, "bin", "jintia.js");
+  if (!fs.statSync(skillFile, { throwIfNoEntry: false })?.isFile()) return false;
+  if (!fs.statSync(packageFile, { throwIfNoEntry: false })?.isFile()) return false;
+  if (!fs.statSync(binFile, { throwIfNoEntry: false })?.isFile()) return false;
+  let pkg;
+  try { pkg = JSON.parse(fs.readFileSync(packageFile, "utf8")); } catch { return false; }
+  if (pkg?.name !== "jintia-skill" || typeof pkg.version !== "string" || !versionParts(pkg.version)) return false;
+  return /^name:\s*jintia-skill\s*$/m.test(fs.readFileSync(skillFile, "utf8"));
+}
+
 function resolveTargets({ projectRoot = process.cwd(), homeDir = process.env.USERPROFILE || process.env.HOME || "", env = process.env, platform = process.platform, providers = PROVIDERS, availableVersion = SKILL_VERSION } = {}) {
   return providers.flatMap(provider => ["project", "global"].map(scope => {
     const target = installPath(provider, scope, path.resolve(projectRoot), homeDir, env, platform);
@@ -71,8 +84,17 @@ function detectInstallationStates(options = {}) {
 
 function copySkill(sourcePath, target, version) {
   fs.mkdirSync(path.dirname(target), { recursive: true });
+  const preservedConfig = new Map();
+  for (const name of ["institution.json", "notebooks.json"]) {
+    const file = path.join(target, "config", name);
+    if (fs.statSync(file, { throwIfNoEntry: false })?.isFile()) preservedConfig.set(name, fs.readFileSync(file));
+  }
   if (path.resolve(sourcePath) !== path.resolve(target)) {
     fs.cpSync(sourcePath, target, { recursive: true, force: true, errorOnExist: false });
+  }
+  for (const [name, bytes] of preservedConfig) {
+    fs.mkdirSync(path.join(target, "config"), { recursive: true });
+    fs.writeFileSync(path.join(target, "config", name), bytes);
   }
   fs.writeFileSync(path.join(target, "VERSION"), `${version}\n`);
   fs.writeFileSync(path.join(target, MANIFEST), `${JSON.stringify({ managedBy: "jintia", version, source: path.resolve(sourcePath), files: ["SKILL.md", "VERSION"] }, null, 2)}\n`);
@@ -189,7 +211,8 @@ function mutate(operation, options) {
       results.push({ ...item, status: "not-detected", changed: true });
       continue;
     }
-    if (before.exists && !before.managed && operation !== "repair") throw new Error(`No se sobrescribe una ruta ajena: ${item.target}`);
+    const adoptExisting = operation === "install" && options.adoptExisting === true;
+    if (before.exists && !before.managed && operation !== "repair" && !(adoptExisting && isAdoptableJintiaInstall(item.target))) throw new Error(`No se sobrescribe una ruta ajena: ${item.target}`);
     if (operation === "repair" && before.exists && !before.managed) throw new Error(`No se repara una ruta no gestionada: ${item.target}`);
     copySkill(sourcePath, item.target, version);
     if (item.provider.id === "codex") {
@@ -201,4 +224,4 @@ function mutate(operation, options) {
   return { operation, version, results };
 }
 
-module.exports = { MANIFEST, compareVersions, globalBase, installPath, readInstalledState, detectInstallationStates, mutate, codexAgentsDir, agentMarkdownToToml, stripAllowedToolsFrontmatter };
+module.exports = { MANIFEST, compareVersions, globalBase, installPath, readInstalledState, detectInstallationStates, mutate, isAdoptableJintiaInstall, codexAgentsDir, agentMarkdownToToml, stripAllowedToolsFrontmatter };

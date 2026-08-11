@@ -7,8 +7,8 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "../..");
 const PACKAGE = "@charlie.act7/gemini-notebook-mcp";
-const VERSION = "2.3.9";
-const INTEGRITY = "sha512-WOMCABsJ/QEhL7Ym24gads/0HosaSyY7NMQLg+F1avWsl3VKsKdjak/OYhNWhocukteuhoobJM4LZ4TP8anmkw==";
+const VERSION = "2.3.10";
+const INTEGRITY = "sha512-4qV0Erxq1DB2LIKNBfB6jjrxC/vQfEdFIn/djqamYQykoImc3igJz8Ko6apSdHzdypvkys+89K3ORXJpW4RbYQ==";
 
 function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));

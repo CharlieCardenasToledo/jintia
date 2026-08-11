@@ -8,7 +8,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "../..");
 
 const PACKAGE = "@charlie.act7/gemini-notebook-mcp";
-const VERSION = "2.3.9";
+const VERSION = "2.3.10";
 
 function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
@@ -54,8 +54,8 @@ test("rechaza divergencia entre release-config y .mcp.json", () => {
 
 for (const invalidSpec of [
   `${PACKAGE}@latest`,
-  `${PACKAGE}@^2.3.9`,
-  `${PACKAGE}@~2.3.9`,
+  `${PACKAGE}@^${VERSION}`,
+  `${PACKAGE}@~${VERSION}`,
 ]) {
   test(`rechaza spec flotante ${invalidSpec}`, () => {
     const fixture = validFixture();

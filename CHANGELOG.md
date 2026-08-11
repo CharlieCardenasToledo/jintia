@@ -5,6 +5,13 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.10 — 2026-08-10
+
+### Actualizado
+
+- Jintia distribuye Gemini Notebook MCP 2.3.10 con un shrinkwrap de producción compatible con instalaciones administradas reproducibles en Windows, macOS y Linux.
+- Se publica la integrity SHA-512 exacta del nuevo artefacto npm y se sincroniza el descriptor OpenAI MCP.
+
 ## `jintia-skill` 11.6.9 — 2026-08-10
 
 ### Actualizado

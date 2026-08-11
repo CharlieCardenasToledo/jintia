@@ -1,6 +1,6 @@
 {
   "name": "jintia-skill",
-  "version": "11.6.12",
+  "version": "11.6.13",
   "description": "Jintia Skill for evidence-based self-paced instructional design — HTML editorial engine with Vivliostyle PDF support",
   "license": "MIT",
   "bin": {

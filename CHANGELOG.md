@@ -5,6 +5,13 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.13 — 2026-08-11
+
+### Corregido
+
+- Corregido el layout canónico, la detección de instalaciones Jintia y el rollback atómico del plugin OpenAI.
+- Ampliada la cobertura del contrato de instalación y marketplace.
+
 ## `jintia-skill` 11.6.12 — 2026-08-11
 
 ### Añadido

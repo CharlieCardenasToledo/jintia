@@ -4,6 +4,17 @@ Este módulo contiene la envoltura (*wrapper*) y los manifiestos necesarios para
 
 Durante la compilación de distribución, la herramienta de construcción integra dinámicamente el núcleo de la *skill* (desde el directorio `/skill`) dentro de `skills/jintia-skill/` para generar un paquete unificado y autónomo.
 
+## Instalación local y distribución privada
+
+La vía canónica desde el paquete Jintia es:
+
+```bash
+jintia plugin status --json
+jintia plugin install --yes --json
+```
+
+Esto instala localmente el plugin y lo registra en el marketplace personal para pruebas o distribución privada. No publica Jintia en el Plugin Directory de OpenAI.
+
 ## Instalación Local (Desarrollo)
 
 La instalación local de este componente realiza las siguientes operaciones:

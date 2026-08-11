@@ -5,6 +5,12 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.12 — 2026-08-11
+
+### Añadido
+
+- Jintia gestiona de forma local e idempotente la instalación del plugin OpenAI con `jintia plugin status --json` y `jintia plugin install --yes --json`.
+
 ## `jintia-skill` 11.6.11 — 2026-08-11
 
 ### Añadido

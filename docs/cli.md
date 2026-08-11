@@ -37,6 +37,17 @@ npx @charlie.act7/jintia doctor
 npx @charlie.act7/jintia doctor --json
 ```
 
+### `plugin`
+
+Gestiona el plugin local de Jintia para ChatGPT/Codex desde los bytes del paquete npm.
+
+```bash
+jintia plugin status --json
+jintia plugin install --yes --json
+```
+
+Esta instalación es local para pruebas o distribución privada; no publica Jintia en el Plugin Directory de OpenAI.
+
 Verifica Node.js ≥ 22.12, Vivliostyle CLI, temas instalados y configuración
 MCP. Con `--json` devuelve el resultado como objeto estructurado.
 

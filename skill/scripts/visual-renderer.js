@@ -8,10 +8,13 @@ const { candidatesFor } = require("./visual-selector");
 const { detectCapabilities } = require("./visual-capabilities");
 const { validate } = require("./schema-validator");
 const { generateSource, canGenerateFromModel } = require("./visual-source-generator");
+const { renderEditorialSvg } = require("./diagram-design-adapter");
 const { htmlFigure } = require("./guide-renderer");
 const visualSpecSchema = JSON.parse(fs.readFileSync(path.resolve(__dirname, "..", "schemas", "visual-spec.schema.json"), "utf8"));
+const skillPackage = JSON.parse(fs.readFileSync(path.resolve(__dirname, "..", "package.json"), "utf8"));
 
 const ENGINES = {
+  "editorial-svg": { internal: true, ext: "svg", formats: ["svg"] },
   graphviz: { command: "dot", ext: "dot", formats: ["pdf", "svg", "png"], args: (s, o, f) => [`-T${f}`, s, "-o", o] },
   mermaid: { command: "mmdc", ext: "mmd", formats: ["pdf", "svg", "png"], args: (s, o) => ["-i", s, "-o", o, "-b", "transparent"] },
   plantuml: { command: "plantuml", ext: "puml", formats: ["pdf", "svg", "png"], args: (s, o, f) => [`-t${f}`, "-o", path.dirname(o), s] },
@@ -215,11 +218,11 @@ function main() {
   }));
   const choice = args.dryRun
     ? detected.find(item => item.config)
-    : detected.find(item => item.config && item.command);
+    : detected.find(item => item.config && (item.config.internal || item.command));
   if (!choice) fail(`ningún motor compatible y disponible: ${compatibleCandidates.join(" -> ") || candidates.join(" -> ")}`);
   const fallback = choice.engine === candidates[0] ? null : { from: candidates[0], to: choice.engine, reason: "motor no disponible" };
   if (fallback && !spec.model) fail(`el fallback ${fallback.from} -> ${fallback.to} requiere model para regenerar una fuente compatible`);
-  const requestedFormat = spec.outputFormat || "pdf";
+  const requestedFormat = spec.outputFormat || (choice.engine === "editorial-svg" ? "svg" : "pdf");
   const format = choice.config.formats.includes(requestedFormat) ? requestedFormat : choice.config.formats[0];
   const sourceDir = path.join(figureRoot, "sources");
   const dataDir = path.join(figureRoot, "data");
@@ -269,7 +272,8 @@ function main() {
   let finalOutputPath = outputPath;
   let status = fallback ? "fallback" : "valid";
   if (!args.dryRun) {
-    const commandArgs = choice.config.args(sourcePath, outputPath, format);
+    if (choice.config.internal) fs.writeFileSync(outputPath, renderEditorialSvg(spec, { template: template.meta.id }));
+    const commandArgs = choice.config.internal ? [] : choice.config.args(sourcePath, outputPath, format);
     if (choice.engine === "html" && spec.capture) {
       const windowArg = commandArgs.findIndex(arg => arg.startsWith("--window-size="));
       commandArgs[windowArg] = `--window-size=${spec.capture.width},${spec.capture.height}`;
@@ -280,7 +284,7 @@ function main() {
       env: { ...process.env, JINTIA_VISUAL_OUTPUT: outputPath, JINTIA_VISUAL_FORMAT: format }
     };
     if (choice.engine === "vega-lite") options.stdio = ["ignore", fs.openSync(outputPath, "w"), "pipe"];
-    const result = spawnSync(choice.command, commandArgs, options);
+    const result = choice.config.internal ? { status: 0 } : spawnSync(choice.command, commandArgs, options);
     if (result.error || result.status !== 0) fail(`${choice.engine} falló: ${result.stderr || result.error?.message}`);
     if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) fail(`no se produjo ${outputPath}`);
     if (format === "svg" && requestedFormat === "pdf") {
@@ -338,7 +342,7 @@ function main() {
     palette: spec.palette || null,
     capture: spec.capture || null,
     fallback,
-    toolVersion: choice.version
+    toolVersion: choice.config.internal ? skillPackage.version : choice.version
   };
   updateManifest(figureRoot, entry);
   console.log(JSON.stringify({ entry, node: guideNode(entry), html: htmlBlock(entry), latex: latexBlock(entry), detected }, null, 2));

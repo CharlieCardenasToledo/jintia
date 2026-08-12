@@ -137,3 +137,6 @@ cognitiva.
 - El linter inspecciona `viewBox`, tamaño de texto, recursos externos,
   animaciones, densidad de relaciones y etiquetas extensas. Tratar sus
   advertencias como señales para dividir o simplificar la figura.
+# Selección editorial SVG
+
+Si la apariencia o notación es evidencia formal, se usa el motor disciplinar. Si es una representación editorial soportada y permanece dentro de 12 nodos, 16 aristas, cuatro niveles y riesgo bajo, se usa `editorial-svg`; si no, se conserva el motor especializado existente. El motor interno es autosuficiente, accesible y determinista.

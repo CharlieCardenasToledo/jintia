@@ -33,3 +33,6 @@ complementan, pero no reemplazan, la selección por operación cognitiva.
 No degradar a un motor semánticamente más débil cuando la notación formal sea
 parte del criterio de evaluación. Detener el renderizado y declarar la
 dependencia ausente.
+# Matriz del motor editorial
+
+Arquitecturas conceptuales, flujos clínicos, mapas conceptuales y diagramas técnicos genéricos pequeños usan `editorial-svg`. UML/C4 usa PlantUML, circuitos CircuitikZ, señales WaveDrom, química formal RDKit/Chemfig y resultados cuantitativos Vega-Lite. La selección es semántica, no un motor por carrera.

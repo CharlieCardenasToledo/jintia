@@ -1,6 +1,7 @@
 "use strict";
 
 const ENGINE_FALLBACKS = {
+  "editorial-svg": [],
   "vega-lite": ["matplotlib", "tikz"],
   geopandas: ["matplotlib"],
   rdkit: [],
@@ -33,6 +34,14 @@ function analyzeModel(spec) {
   };
 }
 
+function editorialEligible(spec, metrics) {
+  const editorial = ["flowchart", "concept-map", "technical-diagram", "argument-map", "curriculum-map", "timeline"];
+  return editorial.includes(spec.representation) && !spec.formalNotationRequired && !metrics.requiresExactCoordinates
+    && metrics.nodeCount <= 12 && metrics.edgeCount <= 16 && metrics.averageLabelWords <= 8
+    && (metrics.hierarchyDepth || 0) <= 4 && metrics.crossingRisk <= 2
+    && !(spec.representation === "timeline" && (metrics.quantitativeVariables || spec.model?.events?.some(event => event.value !== undefined)));
+}
+
 function selectEngine(spec) {
   if (spec.engine && spec.engine !== "auto") return spec.engine;
   if (spec.formalNotationRequired) {
@@ -42,6 +51,7 @@ function selectEngine(spec) {
   }
   if (spec.discipline === "chemistry" && spec.representation === "annotated-image") return "rdkit";
   const metrics = analyzeModel(spec);
+  if (editorialEligible(spec, metrics)) return "editorial-svg";
   if (metrics.requiresExactCoordinates) return "tikz";
   if (metrics.temporalVariables && spec.model?.events?.some(event => event.value !== undefined)) {
     return "vega-lite";
@@ -99,4 +109,4 @@ function candidatesFor(spec) {
   return [selected, ...fallbacks];
 }
 
-module.exports = { selectEngine, candidatesFor, analyzeModel, ENGINE_FALLBACKS };
+module.exports = { selectEngine, candidatesFor, analyzeModel, editorialEligible, ENGINE_FALLBACKS };

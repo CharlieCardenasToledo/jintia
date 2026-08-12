@@ -24,9 +24,14 @@ test("elige Vega-Lite para datos cuantitativos", () => {
   assert.equal(selectEngine({ representation: "chart" }), "vega-lite");
 });
 
-test("elige Graphviz para redes y Mermaid para flujos simples", () => {
+test("elige Graphviz para redes y editorial-svg para flujos simples", () => {
   assert.equal(selectEngine({ representation: "network" }), "graphviz");
-  assert.equal(selectEngine({ representation: "flowchart", complexity: "low" }), "mermaid");
+  assert.equal(selectEngine({ representation: "flowchart", complexity: "low" }), "editorial-svg");
+  assert.equal(selectEngine({ discipline: "health", representation: "flowchart" }), "editorial-svg");
+  assert.equal(selectEngine({ discipline: "technology", representation: "technical-diagram" }), "editorial-svg");
+  assert.equal(selectEngine({ representation: "concept-map", model: { nodes: [{ id: "a", label: "A" }], edges: [] } }), "editorial-svg");
+  assert.equal(selectEngine({ representation: "argument-map", model: { nodes: [{ id: "a", label: "A" }], edges: [] } }), "editorial-svg");
+  assert.equal(selectEngine({ representation: "curriculum-map", model: { nodes: [{ id: "a", label: "A" }], edges: [] } }), "editorial-svg");
 });
 
 test("elige Graphviz para causalidad y conserva solo fallbacks ejecutables", () => {
@@ -48,6 +53,12 @@ test("respeta notación disciplinar formal", () => {
     discipline: "chemistry",
     formalNotationRequired: true
   }), "chemfig");
+  assert.equal(selectEngine({ representation: "technical-diagram", discipline: "technology", formalNotationRequired: true }), "plantuml");
+  assert.equal(selectEngine({ representation: "electrical-circuit", discipline: "electronics", formalNotationRequired: true }), "circuitikz");
+  assert.equal(selectEngine({ representation: "signal-diagram", discipline: "electronics" }), "wavedrom");
+  assert.equal(selectEngine({ representation: "uml", formalNotationRequired: true }), "plantuml");
+  assert.equal(selectEngine({ representation: "c4", formalNotationRequired: true }), "plantuml");
+  assert.equal(selectEngine({ representation: "chart" }), "vega-lite");
 });
 
 test("expone fallbacks en orden", () => {
@@ -198,6 +209,10 @@ test("mide complejidad estructural antes de seleccionar el motor", () => {
 test("usa las métricas avanzadas para elegir motor", () => {
   assert.equal(selectEngine({ representation: "flowchart", model: { requiresExactCoordinates: true } }), "tikz");
   assert.equal(selectEngine({ representation: "flowchart", model: { hierarchyDepth: 6 } }), "graphviz");
+  assert.equal(selectEngine({ representation: "flowchart", model: { nodes: Array.from({ length: 13 }, (_, i) => ({ id: `n${i}`, label: "Nodo" })), edges: [] } }), "graphviz");
+  assert.equal(selectEngine({ representation: "flowchart", model: { nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }], edges: Array.from({ length: 17 }, () => ({ from: "a", to: "b" })) } }), "graphviz");
+  assert.equal(selectEngine({ representation: "flowchart", model: { nodes: [{ id: "a", label: "uno dos tres cuatro cinco seis siete ocho nueve" }], edges: [] } }), "graphviz");
+  assert.equal(selectEngine({ representation: "flowchart", model: { nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }], edges: Array.from({ length: 7 }, () => ({ from: "a", to: "b" })) } }), "graphviz");
   assert.equal(selectEngine({ representation: "argument-map", model: { nodes: [{ id: "a" }, { id: "b" }], edges: [{ from: "a", to: "b" }, { from: "a", to: "b" }, { from: "a", to: "b" }, { from: "a", to: "b" }, { from: "a", to: "b" }] } }), "graphviz");
   assert.equal(selectEngine({ representation: "timeline", model: { events: [{ date: "2024-01-01", label: "Inicio", value: 1 }] } }), "vega-lite");
 });
@@ -237,8 +252,8 @@ test("genera las representaciones avanzadas declaradas desde modelos neutrales",
   assert.equal(selectEngine({ representation: "bpmn" }), "graphviz");
   assert.equal(selectEngine({ representation: "c4" }), "plantuml");
   assert.equal(selectEngine({ representation: "sankey" }), "html");
-  assert.equal(selectEngine({ representation: "argument-map" }), "graphviz");
-  assert.equal(selectEngine({ representation: "curriculum-map" }), "graphviz");
+  assert.equal(selectEngine({ representation: "argument-map" }), "editorial-svg");
+  assert.equal(selectEngine({ representation: "curriculum-map" }), "editorial-svg");
   assert.equal(selectEngine({ representation: "free-body-diagram" }), "tikz");
   assert.equal(canGenerateFromModel("graphviz", "bpmn"), true);
   assert.equal(canGenerateFromModel("plantuml", "c4"), true);

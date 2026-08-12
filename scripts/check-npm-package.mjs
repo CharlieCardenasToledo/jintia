@@ -32,6 +32,9 @@ const required = [
   "openai-plugin/.mcp.json",
   "openai-plugin/README.md",
   "release/release-config.json",
+  "skill/scripts/diagram-design-adapter.js",
+  "skill/references/diagram-design-adaptation.md",
+  "skill/references/diagram-design-MIT.txt",
 ];
 
 if (packageJson.name !== "@charlie.act7/jintia") failures.push(`nombre npm inesperado: ${packageJson.name}`);

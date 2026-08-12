@@ -1,5 +1,7 @@
 "use strict";
 
+const { renderEditorialSvg, supportsEditorialSpec } = require("./diagram-design-adapter");
+
 function quoted(value) {
   return JSON.stringify(String(value));
 }
@@ -429,7 +431,8 @@ function canGenerateFromModel(engine, representation) {
     ,circuitikz: ["electrical-circuit", "disciplinary-notation"]
     ,chemfig: ["chemical-structure", "chemical-reaction", "disciplinary-notation"]
     ,forest: ["syntax-tree", "phylogenetic-tree", "pedigree"]
-    ,html: ["sankey"]
+    ,html: ["sankey"],
+    "editorial-svg": ["flowchart", "concept-map", "technical-diagram", "argument-map", "curriculum-map", "timeline"]
   };
   return Boolean(support[engine]?.includes(representation));
 }
@@ -456,6 +459,7 @@ with open(output, "w", encoding="utf-8") as handle:
 function generateSource(engine, spec) {
   if (!spec.model) return null;
   if (engine === "graphviz") return graphviz(spec.model);
+  if (engine === "editorial-svg") return renderEditorialSvg(spec);
   if (engine === "mermaid") return mermaid(spec.model);
   if (engine === "d2") return d2(spec.model);
   if (engine === "vega-lite") {
@@ -481,5 +485,5 @@ module.exports = {
   generateSource, canGenerateFromModel, graphviz, mermaid, d2, vegaLite,
   forestPlot, geoMap, wavedrom, rdkit, matplotlib, geopandas, tikz,
   plantuml, circuitikz, chemfig, forest
-  ,sankeyHtml, freeBodyDiagram
+  ,sankeyHtml, freeBodyDiagram, supportsEditorialSpec
 };

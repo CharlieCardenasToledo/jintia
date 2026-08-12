@@ -16,7 +16,7 @@
     },
     "discipline": { "type": "string" },
     "engine": {
-      "enum": ["auto", "tikz", "graphviz", "mermaid", "plantuml", "d2", "vega-lite", "html", "matplotlib", "geopandas", "rdkit", "circuitikz", "chemfig", "forest", "wavedrom"]
+      "enum": ["auto", "editorial-svg", "tikz", "graphviz", "mermaid", "plantuml", "d2", "vega-lite", "html", "matplotlib", "geopandas", "rdkit", "circuitikz", "chemfig", "forest", "wavedrom"]
     },
     "source": {
       "type": "object",

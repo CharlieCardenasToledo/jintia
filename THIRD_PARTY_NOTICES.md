@@ -64,6 +64,8 @@ instalación.
 
 ## Marcas y servicios
 
+Diagram Design — Cathryn Lavery. Uso: gramática visual adaptada para el motor editorial SVG interno. Licencia: MIT; no implica afiliación ni patrocinio.
+
 Claude y Anthropic son marcas de Anthropic PBC. Google, Gemini y NotebookLM
 son marcas de Google LLC. Jintia es un proyecto independiente y no está
 afiliado, patrocinado ni respaldado por esas empresas.

@@ -322,3 +322,6 @@ Tratar logos, socios, módulos internacionales y ecosistemas institucionales com
 5. Verificar `reference.bib`, recortes, figuras y referencias cruzadas.
 6. Ejecutar `references/checklist.md` punto por punto.
 7. Informar archivos creados, validaciones ejecutadas y limitaciones reales.
+# Motor visual editorial
+
+Las representaciones genéricas pequeñas pueden usar `editorial-svg`, el motor SVG interno y determinista de Jintia. La selección evalúa primero la notación formal y la función cognitiva; química, electrónica, señales, UML/C4 y gráficos cuantitativos conservan sus motores especializados. `diagram-design` es únicamente procedencia de diseño documentada, no una Skill invocada durante runtime.

@@ -5,6 +5,17 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.14 — 2026-08-12
+
+### Añadido
+
+- Integrado `editorial-svg` como motor interno para diagramas conceptuales y editoriales genéricos, adaptando la gramática visual de Diagram Design.
+
+### Corregido
+
+- El motor editorial carga los tokens reales del tema Jintia activo con precedencia de `spec.palette`.
+- Los conectores múltiples usan anclajes y rutas ortogonales diferenciados y mantienen separación entre etiquetas y líneas.
+
 ## `jintia-skill` 11.6.13 — 2026-08-11
 
 ### Corregido

@@ -103,7 +103,45 @@ function validateEditorialSpec(spec) {
   return { ...model, nodes, edges };
 }
 
+function normalizeDirection(value) {
+  const direction = value || "TB";
+  if (!["TB", "BT", "LR", "RL"].includes(direction)) throw new Error(`editorial-svg no admite direction=${direction}.`);
+  return direction;
+}
+function connectorSides(direction) {
+  return ({ TB: { source: "bottom", target: "top" }, BT: { source: "top", target: "bottom" }, LR: { source: "right", target: "left" }, RL: { source: "left", target: "right" } })[direction];
+}
 function anchorOffsets(count) { return Array.from({ length: count }, (_, i) => grid((i - (count - 1) / 2) * 16)); }
+function anchorPoint(position, side, offset) {
+  if (side === "bottom") return { x: grid(position.x + offset), y: grid(position.y + 32) };
+  if (side === "top") return { x: grid(position.x + offset), y: grid(position.y - 32) };
+  if (side === "right") return { x: grid(position.x + 80), y: grid(position.y + offset) };
+  return { x: grid(position.x - 80), y: grid(position.y + offset) };
+}
+function nodeRect(position, padding = 8) { return { left: position.x - 80 - padding, right: position.x + 80 + padding, top: position.y - 32 - padding, bottom: position.y + 32 + padding }; }
+function isOrthogonalSegment(a, b) { return a.x === b.x || a.y === b.y; }
+function segmentIntersectsRect(a, b, rect) {
+  if (!isOrthogonalSegment(a, b)) throw new Error("editorial-svg produjo un segmento no ortogonal.");
+  if (a.x === b.x) return a.x >= rect.left && a.x <= rect.right && Math.max(Math.min(a.y, b.y), rect.top) <= Math.min(Math.max(a.y, b.y), rect.bottom);
+  return a.y >= rect.top && a.y <= rect.bottom && Math.max(Math.min(a.x, b.x), rect.left) <= Math.min(Math.max(a.x, b.x), rect.right);
+}
+function routeIntersectsForeignNode(points, layout, edge) {
+  return layout.nodes.some(node => node.id !== edge.from && node.id !== edge.to && points.slice(1).some((point, i) => segmentIntersectsRect(points[i], point, nodeRect(layout.positions.get(node.id)))));
+}
+function routeKey(points) { return points.map(point => `${point.x},${point.y}`).join("|"); }
+function roundedOrthogonalPath(points, radius = 8) {
+  const clean = points.filter((point, i) => i === 0 || point.x !== points[i - 1].x || point.y !== points[i - 1].y);
+  let d = `M ${clean[0].x} ${clean[0].y}`;
+  for (let i = 1; i < clean.length; i += 1) {
+    const previous = clean[i - 1]; const current = clean[i]; const next = clean[i + 1];
+    if (!next || previous.x === current.x && current.x === next.x || previous.y === current.y && current.y === next.y) { d += ` L ${current.x} ${current.y}`; continue; }
+    const r = Math.min(radius, Math.abs(current.x - previous.x) / 2, Math.abs(current.y - next.y) / 2);
+    const before = { x: current.x + Math.sign(previous.x - current.x) * r, y: current.y + Math.sign(previous.y - current.y) * r };
+    const after = { x: current.x + Math.sign(next.x - current.x) * r, y: current.y + Math.sign(next.y - current.y) * r };
+    d += ` L ${before.x} ${before.y} Q ${current.x} ${current.y} ${after.x} ${after.y}`;
+  }
+  return d;
+}
 function groupSlots(edges, key) {
   const groups = new Map();
   edges.forEach((edge, index) => { const value = key(edge); if (!groups.has(value)) groups.set(value, []); groups.get(value).push({ edge, index }); });
@@ -121,23 +159,36 @@ function layoutEditorialGraph(spec) {
     const layer = remaining.filter(id => !seen.has(id) && incoming.get(id) === 0); const stable = layer.length ? layer : remaining.filter(id => !seen.has(id)).slice(0, 1);
     layers.push(stable); stable.forEach(id => { seen.add(id); edges.filter(edge => edge.from === id).forEach(edge => incoming.set(edge.to, Math.max(0, incoming.get(edge.to) - 1))); }); remaining = remaining.filter(id => !seen.has(id));
   }
-  const positions = new Map(); const direction = model.direction || "TB";
-  layers.forEach((layer, li) => layer.forEach((id, index) => { const cross = 120 + index * 224; const depth = 120 + li * 120; positions.set(id, direction === "LR" ? { x: grid(depth), y: grid(cross) } : { x: grid(cross), y: grid(depth) }); }));
-  return { model, nodes, edges, positions, direction, width: grid(Math.max(320, Math.max(...layers.map(layer => layer.length), 1) * 224 + 160)), height: grid(Math.max(240, layers.length * 120 + 160)) };
+  const direction = normalizeDirection(model.direction); const positions = new Map();
+  const horizontal = direction === "LR" || direction === "RL"; const maxLayer = Math.max(...layers.map(layer => layer.length), 1);
+  const width = grid(horizontal ? layers.length * 120 + 160 : maxLayer * 224 + 160); const height = grid(horizontal ? maxLayer * 224 + 160 : layers.length * 120 + 160);
+  layers.forEach((layer, li) => layer.forEach((id, index) => {
+    const depth = 120 + li * 120; const cross = 120 + index * 224;
+    positions.set(id, horizontal ? { x: grid(direction === "RL" ? width - depth : depth), y: grid(cross) } : { x: grid(cross), y: grid(direction === "BT" ? height - depth : depth) });
+  }));
+  return { model, nodes, edges, positions, direction, width, height };
 }
 
-function connector(layout, edge, index, sourceSlots, targetSlots, figure, theme) {
-  const a = layout.positions.get(edge.from); const b = layout.positions.get(edge.to); const horizontal = layout.direction === "LR" || layout.direction === "RL";
-  const sourceOffset = sourceSlots.get(index) || 0; const targetOffset = targetSlots.get(index) || 0;
-  const sx = horizontal ? a.x + (layout.direction === "LR" ? 80 : -80) : a.x + sourceOffset;
-  const sy = horizontal ? a.y + sourceOffset : a.y + 32;
-  const tx = horizontal ? b.x + (layout.direction === "LR" ? -80 : 80) : b.x + targetOffset;
-  const ty = horizontal ? b.y + targetOffset : b.y - 32;
-  const channel = grid((horizontal ? (sy + ty) : (sx + tx)) / 2 + ((index % 2 ? 1 : -1) * (Math.abs(sourceOffset) + 16)));
-  const d = horizontal
-    ? `M ${sx} ${sy} H ${channel - 8} Q ${channel} ${sy} ${channel} ${sy + (ty > sy ? 8 : -8)} V ${ty + (ty > sy ? -8 : 8)} Q ${channel} ${ty} ${channel + 8} ${ty} H ${tx}`
-    : `M ${sx} ${sy} V ${channel - (ty > sy ? 8 : -8)} Q ${sx} ${channel} ${sx + (tx > sx ? 8 : -8)} ${channel} H ${tx - (tx > sx ? 8 : -8)} Q ${tx} ${channel} ${tx} ${channel + (ty > sy ? 8 : -8)} V ${ty}`;
-  const label = edge.label ? (horizontal ? `<rect x="${grid(channel - 36)}" y="${grid((sy + ty) / 2 - 20)}" width="72" height="16" rx="4" fill="${theme.bg}"/><text x="${channel}" y="${grid((sy + ty) / 2 - 8)}" text-anchor="middle" font-size="12" fill="${theme.muted}">${esc(edge.label)}</text>` : `<rect x="${grid((sx + tx) / 2 - 36)}" y="${channel - 20}" width="72" height="16" rx="4" fill="${theme.bg}"/><text x="${grid((sx + tx) / 2)}" y="${channel - 8}" text-anchor="middle" font-size="12" fill="${theme.muted}">${esc(edge.label)}</text>` ) : "";
+function placeEdgeLabel(points, text, theme, bounds) {
+  const segments = points.slice(1).map((point, i) => ({ a: points[i], b: point, length: Math.abs(point.x - points[i].x) + Math.abs(point.y - points[i].y), i })).filter(segment => segment.length >= 72).sort((a, b) => b.length - a.length || a.i - b.i);
+  if (!segments.length) return "";
+  const segment = segments[0]; const horizontal = segment.a.y === segment.b.y; const center = { x: grid((segment.a.x + segment.b.x) / 2), y: grid((segment.a.y + segment.b.y) / 2) }; const width = 72; const height = 16; const gap = 8;
+  let x; let y;
+  if (horizontal) { x = grid(center.x - width / 2); y = center.y - gap - height; if (y < 0) y = center.y + gap; }
+  else { x = center.x + gap; y = grid(center.y - height / 2); if (x + width > bounds.width) x = center.x - gap - width; }
+  return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="4" fill="${theme.bg}"/><text x="${grid(x + width / 2)}" y="${grid(y + 12)}" text-anchor="middle" font-size="12" fill="${theme.muted}">${esc(text)}</text>`;
+}
+function connector(layout, edge, index, sourceSlots, targetSlots, figure, theme, reservedRoutes) {
+  const a = layout.positions.get(edge.from); const b = layout.positions.get(edge.to); const sides = connectorSides(layout.direction); const source = anchorPoint(a, sides.source, sourceSlots.get(index) || 0); const target = anchorPoint(b, sides.target, targetSlots.get(index) || 0); const horizontal = layout.direction === "LR" || layout.direction === "RL";
+  const flow = horizontal ? Math.sign(b.x - a.x) || (layout.direction === "LR" ? 1 : -1) : Math.sign(b.y - a.y) || (layout.direction === "TB" ? 1 : -1); const candidates = [];
+  const channels = horizontal ? [grid((source.y + target.y) / 2), ...[16, layout.height - 16, 32, layout.height - 32].map(v => grid(v + (index % 2 ? 0 : 0)))] : [grid((source.x + target.x) / 2), ...[16, layout.width - 16, 32, layout.width - 32].map(v => grid(v + (index % 2 ? 0 : 0)))];
+  for (const channel of channels) {
+    const lead = horizontal ? source.x + flow * 16 : source.y + flow * 16; const tail = horizontal ? target.x - flow * 16 : target.y - flow * 16;
+    const points = horizontal ? [source, { x: lead, y: source.y }, { x: channel, y: source.y }, { x: channel, y: target.y }, { x: tail, y: target.y }, target] : [source, { x: source.x, y: lead }, { x: source.x, y: channel }, { x: target.x, y: channel }, { x: target.x, y: tail }, target];
+    if (points.every((point, i) => i === 0 || isOrthogonalSegment(points[i - 1], point)) && !routeIntersectsForeignNode(points, layout, edge) && !reservedRoutes.has(routeKey(points))) { candidates.push(points); break; }
+  }
+  if (!candidates.length) throw new Error(`editorial-svg no puede enrutar ${edge.from} -> ${edge.to} sin atravesar otro nodo; usa Graphviz.`);
+  const points = candidates[0]; reservedRoutes.add(routeKey(points)); const d = roundedOrthogonalPath(points); const label = edge.label ? placeEdgeLabel(points, edge.label, theme, layout) : "";
   return `<path id="${figure}-edge-${index}" d="${d}" fill="none" stroke="${theme.border}" stroke-width="2" marker-end="url(#${figure}-arrow)"/>${label}`;
 }
 
@@ -145,9 +196,9 @@ function renderEditorialSvg(spec, options = {}) {
   const layout = layoutEditorialGraph(spec); const theme = resolveEditorialTheme({ ...options, spec }); const figure = esc(spec.id || "figure");
   const title = esc(spec.title || spec.altText || "Diagrama editorial"); const desc = esc(spec.longDescription || spec.altText || "Diagrama editorial generado por Jintia.");
   const outgoing = groupSlots(layout.edges, edge => `${edge.from}-source`); const incoming = groupSlots(layout.edges, edge => `${edge.to}-target`);
-  const edges = layout.edges.map((edge, index) => connector(layout, edge, index, outgoing, incoming, figure, theme)).join("");
+  const reservedRoutes = new Set(); const edges = layout.edges.map((edge, index) => connector(layout, edge, index, outgoing, incoming, figure, theme, reservedRoutes)).join("");
   const nodes = layout.nodes.map(node => { const p = layout.positions.get(node.id); const focal = node.kind === "focal"; const words = String(node.label).trim().split(/\s+/); const split = Math.ceil(words.length / 2); const lines = [words.slice(0, split).join(" "), words.slice(split).join(" ")].filter(Boolean); const label = lines.map((line, i) => `<tspan x="${p.x}" dy="${i ? 18 : 0}">${esc(line)}</tspan>`).join(""); return `<g id="${figure}-node-${esc(node.id)}"><rect x="${p.x - 80}" y="${p.y - 32}" width="160" height="64" rx="8" fill="${focal ? theme.focal : theme.surface}" stroke="${theme.border}"/><text x="${p.x}" y="${p.y - (lines.length > 1 ? 10 : -4)}" text-anchor="middle" font-family="${esc(theme.font)}" font-size="14" fill="${focal ? theme.raised : theme.text}">${label}</text></g>`; }).join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-labelledby="${figure}-title ${figure}-desc"><title id="${figure}-title">${title}</title><desc id="${figure}-desc">${desc}</desc><defs><marker id="${figure}-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="${theme.border}"/></marker></defs>${edges}${nodes}</svg>`;
 }
 
-module.exports = { UPSTREAM_DIAGRAM_DESIGN_REVISION, supportsEditorialSpec, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, renderEditorialSvg, anchorOffsets };
+module.exports = { UPSTREAM_DIAGRAM_DESIGN_REVISION, supportsEditorialSpec, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, renderEditorialSvg, anchorOffsets, normalizeDirection, connectorSides, anchorPoint, nodeRect, segmentIntersectsRect, routeIntersectsForeignNode, roundedOrthogonalPath, placeEdgeLabel };

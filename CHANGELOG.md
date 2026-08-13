@@ -5,6 +5,13 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.15 — 2026-08-12
+
+### Corregido
+
+- El motor `editorial-svg` completa el enrutado ortogonal para `TB`, `BT`, `LR` y `RL`, evita nodos no relacionados y usa canales alternativos deterministas.
+- Las etiquetas de relaciones mantienen una separación geométrica verificable respecto de sus conectores.
+
 ## `jintia-skill` 11.6.14 — 2026-08-12
 
 ### Añadido

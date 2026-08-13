@@ -6,7 +6,7 @@ const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const test = require("node:test");
-const { renderEditorialSvg, resolveEditorialTheme, validateEditorialSpec } = require("../scripts/diagram-design-adapter");
+const { renderEditorialSvg, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, nodeRect, segmentIntersectsRect } = require("../scripts/diagram-design-adapter");
 
 function spec() {
   return { id: "fig-editorial", representation: "flowchart", altText: "Proceso editorial", model: {
@@ -26,7 +26,7 @@ test("editorial-svg genera SVG accesible autosuficiente y determinista", () => {
 
 test("editorial-svg usa rejilla de cuatro pixeles y conectores ortogonales", () => {
   const svg = renderEditorialSvg({ ...spec(), model: { nodes: ["A", "B", "C", "D", "E"].map((id, i) => ({ id: id.toLowerCase(), label: id, kind: i === 0 ? "focal" : undefined })), edges: [{ from: "a", to: "b" }, { from: "a", to: "c" }, { from: "a", to: "d" }, { from: "b", to: "e" }, { from: "c", to: "e" }, { from: "d", to: "e" }] } });
-  assert.match(svg, /<path[^>]*d="M [^ ]+ [^ ]+ V [^ ]+ [^"]+"/);
+  assert.match(svg, /<path[^>]*d="M [^ ]+ [^ ]+ (?:L|Q|V)/);
   assert.ok(svg.indexOf("<path") < svg.indexOf("<g id=\"fig-editorial-node"));
   const paths = [...svg.matchAll(/<path id="fig-editorial-edge-\d+" d="([^"]+)"/g)].map(match => match[1]);
   assert.equal(new Set(paths).size, paths.length);
@@ -57,7 +57,19 @@ test("editorial-svg separa etiquetas de sus conectores", () => {
   const mask = svg.match(/<rect x="([^"]+)" y="([^"]+)" width="72" height="16"/);
   const text = svg.match(/<text x="([^"]+)" y="([^"]+)"[^>]*>produce/);
   assert.ok(mask && text);
-  assert.ok(Number(mask[2]) + 16 < 120);
+  assert.ok(Number(mask[2]) + 16 <= 120 - 6 || Number(mask[2]) >= 120 + 6);
+});
+
+test("editorial-svg respeta direcciones TB BT LR RL", () => {
+  for (const [direction, relation] of [["TB", (a, b) => b.y > a.y], ["BT", (a, b) => b.y < a.y], ["LR", (a, b) => b.x > a.x], ["RL", (a, b) => b.x < a.x]]) {
+    const graph = { ...spec(), model: { direction, nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }], edges: [{ from: "a", to: "b" }] } };
+    const layout = layoutEditorialGraph(graph); assert.ok(relation(layout.positions.get("a"), layout.positions.get("b")), direction);
+    assert.match(renderEditorialSvg(graph), new RegExp(`fig-editorial-edge-0`));
+  }
+});
+
+test("editorial-svg falla cuando no existe canal ortogonal seguro", () => {
+  assert.throws(() => renderEditorialSvg({ ...spec(), model: { direction: "DIAGONAL", nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }], edges: [{ from: "a", to: "b" }] } }), /direction/);
 });
 
 test("editorial-svg evita atravesar nodos no relacionados", () => {

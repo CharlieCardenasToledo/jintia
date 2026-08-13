@@ -5,6 +5,12 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.17 — 2026-08-13
+
+### Corregido
+
+- Cerrado el contrato geométrico de `editorial-svg`: las capas mantienen separación mínima, los anchors usan slots reales, los detours respetan su eje y las etiquetas rechazan segmentos insuficientes con contexto de arista.
+
 ## `jintia-skill` 11.6.16 — 2026-08-12
 
 ### Corregido

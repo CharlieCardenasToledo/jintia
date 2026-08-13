@@ -7,6 +7,9 @@ const UPSTREAM_DIAGRAM_DESIGN_REVISION = "3c5c34ba3bf9dcf204b55c2dd613f8fa194cf5
 const EDITORIAL_REPRESENTATIONS = new Set(["flowchart", "concept-map", "technical-diagram", "argument-map", "curriculum-map", "timeline"]);
 const THEMES_ROOT = path.resolve(__dirname, "..", "themes");
 const TOKEN_NAMES = ["brand", "bg", "surface", "surface-raised", "text", "muted", "border", "font-body", "font-heading", "font-mono"];
+const NODE_WIDTH = 160;
+const NODE_HEIGHT = 64;
+const LAYER_STEP = 200;
 
 const esc = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const grid = value => Math.round(value / 4) * 4;
@@ -213,18 +216,18 @@ function layoutEditorialGraph(spec) {
   }
   const direction = normalizeDirection(model.direction); const positions = new Map();
   const horizontal = direction === "LR" || direction === "RL"; const maxLayer = Math.max(...layers.map(layer => layer.length), 1);
-  const width = grid(horizontal ? layers.length * 120 + 160 : maxLayer * 224 + 160); const height = grid(horizontal ? maxLayer * 224 + 160 : layers.length * 120 + 160);
+  const width = grid(horizontal ? layers.length * LAYER_STEP + 160 : maxLayer * 224 + 160); const height = grid(horizontal ? maxLayer * 224 + 160 : layers.length * LAYER_STEP + 160);
   layers.forEach((layer, li) => layer.forEach((id, index) => {
-    const depth = 120 + li * 120; const cross = 120 + index * 224;
+    const depth = 120 + li * LAYER_STEP; const cross = 120 + index * 224;
     positions.set(id, horizontal ? { x: grid(direction === "RL" ? width - depth : depth), y: grid(cross) } : { x: grid(cross), y: grid(direction === "BT" ? height - depth : depth) });
   }));
   return { model, nodes, edges, positions, direction, width, height };
 }
 
 function rectsIntersect(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
-function computeEdgeLabelPlacement(points, bounds) {
-  const segments = points.slice(1).map((point, i) => ({ a: points[i], b: point, length: Math.abs(point.x - points[i].x) + Math.abs(point.y - points[i].y), i })).filter(segment => segment.length >= 32).sort((a, b) => b.length - a.length || a.i - b.i);
+function computeEdgeLabelPlacement(points, bounds, context = "") {
   const width = 72; const height = 16; const gap = 8;
+  const segments = points.slice(1).map((point, i) => ({ a: points[i], b: point, length: Math.abs(point.x - points[i].x) + Math.abs(point.y - points[i].y), i })).filter(segment => segment.length >= (segment.a.y === segment.b.y ? width + gap * 2 : height + gap * 2)).sort((a, b) => b.length - a.length || a.i - b.i);
   for (const segment of segments) {
     const horizontal = segment.a.y === segment.b.y; const center = { x: grid((segment.a.x + segment.b.x) / 2), y: grid((segment.a.y + segment.b.y) / 2) };
     const choices = horizontal ? [{ side: "above", x: grid(center.x - width / 2), y: center.y - gap - height }, { side: "below", x: grid(center.x - width / 2), y: center.y + gap }] : [{ side: "right", x: center.x + gap, y: grid(center.y - height / 2) }, { side: "left", x: center.x - gap - width, y: grid(center.y - height / 2) }];
@@ -236,17 +239,17 @@ function computeEdgeLabelPlacement(points, bounds) {
       return { segment, rect, orientation: horizontal ? "horizontal" : "vertical", side: choice.side, gap };
     }
   }
-  throw new Error("editorial-svg no puede colocar la etiqueta dentro del viewBox; usa Graphviz.");
+  throw new Error(`editorial-svg no puede colocar la etiqueta${context ? ` para ${context}` : ""} dentro del viewBox; usa Graphviz.`);
 }
 function renderEdgeLabel(placement, text, theme) {
   const { rect } = placement;
   return `<rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" rx="4" fill="${theme.bg}"/><text x="${grid(rect.x + rect.width / 2)}" y="${grid(rect.y + 12)}" text-anchor="middle" font-size="12" fill="${theme.muted}">${esc(text)}</text>`;
 }
-function placeEdgeLabel(points, text, theme, bounds) {
-  return renderEdgeLabel(computeEdgeLabelPlacement(points, bounds), text, theme);
+function placeEdgeLabel(points, text, theme, bounds, context = "") {
+  return renderEdgeLabel(computeEdgeLabelPlacement(points, bounds, context), text, theme);
 }
 function connector(layout, edge, index, sourceSlots, targetSlots, figure, theme, reservedRoutes) {
-  const a = layout.positions.get(edge.from); const b = layout.positions.get(edge.to); const sides = connectorSides(layout.direction); const source = anchorPoint(a, sides.source, sourceSlots.get(index) || 0); const target = anchorPoint(b, sides.target, targetSlots.get(index) || 0); const points = chooseConnectorRoute(layout, edge, source, target, reservedRoutes); reservedRoutes.add(routeKey(points)); const d = roundedOrthogonalPath(points); const label = edge.label ? placeEdgeLabel(points, edge.label, theme, layout) : "";
+  const a = layout.positions.get(edge.from); const b = layout.positions.get(edge.to); const sides = connectorSides(layout.direction); const source = anchorPoint(a, sides.source, sourceSlots.get(index) || 0); const target = anchorPoint(b, sides.target, targetSlots.get(index) || 0); const points = chooseConnectorRoute(layout, edge, source, target, reservedRoutes); reservedRoutes.add(routeKey(points)); const d = roundedOrthogonalPath(points); const label = edge.label ? placeEdgeLabel(points, edge.label, theme, layout, `${edge.from} -> ${edge.to}`) : "";
   return `<path id="${figure}-edge-${index}" d="${d}" fill="none" stroke="${theme.border}" stroke-width="2" marker-end="url(#${figure}-arrow)"/>${label}`;
 }
 
@@ -259,4 +262,4 @@ function renderEditorialSvg(spec, options = {}) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-labelledby="${figure}-title ${figure}-desc"><title id="${figure}-title">${title}</title><desc id="${figure}-desc">${desc}</desc><defs><marker id="${figure}-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="${theme.border}"/></marker></defs>${edges}${nodes}</svg>`;
 }
 
-module.exports = { UPSTREAM_DIAGRAM_DESIGN_REVISION, supportsEditorialSpec, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, renderEditorialSvg, anchorOffsets, normalizeDirection, connectorSides, anchorPoint, nodeRect, segmentIntersectsRect, routeIntersectsForeignNode, normalizeRoutePoints, roundedOrthogonalPath, computeEdgeLabelPlacement, placeEdgeLabel, buildPrimaryRoute, buildDetourRoutes, routeIsSafe, chooseConnectorRoute, routeKey };
+module.exports = { UPSTREAM_DIAGRAM_DESIGN_REVISION, supportsEditorialSpec, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, renderEditorialSvg, anchorOffsets, groupSlots, normalizeDirection, connectorSides, anchorPoint, nodeRect, segmentIntersectsRect, routeIntersectsForeignNode, normalizeRoutePoints, roundedOrthogonalPath, computeEdgeLabelPlacement, placeEdgeLabel, buildPrimaryRoute, buildDetourRoutes, routeIsSafe, chooseConnectorRoute, routeKey };

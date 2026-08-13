@@ -9,7 +9,14 @@ const THEMES_ROOT = path.resolve(__dirname, "..", "themes");
 const TOKEN_NAMES = ["brand", "bg", "surface", "surface-raised", "text", "muted", "border", "font-body", "font-heading", "font-mono"];
 const NODE_WIDTH = 160;
 const NODE_HEIGHT = 64;
-const LAYER_STEP = 200;
+const HALF_NODE_WIDTH = NODE_WIDTH / 2;
+const HALF_NODE_HEIGHT = NODE_HEIGHT / 2;
+const MIN_LAYER_GAP = 40;
+const VERTICAL_LAYER_STEP = 120;
+const HORIZONTAL_LAYER_STEP = NODE_WIDTH + MIN_LAYER_GAP;
+const EDGE_LABEL_WIDTH = 72;
+const EDGE_LABEL_HEIGHT = 16;
+const EDGE_LABEL_GAP = 8;
 
 const esc = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const grid = value => Math.round(value / 4) * 4;
@@ -116,12 +123,12 @@ function connectorSides(direction) {
 }
 function anchorOffsets(count) { return Array.from({ length: count }, (_, i) => grid((i - (count - 1) / 2) * 16)); }
 function anchorPoint(position, side, offset) {
-  if (side === "bottom") return { x: grid(position.x + offset), y: grid(position.y + 32) };
-  if (side === "top") return { x: grid(position.x + offset), y: grid(position.y - 32) };
-  if (side === "right") return { x: grid(position.x + 80), y: grid(position.y + offset) };
-  return { x: grid(position.x - 80), y: grid(position.y + offset) };
+  if (side === "bottom") return { x: grid(position.x + offset), y: grid(position.y + HALF_NODE_HEIGHT) };
+  if (side === "top") return { x: grid(position.x + offset), y: grid(position.y - HALF_NODE_HEIGHT) };
+  if (side === "right") return { x: grid(position.x + HALF_NODE_WIDTH), y: grid(position.y + offset) };
+  return { x: grid(position.x - HALF_NODE_WIDTH), y: grid(position.y + offset) };
 }
-function nodeRect(position, padding = 8) { return { left: position.x - 80 - padding, right: position.x + 80 + padding, top: position.y - 32 - padding, bottom: position.y + 32 + padding }; }
+function nodeRect(position, padding = 8) { return { left: position.x - HALF_NODE_WIDTH - padding, right: position.x + HALF_NODE_WIDTH + padding, top: position.y - HALF_NODE_HEIGHT - padding, bottom: position.y + HALF_NODE_HEIGHT + padding }; }
 function isOrthogonalSegment(a, b) { return a.x === b.x || a.y === b.y; }
 function segmentIntersectsRect(a, b, rect) {
   if (!isOrthogonalSegment(a, b)) throw new Error("editorial-svg produjo un segmento no ortogonal.");
@@ -167,6 +174,14 @@ function groupSlots(edges, key) {
   const slots = new Map();
   for (const members of groups.values()) anchorOffsets(members.length).forEach((offset, i) => slots.set(members[i].index, offset));
   return slots;
+}
+function connectorAnchors(layout, edge, index, sourceSlots, targetSlots) {
+  const sides = connectorSides(layout.direction);
+  return {
+    sides,
+    source: anchorPoint(layout.positions.get(edge.from), sides.source, sourceSlots.get(index) || 0),
+    target: anchorPoint(layout.positions.get(edge.to), sides.target, targetSlots.get(index) || 0)
+  };
 }
 
 function buildPrimaryRoute(layout, source, target) {
@@ -216,9 +231,10 @@ function layoutEditorialGraph(spec) {
   }
   const direction = normalizeDirection(model.direction); const positions = new Map();
   const horizontal = direction === "LR" || direction === "RL"; const maxLayer = Math.max(...layers.map(layer => layer.length), 1);
-  const width = grid(horizontal ? layers.length * LAYER_STEP + 160 : maxLayer * 224 + 160); const height = grid(horizontal ? maxLayer * 224 + 160 : layers.length * LAYER_STEP + 160);
+  const depthStep = horizontal ? HORIZONTAL_LAYER_STEP : VERTICAL_LAYER_STEP;
+  const width = grid(horizontal ? layers.length * depthStep + 160 : maxLayer * 224 + 160); const height = grid(horizontal ? maxLayer * 224 + 160 : layers.length * depthStep + 160);
   layers.forEach((layer, li) => layer.forEach((id, index) => {
-    const depth = 120 + li * LAYER_STEP; const cross = 120 + index * 224;
+    const depth = 120 + li * depthStep; const cross = 120 + index * 224;
     positions.set(id, horizontal ? { x: grid(direction === "RL" ? width - depth : depth), y: grid(cross) } : { x: grid(cross), y: grid(direction === "BT" ? height - depth : depth) });
   }));
   return { model, nodes, edges, positions, direction, width, height };
@@ -226,20 +242,20 @@ function layoutEditorialGraph(spec) {
 
 function rectsIntersect(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
 function computeEdgeLabelPlacement(points, bounds, context = "") {
-  const width = 72; const height = 16; const gap = 8;
-  const segments = points.slice(1).map((point, i) => ({ a: points[i], b: point, length: Math.abs(point.x - points[i].x) + Math.abs(point.y - points[i].y), i })).filter(segment => segment.length >= (segment.a.y === segment.b.y ? width + gap * 2 : height + gap * 2)).sort((a, b) => b.length - a.length || a.i - b.i);
+  const segments = points.slice(1).map((point, i) => ({ a: points[i], b: point, length: Math.abs(point.x - points[i].x) + Math.abs(point.y - points[i].y), i })).filter(segment => segment.length >= (segment.a.y === segment.b.y ? EDGE_LABEL_WIDTH : EDGE_LABEL_HEIGHT)).sort((a, b) => b.length - a.length || a.i - b.i);
   for (const segment of segments) {
     const horizontal = segment.a.y === segment.b.y; const center = { x: grid((segment.a.x + segment.b.x) / 2), y: grid((segment.a.y + segment.b.y) / 2) };
-    const choices = horizontal ? [{ side: "above", x: grid(center.x - width / 2), y: center.y - gap - height }, { side: "below", x: grid(center.x - width / 2), y: center.y + gap }] : [{ side: "right", x: center.x + gap, y: grid(center.y - height / 2) }, { side: "left", x: center.x - gap - width, y: grid(center.y - height / 2) }];
+    const choices = horizontal ? [{ side: "above", x: grid(center.x - EDGE_LABEL_WIDTH / 2), y: center.y - EDGE_LABEL_GAP - EDGE_LABEL_HEIGHT }, { side: "below", x: grid(center.x - EDGE_LABEL_WIDTH / 2), y: center.y + EDGE_LABEL_GAP }] : [{ side: "right", x: center.x + EDGE_LABEL_GAP, y: grid(center.y - EDGE_LABEL_HEIGHT / 2) }, { side: "left", x: center.x - EDGE_LABEL_GAP - EDGE_LABEL_WIDTH, y: grid(center.y - EDGE_LABEL_HEIGHT / 2) }];
     for (const choice of choices) {
-      const rect = { x: choice.x, y: choice.y, width, height, left: choice.x, right: choice.x + width, top: choice.y, bottom: choice.y + height };
+      const rect = { x: choice.x, y: choice.y, width: EDGE_LABEL_WIDTH, height: EDGE_LABEL_HEIGHT, left: choice.x, right: choice.x + EDGE_LABEL_WIDTH, top: choice.y, bottom: choice.y + EDGE_LABEL_HEIGHT };
       if (rect.x < 0 || rect.y < 0 || rect.right > bounds.width || rect.bottom > bounds.height) continue;
       if (segmentIntersectsRect(segment.a, segment.b, rect)) continue;
-      if ((bounds.positions ? bounds.nodes : []).some(node => rectsIntersect(rect, { ...nodeRect(bounds.positions.get(node.id), 0), x: undefined, y: undefined }))) continue;
-      return { segment, rect, orientation: horizontal ? "horizontal" : "vertical", side: choice.side, gap };
+      if (horizontal ? (rect.left < Math.min(segment.a.x, segment.b.x) || rect.right > Math.max(segment.a.x, segment.b.x)) : (rect.top < Math.min(segment.a.y, segment.b.y) || rect.bottom > Math.max(segment.a.y, segment.b.y))) continue;
+      if ((bounds.positions ? bounds.nodes : []).some(node => rectsIntersect(rect, nodeRect(bounds.positions.get(node.id), 0)))) continue;
+      return { segment, rect, orientation: horizontal ? "horizontal" : "vertical", side: choice.side, gap: EDGE_LABEL_GAP };
     }
   }
-  throw new Error(`editorial-svg no puede colocar la etiqueta${context ? ` para ${context}` : ""} dentro del viewBox; usa Graphviz.`);
+  throw new Error(`editorial-svg no puede colocar la etiqueta${context ? ` de ${context} sin cubrir el conector` : ""} dentro del viewBox; usa Graphviz.`);
 }
 function renderEdgeLabel(placement, text, theme) {
   const { rect } = placement;
@@ -249,7 +265,7 @@ function placeEdgeLabel(points, text, theme, bounds, context = "") {
   return renderEdgeLabel(computeEdgeLabelPlacement(points, bounds, context), text, theme);
 }
 function connector(layout, edge, index, sourceSlots, targetSlots, figure, theme, reservedRoutes) {
-  const a = layout.positions.get(edge.from); const b = layout.positions.get(edge.to); const sides = connectorSides(layout.direction); const source = anchorPoint(a, sides.source, sourceSlots.get(index) || 0); const target = anchorPoint(b, sides.target, targetSlots.get(index) || 0); const points = chooseConnectorRoute(layout, edge, source, target, reservedRoutes); reservedRoutes.add(routeKey(points)); const d = roundedOrthogonalPath(points); const label = edge.label ? placeEdgeLabel(points, edge.label, theme, layout, `${edge.from} -> ${edge.to}`) : "";
+  const { source, target } = connectorAnchors(layout, edge, index, sourceSlots, targetSlots); const points = chooseConnectorRoute(layout, edge, source, target, reservedRoutes); reservedRoutes.add(routeKey(points)); const d = roundedOrthogonalPath(points); const label = edge.label ? placeEdgeLabel(points, edge.label, theme, layout, `${edge.from} -> ${edge.to}`) : "";
   return `<path id="${figure}-edge-${index}" d="${d}" fill="none" stroke="${theme.border}" stroke-width="2" marker-end="url(#${figure}-arrow)"/>${label}`;
 }
 
@@ -258,8 +274,8 @@ function renderEditorialSvg(spec, options = {}) {
   const title = esc(spec.title || spec.altText || "Diagrama editorial"); const desc = esc(spec.longDescription || spec.altText || "Diagrama editorial generado por Jintia.");
   const outgoing = groupSlots(layout.edges, edge => `${edge.from}-source`); const incoming = groupSlots(layout.edges, edge => `${edge.to}-target`);
   const reservedRoutes = new Set(); const edges = layout.edges.map((edge, index) => connector(layout, edge, index, outgoing, incoming, figure, theme, reservedRoutes)).join("");
-  const nodes = layout.nodes.map(node => { const p = layout.positions.get(node.id); const focal = node.kind === "focal"; const words = String(node.label).trim().split(/\s+/); const split = Math.ceil(words.length / 2); const lines = [words.slice(0, split).join(" "), words.slice(split).join(" ")].filter(Boolean); const label = lines.map((line, i) => `<tspan x="${p.x}" dy="${i ? 18 : 0}">${esc(line)}</tspan>`).join(""); return `<g id="${figure}-node-${esc(node.id)}"><rect x="${p.x - 80}" y="${p.y - 32}" width="160" height="64" rx="8" fill="${focal ? theme.focal : theme.surface}" stroke="${theme.border}"/><text x="${p.x}" y="${p.y - (lines.length > 1 ? 10 : -4)}" text-anchor="middle" font-family="${esc(theme.font)}" font-size="14" fill="${focal ? theme.raised : theme.text}">${label}</text></g>`; }).join("");
+  const nodes = layout.nodes.map(node => { const p = layout.positions.get(node.id); const focal = node.kind === "focal"; const words = String(node.label).trim().split(/\s+/); const split = Math.ceil(words.length / 2); const lines = [words.slice(0, split).join(" "), words.slice(split).join(" ")].filter(Boolean); const label = lines.map((line, i) => `<tspan x="${p.x}" dy="${i ? 18 : 0}">${esc(line)}</tspan>`).join(""); return `<g id="${figure}-node-${esc(node.id)}"><rect x="${p.x - HALF_NODE_WIDTH}" y="${p.y - HALF_NODE_HEIGHT}" width="${NODE_WIDTH}" height="${NODE_HEIGHT}" rx="8" fill="${focal ? theme.focal : theme.surface}" stroke="${theme.border}"/><text x="${p.x}" y="${p.y - (lines.length > 1 ? 10 : -4)}" text-anchor="middle" font-family="${esc(theme.font)}" font-size="14" fill="${focal ? theme.raised : theme.text}">${label}</text></g>`; }).join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-labelledby="${figure}-title ${figure}-desc"><title id="${figure}-title">${title}</title><desc id="${figure}-desc">${desc}</desc><defs><marker id="${figure}-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="${theme.border}"/></marker></defs>${edges}${nodes}</svg>`;
 }
 
-module.exports = { UPSTREAM_DIAGRAM_DESIGN_REVISION, supportsEditorialSpec, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, renderEditorialSvg, anchorOffsets, groupSlots, normalizeDirection, connectorSides, anchorPoint, nodeRect, segmentIntersectsRect, routeIntersectsForeignNode, normalizeRoutePoints, roundedOrthogonalPath, computeEdgeLabelPlacement, placeEdgeLabel, buildPrimaryRoute, buildDetourRoutes, routeIsSafe, chooseConnectorRoute, routeKey };
+module.exports = { UPSTREAM_DIAGRAM_DESIGN_REVISION, supportsEditorialSpec, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, renderEditorialSvg, anchorOffsets, groupSlots, connectorAnchors, normalizeDirection, connectorSides, anchorPoint, nodeRect, segmentIntersectsRect, routeIntersectsForeignNode, normalizeRoutePoints, roundedOrthogonalPath, computeEdgeLabelPlacement, placeEdgeLabel, buildPrimaryRoute, buildDetourRoutes, routeIsSafe, chooseConnectorRoute, routeKey, NODE_WIDTH, NODE_HEIGHT, VERTICAL_LAYER_STEP, HORIZONTAL_LAYER_STEP };

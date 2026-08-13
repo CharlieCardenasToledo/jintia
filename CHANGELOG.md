@@ -5,6 +5,13 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.18 — 2026-08-13
+
+### Corregido
+
+- `editorial-svg` separa nuevamente el spacing vertical del horizontal y deriva anchors, colisiones y nodos de una única geometría.
+- Los contratos de routing prueban slots convergentes, detours exactos, ausencia total de canal, labels con longitud mínima real y determinismo byte a byte.
+
 ## `jintia-skill` 11.6.17 — 2026-08-13
 
 ### Corregido

@@ -1,7 +1,7 @@
 {
   "name": "jintia-skill",
   "displayName": "Jintia Skill",
-  "version": "11.6.15",
+  "version": "11.6.16",
   "description": "Evidence-based self-paced instructional design for higher education. Creates weekly HTML guides with UDL 3.0, Backward Design and Quality Matters 7th Ed. Integrated with NotebookLM MCP.",
   "author": {
     "name": "Charlie Cárdenas Toledo",

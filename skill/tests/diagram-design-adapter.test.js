@@ -6,7 +6,7 @@ const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const test = require("node:test");
-const { renderEditorialSvg, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, nodeRect, segmentIntersectsRect } = require("../scripts/diagram-design-adapter");
+const { renderEditorialSvg, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, nodeRect, segmentIntersectsRect, anchorPoint, connectorSides, buildPrimaryRoute, buildDetourRoutes, chooseConnectorRoute, routeIntersectsForeignNode, routeKey, roundedOrthogonalPath, computeEdgeLabelPlacement } = require("../scripts/diagram-design-adapter");
 
 function spec() {
   return { id: "fig-editorial", representation: "flowchart", altText: "Proceso editorial", model: {
@@ -53,11 +53,16 @@ test("editorial-svg restringe temas a skill/themes", () => {
 });
 
 test("editorial-svg separa etiquetas de sus conectores", () => {
-  const svg = renderEditorialSvg({ ...spec(), model: { nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }], edges: [{ from: "a", to: "b", label: "produce" }] } });
-  const mask = svg.match(/<rect x="([^"]+)" y="([^"]+)" width="72" height="16"/);
-  const text = svg.match(/<text x="([^"]+)" y="([^"]+)"[^>]*>produce/);
-  assert.ok(mask && text);
-  assert.ok(Number(mask[2]) + 16 <= 120 - 6 || Number(mask[2]) >= 120 + 6);
+  const graph = { ...spec(), model: { nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }], edges: [{ from: "a", to: "b", label: "produce" }] } };
+  const layout = layoutEditorialGraph(graph); const sides = connectorSides(layout.direction);
+  const points = chooseConnectorRoute(layout, graph.model.edges[0], anchorPoint(layout.positions.get("a"), sides.source, 0), anchorPoint(layout.positions.get("b"), sides.target, 0));
+  const placement = computeEdgeLabelPlacement(points, layout);
+  const segmentY = placement.segment.a.y; const segmentX = placement.segment.a.x;
+  const gap = placement.orientation === "horizontal" ? (placement.side === "above" ? segmentY - placement.rect.bottom : placement.rect.top - segmentY) : (placement.side === "right" ? placement.rect.left - segmentX : segmentX - placement.rect.right);
+  assert.equal(gap, 8); assert.ok(gap >= 6 && gap <= 10);
+  assert.equal(segmentIntersectsRect(placement.segment.a, placement.segment.b, placement.rect), false);
+  assert.ok(placement.rect.x >= 0 && placement.rect.y >= 0 && placement.rect.right <= layout.width && placement.rect.bottom <= layout.height);
+  assert.match(renderEditorialSvg(graph), />produce<\/text>/);
 });
 
 test("editorial-svg respeta direcciones TB BT LR RL", () => {
@@ -68,14 +73,52 @@ test("editorial-svg respeta direcciones TB BT LR RL", () => {
   }
 });
 
-test("editorial-svg falla cuando no existe canal ortogonal seguro", () => {
-  assert.throws(() => renderEditorialSvg({ ...spec(), model: { direction: "DIAGONAL", nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }], edges: [{ from: "a", to: "b" }] } }), /direction/);
+test("editorial-svg rechaza direcciones desconocidas", () => {
+  assert.throws(() => renderEditorialSvg({ ...spec(), model: { direction: "DIAGONAL", nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }], edges: [{ from: "a", to: "b" }] } }), /direction=DIAGONAL/);
 });
 
 test("editorial-svg evita atravesar nodos no relacionados", () => {
-  const svg = renderEditorialSvg({ ...spec(), model: { nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }, { id: "x", label: "X" }], edges: [{ from: "a", to: "b" }] } });
-  assert.match(svg, /fig-editorial-edge-0/);
-  assert.doesNotMatch(svg, /M 120 152 V 120 H 120/);
+  const graph = { ...spec(), model: { nodes: [{ id: "a", label: "A" }, { id: "x", label: "X" }, { id: "b", label: "B" }], edges: [{ from: "a", to: "b" }] } };
+  const layout = layoutEditorialGraph(graph); const edge = graph.model.edges[0]; const sides = connectorSides(layout.direction); layout.height = 480; layout.positions.set("a", { x: 120, y: 80 }); layout.positions.set("x", { x: 120, y: 240 }); layout.positions.set("b", { x: 120, y: 400 });
+  const source = anchorPoint(layout.positions.get("a"), sides.source, 0); const target = anchorPoint(layout.positions.get("b"), sides.target, 0);
+  const primary = buildPrimaryRoute(layout, source, target); assert.equal(routeIntersectsForeignNode(primary, layout, edge), true);
+  const chosen = chooseConnectorRoute(layout, edge, source, target); assert.equal(routeIntersectsForeignNode(chosen, layout, edge), false); assert.notEqual(routeKey(primary), routeKey(chosen));
+  assert.match(renderEditorialSvg(graph), /fig-editorial-edge-0/);
+});
+
+test("editorial-svg respeta anchors múltiples y el eje de detours", () => {
+  const graph = { ...spec(), model: { nodes: ["A", "B", "C", "D", "E"].map(id => ({ id: id.toLowerCase(), label: id })), edges: [{ from: "a", to: "b" }, { from: "a", to: "c" }, { from: "a", to: "d" }, { from: "b", to: "e" }, { from: "c", to: "e" }, { from: "d", to: "e" }] } };
+  const layout = layoutEditorialGraph(graph); const sides = connectorSides("TB");
+  const sourceOffsets = graph.model.edges.slice(0, 3).map((edge, i) => anchorPoint(layout.positions.get(edge.from), sides.source, [-16, 0, 16][i]));
+  assert.equal(new Set(sourceOffsets.map(point => `${point.x},${point.y}`)).size, 3);
+  assert.ok(Math.min(...sourceOffsets.slice(1).map((p, i) => Math.abs(p.x - sourceOffsets[i].x))) >= 12);
+  const vertical = buildDetourRoutes(layout, sourceOffsets[0], anchorPoint(layout.positions.get("b"), sides.target, 0))[0];
+  assert.ok(vertical.some((point, i) => i && point.x !== vertical[i - 1].x));
+  const horizontalGraph = { ...graph, model: { ...graph.model, direction: "LR", nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }] , edges: [{ from: "a", to: "b" }] } };
+  const horizontalLayout = layoutEditorialGraph(horizontalGraph); const hs = connectorSides("LR"); const hr = buildDetourRoutes(horizontalLayout, anchorPoint(horizontalLayout.positions.get("a"), hs.source, 0), anchorPoint(horizontalLayout.positions.get("b"), hs.target, 0))[0];
+  assert.ok(hr.some((point, i) => i && point.y !== hr[i - 1].y));
+});
+
+test("editorial-svg usa midpoint correcto en rutas primarias verticales y horizontales", () => {
+  for (const direction of ["TB", "BT", "LR", "RL"]) {
+    const graph = { ...spec(), model: { direction, nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }], edges: [{ from: "a", to: "b" }] } }; const layout = layoutEditorialGraph(graph); const sides = connectorSides(direction);
+    const route = buildPrimaryRoute(layout, anchorPoint(layout.positions.get("a"), sides.source, 0), anchorPoint(layout.positions.get("b"), sides.target, 0));
+    assert.ok(route.every((point, i) => i === 0 || point.x === route[i - 1].x || point.y === route[i - 1].y));
+    if (direction === "TB" || direction === "BT") assert.ok(route.every(point => point.x === route[0].x));
+    else assert.ok(route.every(point => point.y === route[0].y));
+  }
+});
+
+test("editorial-svg redondea esquinas HV y VH", () => {
+  assert.match(roundedOrthogonalPath([{ x: 0, y: 0 }, { x: 32, y: 0 }, { x: 32, y: 32 }]), /Q 32 0 32 8/);
+  assert.match(roundedOrthogonalPath([{ x: 0, y: 0 }, { x: 0, y: 32 }, { x: 32, y: 32 }]), /Q 0 32 8 32/);
+});
+
+test("editorial-svg falla cuando no existe canal ortogonal seguro", () => {
+  const graph = { ...spec(), model: { nodes: [{ id: "a", label: "A" }, { id: "x", label: "X" }, { id: "b", label: "B" }], edges: [{ from: "a", to: "b" }] } };
+  const layout = layoutEditorialGraph(graph); const edge = graph.model.edges[0]; const sides = connectorSides(layout.direction); const source = anchorPoint(layout.positions.get("a"), sides.source, 0); const target = anchorPoint(layout.positions.get("b"), sides.target, 0);
+  layout.positions.set("x", { x: 120, y: 176 });
+  assert.throws(() => chooseConnectorRoute(layout, edge, source, target), /no puede enrutar a -> b/);
 });
 
 test("editorial-svg rechaza sobrepresupuesto inyeccion y exceso de focos", () => {

@@ -5,6 +5,13 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.16 — 2026-08-12
+
+### Corregido
+
+- Corregido el eje de los canales de desvío de `editorial-svg` para routing vertical y horizontal.
+- El routing verifica geométricamente colisiones, anchors, elbows y separación de etiquetas antes de aceptar una ruta.
+
 ## `jintia-skill` 11.6.15 — 2026-08-12
 
 ### Corregido

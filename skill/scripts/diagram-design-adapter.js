@@ -129,13 +129,29 @@ function routeIntersectsForeignNode(points, layout, edge) {
   return layout.nodes.some(node => node.id !== edge.from && node.id !== edge.to && points.slice(1).some((point, i) => segmentIntersectsRect(points[i], point, nodeRect(layout.positions.get(node.id)))));
 }
 function routeKey(points) { return points.map(point => `${point.x},${point.y}`).join("|"); }
+function normalizeRoutePoints(points) {
+  const result = [];
+  for (const point of points) {
+    const current = { x: grid(point.x), y: grid(point.y) };
+    if (!result.length || current.x !== result[result.length - 1].x || current.y !== result[result.length - 1].y) result.push(current);
+  }
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 1; i < result.length - 1; i += 1) if ((result[i - 1].x === result[i].x && result[i].x === result[i + 1].x) || (result[i - 1].y === result[i].y && result[i].y === result[i + 1].y)) { result.splice(i, 1); changed = true; break; }
+  }
+  return result;
+}
 function roundedOrthogonalPath(points, radius = 8) {
-  const clean = points.filter((point, i) => i === 0 || point.x !== points[i - 1].x || point.y !== points[i - 1].y);
+  const clean = normalizeRoutePoints(points);
   let d = `M ${clean[0].x} ${clean[0].y}`;
   for (let i = 1; i < clean.length; i += 1) {
     const previous = clean[i - 1]; const current = clean[i]; const next = clean[i + 1];
     if (!next || previous.x === current.x && current.x === next.x || previous.y === current.y && current.y === next.y) { d += ` L ${current.x} ${current.y}`; continue; }
-    const r = Math.min(radius, Math.abs(current.x - previous.x) / 2, Math.abs(current.y - next.y) / 2);
+    const incomingLength = Math.abs(current.x - previous.x) + Math.abs(current.y - previous.y);
+    const outgoingLength = Math.abs(next.x - current.x) + Math.abs(next.y - current.y);
+    const r = Math.floor(Math.min(radius, incomingLength / 2, outgoingLength / 2) / 4) * 4;
+    if (!r) { d += ` L ${current.x} ${current.y}`; continue; }
     const before = { x: current.x + Math.sign(previous.x - current.x) * r, y: current.y + Math.sign(previous.y - current.y) * r };
     const after = { x: current.x + Math.sign(next.x - current.x) * r, y: current.y + Math.sign(next.y - current.y) * r };
     d += ` L ${before.x} ${before.y} Q ${current.x} ${current.y} ${after.x} ${after.y}`;
@@ -148,6 +164,42 @@ function groupSlots(edges, key) {
   const slots = new Map();
   for (const members of groups.values()) anchorOffsets(members.length).forEach((offset, i) => slots.set(members[i].index, offset));
   return slots;
+}
+
+function buildPrimaryRoute(layout, source, target) {
+  const horizontal = layout.direction === "LR" || layout.direction === "RL";
+  const midpoint = grid(horizontal ? (source.x + target.x) / 2 : (source.y + target.y) / 2);
+  return normalizeRoutePoints(horizontal
+    ? [source, { x: midpoint, y: source.y }, { x: midpoint, y: target.y }, target]
+    : [source, { x: source.x, y: midpoint }, { x: target.x, y: midpoint }, target]);
+}
+
+function buildDetourRoutes(layout, source, target) {
+  const horizontal = layout.direction === "LR" || layout.direction === "RL";
+  const flow = horizontal ? Math.sign(target.x - source.x) : Math.sign(target.y - source.y);
+  const direction = flow || (horizontal ? (layout.direction === "LR" ? 1 : -1) : (layout.direction === "TB" ? 1 : -1));
+  const sourceLead = horizontal ? source.x + direction * 16 : source.y + direction * 16;
+  const targetLead = horizontal ? target.x - direction * 16 : target.y - direction * 16;
+  const channels = horizontal
+    ? [16, layout.height - 16, 32, layout.height - 32]
+    : [16, layout.width - 16, 32, layout.width - 32];
+  return channels.map(channel => normalizeRoutePoints(horizontal
+    ? [source, { x: sourceLead, y: source.y }, { x: sourceLead, y: grid(channel) }, { x: targetLead, y: grid(channel) }, { x: targetLead, y: target.y }, target]
+    : [source, { x: source.x, y: sourceLead }, { x: grid(channel), y: sourceLead }, { x: grid(channel), y: targetLead }, { x: target.x, y: targetLead }, target]));
+}
+
+function routeIsSafe(points, layout, edge, reservedRoutes = new Set()) {
+  if (points.length < 2 || points.some(point => !Number.isFinite(point.x) || !Number.isFinite(point.y))) return false;
+  if (points.some((point, i) => i > 0 && !isOrthogonalSegment(points[i - 1], point))) return false;
+  if (points.some(point => point.x < 0 || point.x > layout.width || point.y < 0 || point.y > layout.height)) return false;
+  if (routeIntersectsForeignNode(points, layout, edge)) return false;
+  return !reservedRoutes.has(routeKey(points));
+}
+
+function chooseConnectorRoute(layout, edge, source, target, reservedRoutes = new Set()) {
+  const candidates = [buildPrimaryRoute(layout, source, target), ...buildDetourRoutes(layout, source, target)];
+  for (const candidate of candidates) if (routeIsSafe(candidate, layout, edge, reservedRoutes)) return candidate;
+  throw new Error(`editorial-svg no puede enrutar ${edge.from} -> ${edge.to} sin atravesar otro nodo; usa Graphviz.`);
 }
 
 function layoutEditorialGraph(spec) {
@@ -169,26 +221,32 @@ function layoutEditorialGraph(spec) {
   return { model, nodes, edges, positions, direction, width, height };
 }
 
+function rectsIntersect(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
+function computeEdgeLabelPlacement(points, bounds) {
+  const segments = points.slice(1).map((point, i) => ({ a: points[i], b: point, length: Math.abs(point.x - points[i].x) + Math.abs(point.y - points[i].y), i })).filter(segment => segment.length >= 32).sort((a, b) => b.length - a.length || a.i - b.i);
+  const width = 72; const height = 16; const gap = 8;
+  for (const segment of segments) {
+    const horizontal = segment.a.y === segment.b.y; const center = { x: grid((segment.a.x + segment.b.x) / 2), y: grid((segment.a.y + segment.b.y) / 2) };
+    const choices = horizontal ? [{ side: "above", x: grid(center.x - width / 2), y: center.y - gap - height }, { side: "below", x: grid(center.x - width / 2), y: center.y + gap }] : [{ side: "right", x: center.x + gap, y: grid(center.y - height / 2) }, { side: "left", x: center.x - gap - width, y: grid(center.y - height / 2) }];
+    for (const choice of choices) {
+      const rect = { x: choice.x, y: choice.y, width, height, left: choice.x, right: choice.x + width, top: choice.y, bottom: choice.y + height };
+      if (rect.x < 0 || rect.y < 0 || rect.right > bounds.width || rect.bottom > bounds.height) continue;
+      if (segmentIntersectsRect(segment.a, segment.b, rect)) continue;
+      if ((bounds.positions ? bounds.nodes : []).some(node => rectsIntersect(rect, { ...nodeRect(bounds.positions.get(node.id), 0), x: undefined, y: undefined }))) continue;
+      return { segment, rect, orientation: horizontal ? "horizontal" : "vertical", side: choice.side, gap };
+    }
+  }
+  throw new Error("editorial-svg no puede colocar la etiqueta dentro del viewBox; usa Graphviz.");
+}
+function renderEdgeLabel(placement, text, theme) {
+  const { rect } = placement;
+  return `<rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" rx="4" fill="${theme.bg}"/><text x="${grid(rect.x + rect.width / 2)}" y="${grid(rect.y + 12)}" text-anchor="middle" font-size="12" fill="${theme.muted}">${esc(text)}</text>`;
+}
 function placeEdgeLabel(points, text, theme, bounds) {
-  const segments = points.slice(1).map((point, i) => ({ a: points[i], b: point, length: Math.abs(point.x - points[i].x) + Math.abs(point.y - points[i].y), i })).filter(segment => segment.length >= 72).sort((a, b) => b.length - a.length || a.i - b.i);
-  if (!segments.length) return "";
-  const segment = segments[0]; const horizontal = segment.a.y === segment.b.y; const center = { x: grid((segment.a.x + segment.b.x) / 2), y: grid((segment.a.y + segment.b.y) / 2) }; const width = 72; const height = 16; const gap = 8;
-  let x; let y;
-  if (horizontal) { x = grid(center.x - width / 2); y = center.y - gap - height; if (y < 0) y = center.y + gap; }
-  else { x = center.x + gap; y = grid(center.y - height / 2); if (x + width > bounds.width) x = center.x - gap - width; }
-  return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="4" fill="${theme.bg}"/><text x="${grid(x + width / 2)}" y="${grid(y + 12)}" text-anchor="middle" font-size="12" fill="${theme.muted}">${esc(text)}</text>`;
+  return renderEdgeLabel(computeEdgeLabelPlacement(points, bounds), text, theme);
 }
 function connector(layout, edge, index, sourceSlots, targetSlots, figure, theme, reservedRoutes) {
-  const a = layout.positions.get(edge.from); const b = layout.positions.get(edge.to); const sides = connectorSides(layout.direction); const source = anchorPoint(a, sides.source, sourceSlots.get(index) || 0); const target = anchorPoint(b, sides.target, targetSlots.get(index) || 0); const horizontal = layout.direction === "LR" || layout.direction === "RL";
-  const flow = horizontal ? Math.sign(b.x - a.x) || (layout.direction === "LR" ? 1 : -1) : Math.sign(b.y - a.y) || (layout.direction === "TB" ? 1 : -1); const candidates = [];
-  const channels = horizontal ? [grid((source.y + target.y) / 2), ...[16, layout.height - 16, 32, layout.height - 32].map(v => grid(v + (index % 2 ? 0 : 0)))] : [grid((source.x + target.x) / 2), ...[16, layout.width - 16, 32, layout.width - 32].map(v => grid(v + (index % 2 ? 0 : 0)))];
-  for (const channel of channels) {
-    const lead = horizontal ? source.x + flow * 16 : source.y + flow * 16; const tail = horizontal ? target.x - flow * 16 : target.y - flow * 16;
-    const points = horizontal ? [source, { x: lead, y: source.y }, { x: channel, y: source.y }, { x: channel, y: target.y }, { x: tail, y: target.y }, target] : [source, { x: source.x, y: lead }, { x: source.x, y: channel }, { x: target.x, y: channel }, { x: target.x, y: tail }, target];
-    if (points.every((point, i) => i === 0 || isOrthogonalSegment(points[i - 1], point)) && !routeIntersectsForeignNode(points, layout, edge) && !reservedRoutes.has(routeKey(points))) { candidates.push(points); break; }
-  }
-  if (!candidates.length) throw new Error(`editorial-svg no puede enrutar ${edge.from} -> ${edge.to} sin atravesar otro nodo; usa Graphviz.`);
-  const points = candidates[0]; reservedRoutes.add(routeKey(points)); const d = roundedOrthogonalPath(points); const label = edge.label ? placeEdgeLabel(points, edge.label, theme, layout) : "";
+  const a = layout.positions.get(edge.from); const b = layout.positions.get(edge.to); const sides = connectorSides(layout.direction); const source = anchorPoint(a, sides.source, sourceSlots.get(index) || 0); const target = anchorPoint(b, sides.target, targetSlots.get(index) || 0); const points = chooseConnectorRoute(layout, edge, source, target, reservedRoutes); reservedRoutes.add(routeKey(points)); const d = roundedOrthogonalPath(points); const label = edge.label ? placeEdgeLabel(points, edge.label, theme, layout) : "";
   return `<path id="${figure}-edge-${index}" d="${d}" fill="none" stroke="${theme.border}" stroke-width="2" marker-end="url(#${figure}-arrow)"/>${label}`;
 }
 
@@ -201,4 +259,4 @@ function renderEditorialSvg(spec, options = {}) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-labelledby="${figure}-title ${figure}-desc"><title id="${figure}-title">${title}</title><desc id="${figure}-desc">${desc}</desc><defs><marker id="${figure}-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="${theme.border}"/></marker></defs>${edges}${nodes}</svg>`;
 }
 
-module.exports = { UPSTREAM_DIAGRAM_DESIGN_REVISION, supportsEditorialSpec, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, renderEditorialSvg, anchorOffsets, normalizeDirection, connectorSides, anchorPoint, nodeRect, segmentIntersectsRect, routeIntersectsForeignNode, roundedOrthogonalPath, placeEdgeLabel };
+module.exports = { UPSTREAM_DIAGRAM_DESIGN_REVISION, supportsEditorialSpec, resolveEditorialTheme, validateEditorialSpec, layoutEditorialGraph, renderEditorialSvg, anchorOffsets, normalizeDirection, connectorSides, anchorPoint, nodeRect, segmentIntersectsRect, routeIntersectsForeignNode, normalizeRoutePoints, roundedOrthogonalPath, computeEdgeLabelPlacement, placeEdgeLabel, buildPrimaryRoute, buildDetourRoutes, routeIsSafe, chooseConnectorRoute, routeKey };

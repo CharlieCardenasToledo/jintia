@@ -7,5 +7,25 @@
     "version": "2.3.10",
     "node": ">=22.13.0",
     "npmIntegrity": "sha512-4qV0Erxq1DB2LIKNBfB6jjrxC/vQfEdFIn/djqamYQykoImc3igJz8Ko6apSdHzdypvkys+89K3ORXJpW4RbYQ=="
+  },
+  "runtime": {
+    "node": ">=22.13.0"
+  },
+  "profileBinaries": {
+    "graphviz": {
+      "version": "12.2.1",
+      "platforms": {
+        "win32-x64": {
+          "url": "https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/12.2.1/windows_10_cmake_Release_Graphviz-12.2.1-win64.zip",
+          "sha256": "82c34e6a73b8158bee357d1c51aac08925edc8f4a9f517f591fb8df989405ad4",
+          "archiveType": "zip",
+          "binSubdir": "bin"
+        }
+      }
+    },
+    "plantuml": {
+      "version": "1.2025.x",
+      "platforms": {}
+    }
   }
 }

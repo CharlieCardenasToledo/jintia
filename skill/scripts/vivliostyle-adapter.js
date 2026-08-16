@@ -47,12 +47,15 @@ function resolveExecutable(name) {
   // Windows: where.exe busca por nombre base (incluye .cmd, .ps1, .exe según PATHEXT)
   const probe = spawnSync("where.exe", [name], { encoding: "utf8", stdio: "pipe", shell: false });
   if (probe.status === 0) {
-    const resolved = probe.stdout.trim().split(/\r?\n/)[0];
+    const lines = (probe.stdout || "").trim().split(/\r?\n/).filter(l => l.trim());
+    // Preferir .cmd/.exe sobre scripts Unix sin extensión (where.exe puede devolver ambos)
+    const resolved = lines.find(l => /\.(cmd|exe|bat)$/i.test(l)) || lines[0];
     if (resolved) {
       const isCmd = /\.(cmd|bat)$/i.test(resolved);
       // Para .cmd: invocamos como cmd.exe /C "ruta_absoluta" [args...]
-      // Esto evita shell: true mientras aún lanza el batch script correctamente.
-      const prefix = isCmd ? ["cmd.exe", "/C", resolved] : [resolved];
+      // Usamos COMSPEC (ruta absoluta a cmd.exe) para no depender de PATH.
+      const cmdExe = process.env.COMSPEC || "cmd.exe";
+      const prefix = isCmd ? [cmdExe, "/C", resolved] : [resolved];
       return { exe: resolved, prefix };
     }
   }
@@ -60,10 +63,35 @@ function resolveExecutable(name) {
 }
 
 /**
- * Comprueba si Vivliostyle CLI está disponible en PATH.
- * @returns {{ ok: boolean, version?: string, command: string, invoker: string[], isCmd: boolean }}
+ * Comprueba si Vivliostyle CLI está disponible.
+ * Primero verifica la ruta administrada por Jintia Desktop (JINTIA_VIVLIOSTYLE_BIN),
+ * luego recurre a la búsqueda en PATH via where.exe / which.
+ * @returns {{ ok: boolean, version?: string, command: string, invoker: string[] }}
  */
 function checkVivliostyle() {
+  // Ruta administrada: Jintia Desktop establece esta variable apuntando al
+  // ejecutable exacto, evitando depender de que where.exe encuentre el .cmd en PATH.
+  const managedBin = process.env.JINTIA_VIVLIOSTYLE_BIN;
+  if (managedBin) {
+    const isCmd = /\.(cmd|bat)$/i.test(managedBin);
+    const cmdExe = process.env.COMSPEC || "cmd.exe";
+    const invoker = isCmd ? [cmdExe, "/C", managedBin] : [managedBin];
+    const [bin, ...cmdArgs] = invoker;
+    const probe = spawnSync(bin, [...cmdArgs, "--version"], {
+      encoding: "utf8",
+      stdio:    "pipe",
+      shell:    false,
+    });
+    if (probe.status === 0) {
+      return {
+        ok:      true,
+        version: (probe.stdout || "").trim(),
+        command: managedBin,
+        invoker,
+      };
+    }
+  }
+
   for (const name of ["vivliostyle", "viv"]) {
     const resolved = resolveExecutable(name);
     if (!resolved) continue;
@@ -149,7 +177,9 @@ function buildPdf(htmlPath, outputPath, options = {}) {
     throw result.error;
   }
 
-  if (result.status !== 0) {
+  // Si el PDF fue generado, consideramos éxito aunque vivliostyle salga con código != 0
+  // (ocurre en algunos entornos donde emite advertencias tratadas como errores).
+  if (result.status !== 0 && !fs.existsSync(absOutput)) {
     throw new Error(
       `Vivliostyle terminó con código de salida ${result.status}.\n` +
       "Verifica que el HTML sea válido y que el tema CSS esté accesible."

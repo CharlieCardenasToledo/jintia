@@ -20,12 +20,28 @@
           "sha256": "82c34e6a73b8158bee357d1c51aac08925edc8f4a9f517f591fb8df989405ad4",
           "archiveType": "zip",
           "binSubdir": "bin"
+        },
+        "darwin-arm64": {
+          "manualInstallHint": "brew install graphviz"
+        },
+        "darwin-x64": {
+          "manualInstallHint": "brew install graphviz"
         }
       }
     },
     "plantuml": {
       "version": "1.2025.x",
-      "platforms": {}
+      "platforms": {
+        "win32-x64": {
+          "manualInstallHint": "winget install plantuml  OR  choco install plantuml"
+        },
+        "darwin-arm64": {
+          "manualInstallHint": "brew install plantuml"
+        },
+        "darwin-x64": {
+          "manualInstallHint": "brew install plantuml"
+        }
+      }
     }
   }
 }

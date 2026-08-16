@@ -183,15 +183,15 @@ function initCourse(coursePath, args) {
 
 function doctor(asJson) {
   const viv     = checkVivliostyleVersion();
-  const nodeOk  = semverGte(process.version, "22.12.0");
+  const nodeOk  = semverGte(process.version, "22.13.0");
 
   const checks = [
     {
       id: "node", label: "Node.js", required: true,
-      ok: true, detail: `${process.version}${!nodeOk ? " ⚠ (PDF requiere >=22.12.0)" : ""}`
+      ok: true, detail: `${process.version}${!nodeOk ? " ⚠ (PDF requiere >=22.13.0)" : ""}`
     },
     {
-      id: "node-22", label: "Node.js >=22.12.0 (PDF)", required: false,
+      id: "node-22", label: "Node.js >=22.13.0 (PDF)", required: false,
       ok: nodeOk, detail: nodeOk ? process.version : `actual: ${process.version}`
     },
     {
@@ -293,7 +293,7 @@ function main(argv) {
         pdf: "semanas/semana-{NN}/guide.pdf",
       },
       runtime: {
-        node: ">=22.12.0",
+        node: ">=22.13.0",
         vivliostyle: true,
         latex: false,
       },

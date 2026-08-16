@@ -7,7 +7,7 @@ const json = async relative => JSON.parse(await read(relative));
 const failures = [];
 const canonicalRepository = "CharlieCardenasToledo/jintia";
 
-const [skillPackage, brand, claudePlugin, openAiPlugin, openAiMcp, releaseConfig, rootPackage, changelog] = await Promise.all([
+const [skillPackage, brand, claudePlugin, openAiPlugin, openAiMcp, releaseConfig, rootPackage, changelog, contractOutput] = await Promise.all([
   json("skill/package.json"),
   json("skill/config/brand.json"),
   json("skill/.claude-plugin/plugin.json"),
@@ -16,6 +16,13 @@ const [skillPackage, brand, claudePlugin, openAiPlugin, openAiMcp, releaseConfig
   json("release/release-config.json"),
   json("package.json"),
   read("CHANGELOG.md"),
+  new Promise(resolve => {
+    import("node:child_process").then(({ execFile }) => {
+      execFile(process.execPath, ["skill/bin/jintia.js", "contract", "--json"], { cwd: root }, (err, stdout) => {
+        try { resolve(JSON.parse(stdout)); } catch { resolve(null); }
+      });
+    });
+  }),
 ]);
 
 const expected = skillPackage.version;
@@ -51,6 +58,24 @@ const expectedMcp = `${releaseConfig.mcp.package}@${releaseConfig.mcp.version}`;
 if (openAiMcp.notebooklm?.args?.at(-1) !== expectedMcp) failures.push(`Plugin OpenAI: MCP distinto de ${expectedMcp}`);
 if (releaseConfig.minimumDesktopVersion !== "1.1.0") failures.push("minimumDesktopVersion debe ser 1.1.0");
 if (!changelog.includes(`jintia-skill\` ${expected}`)) failures.push(`CHANGELOG.md no declara jintia-skill ${expected}`);
+
+// Consistencia del requisito Node entre todas las fuentes de verdad.
+const nodeRequirements = {
+  "package.json raíz (engines.node)": rootPackage.engines?.node,
+  "skill/package.json (engines.node)": skillPackage.engines?.node,
+  "release-config.json (runtime.node)": releaseConfig.runtime?.node,
+  "jintia contract --json (runtime.node)": contractOutput?.runtime?.node,
+};
+const canonicalNode = releaseConfig.runtime?.node;
+if (!canonicalNode) {
+  failures.push("release-config.json no declara runtime.node");
+} else {
+  for (const [label, value] of Object.entries(nodeRequirements)) {
+    if (value !== canonicalNode) {
+      failures.push(`${label}: "${value ?? "(ausente)"}" — debe ser "${canonicalNode}"`);
+    }
+  }
+}
 
 for (const file of [
   "skill/config/visual-tools.json",

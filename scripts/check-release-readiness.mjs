@@ -77,6 +77,19 @@ if (!canonicalNode) {
   }
 }
 
+const installProfiles = await json("skill/config/visual-install-profiles.json").catch(() => null);
+if (installProfiles) {
+  const declaredBinaries = new Set(Object.keys(releaseConfig.profileBinaries ?? {}));
+  const allBinaryIds = new Set(
+    (installProfiles.profiles ?? []).flatMap(p => (p.binaries ?? []).map(b => b.id))
+  );
+  for (const id of allBinaryIds) {
+    if (!declaredBinaries.has(id)) {
+      failures.push(`profileBinaries de release-config.json no declara '${id}' (requerido por visual-install-profiles.json)`);
+    }
+  }
+}
+
 for (const file of [
   "skill/config/visual-tools.json",
   "skill/config/visual-install-profiles.json",

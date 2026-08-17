@@ -442,7 +442,9 @@ function main(argv) {
       // Si todo pasó, mover el PDF a una ubicación fija (se sobreescribe en cada run)
       // para que el invocador pueda mostrarlo al usuario después del cleanup.
       if (ok && asJson && fs.existsSync(pdfFile)) {
-        const stableDir = path.join(os.tmpdir(), "jintia-last-self-test");
+        // Usar LOCALAPPDATA (ruta larga garantizada en Windows) o temp como fallback
+        const base = process.env.LOCALAPPDATA || process.env.APPDATA || os.tmpdir();
+        const stableDir = path.join(base, "Jintia", "self-test-preview");
         fs.mkdirSync(stableDir, { recursive: true });
         const stablePdf = path.join(stableDir, "guide.pdf");
         fs.copyFileSync(pdfFile, stablePdf);

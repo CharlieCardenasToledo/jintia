@@ -376,6 +376,7 @@ function main(argv) {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-self-test-"));
     const checks = {};
     let ok = true;
+    let persistedPdfPath = null;
 
     try {
       const guideDir = path.join(tmpDir, "semanas", "semana-01");
@@ -438,6 +439,16 @@ function main(argv) {
       checks.pdf = fs.existsSync(pdfFile) ? "passed" : "failed";
       if (checks.pdf !== "passed") ok = false;
 
+      // Si todo pasó, mover el PDF a una ubicación fija (se sobreescribe en cada run)
+      // para que el invocador pueda mostrarlo al usuario después del cleanup.
+      if (ok && asJson && fs.existsSync(pdfFile)) {
+        const stableDir = path.join(os.tmpdir(), "jintia-last-self-test");
+        fs.mkdirSync(stableDir, { recursive: true });
+        const stablePdf = path.join(stableDir, "guide.pdf");
+        fs.copyFileSync(pdfFile, stablePdf);
+        persistedPdfPath = stablePdf;
+      }
+
     } catch (err) {
       ok = false;
       checks.error = err.message;
@@ -447,6 +458,7 @@ function main(argv) {
 
     const skillVersion = require(path.join(ROOT, "package.json")).version;
     const result = { ok, skillVersion, checks };
+    if (persistedPdfPath) result.pdfPath = persistedPdfPath;
 
     if (asJson) {
       console.log(JSON.stringify(result, null, 2));

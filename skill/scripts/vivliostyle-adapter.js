@@ -174,7 +174,17 @@ function buildPdf(htmlPath, outputPath, options = {}) {
   });
 
   if (result.error) {
-    throw result.error;
+    // spawnSync agota el timeout y mata el proceso (SIGTERM) antes de que
+    // Vivliostyle termine de reportar su salida — pero el PDF puede haber
+    // quedado completamente escrito en disco justo antes del kill (frecuente
+    // en el primer render tras una instalación en frío: antivirus escaneando
+    // binarios recién descargados, arranque en frío del motor de páginas).
+    // Igual que abajo con un código de salida != 0, se acepta como éxito si
+    // el archivo de salida realmente existe.
+    const killedByTimeout = result.error.code === "ETIMEDOUT" || Boolean(result.signal);
+    if (!killedByTimeout || !fs.existsSync(absOutput)) {
+      throw result.error;
+    }
   }
 
   // Si el PDF fue generado, consideramos éxito aunque vivliostyle salga con código != 0

@@ -5,6 +5,12 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.7.1 — 2026-08-20
+
+### Corregido
+
+- `vivliostyle-adapter.js` (`buildPdf()`): si `spawnSync` mata el proceso de Vivliostyle por haber agotado el timeout, ahora se revisa si el PDF de salida ya había quedado escrito en disco antes de reportar fallo — igual que ya se hacía para un código de salida distinto de cero. Sin esto, el primer render tras una instalación en frío (runtimes recién descargados, antivirus escaneando binarios nuevos) podía superar el timeout de 60s y reportarse como fallo aunque el PDF se hubiera generado correctamente, bloqueando la prueba final del onboarding de Jintia Desktop.
+
 ## `jintia-skill` 11.7.0 — 2026-08-20
 
 ### Añadido

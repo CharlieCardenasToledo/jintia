@@ -12,11 +12,14 @@ const SCRIPTS = path.join(ROOT, "scripts");
 // ─── Helpers para doctor HTML ────────────────────────────────────────────────
 
 function checkVivliostyleVersion() {
-  for (const cmd of ["vivliostyle", "viv"]) {
-    const probe = spawnSync(cmd, ["--version"], { encoding: "utf8", stdio: "pipe", shell: false });
-    if (probe.status === 0) return { ok: true, version: (probe.stdout || "").trim(), command: cmd };
-  }
-  return { ok: false };
+  // Delega en el detector real de scripts/vivliostyle-adapter.js: resuelve
+  // el ejecutable vía where.exe/which (o JINTIA_VIVLIOSTYLE_BIN si Jintia
+  // Desktop lo define) antes de invocarlo. La versión anterior aquí hacía
+  // spawnSync("vivliostyle", ..., { shell: false }) directo por nombre, que
+  // en Windows nunca encuentra el wrapper .cmd de npm sin resolución previa
+  // — "jintia doctor" reportaba "no encontrado" con Vivliostyle instalado.
+  const { checkVivliostyle } = require("../scripts/vivliostyle-adapter");
+  return checkVivliostyle();
 }
 
 function semverGte(version, min) {

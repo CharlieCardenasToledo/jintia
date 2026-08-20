@@ -5,6 +5,12 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.6.19 — 2026-08-20
+
+### Corregido
+
+- `checkVivliostyleVersion()` (usado por `jintia doctor`) delega en el detector real de `scripts/vivliostyle-adapter.js` en vez de su propia copia rota: hacía `spawnSync("vivliostyle", ..., { shell: false })` por nombre, que en Windows nunca resuelve el wrapper `.cmd` de npm sin una búsqueda previa (`where.exe`). `doctor` reportaba Vivliostyle como "no encontrado" con el paquete instalado localmente.
+
 ## `jintia-skill` 11.6.18 — 2026-08-13
 
 ### Corregido

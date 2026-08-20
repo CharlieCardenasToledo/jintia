@@ -30,36 +30,73 @@
   size: A4;
   margin: 18mm 18mm 22mm 18mm;
 
-  /* Encabezado corrido: título de sección */
-  @top-center {
-    content: string(section-title);
-    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
-    font-size: 8.5pt;
-    color: #6b7280;
-    vertical-align: bottom;
-    padding-bottom: 4pt;
-  }
-
-  /* Pie de página: número de página */
-  @bottom-center {
-    content: counter(page);
-    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
-    font-size: 9pt;
-    color: #6b7280;
-  }
-
-  /* Pie derecho: nombre del curso (declarado en metadata via JS) */
-  @bottom-right {
-    content: string(course-name);
+  /* Encabezado corrido: curso a la izquierda, sección a la derecha,
+     con una regla fina continua bajo ambos (top-center vacío como
+     puente visual entre las dos cajas de margen). */
+  @top-left {
+    content: string(course-name) " · " string(course-week);
     font-family: "Inter", "Segoe UI", system-ui, sans-serif;
     font-size: 8pt;
-    color: #9ca3af;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #182322;
+    vertical-align: bottom;
+    padding-bottom: 4pt;
+    border-bottom: 0.5pt solid #d8ddda;
+  }
+
+  @top-center {
+    content: "";
+    display: block;
+    border-bottom: 0.5pt solid #d8ddda;
+  }
+
+  @top-right {
+    content: string(section-title);
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+    font-size: 8pt;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #66716e;
+    vertical-align: bottom;
+    padding-bottom: 4pt;
+    text-align: right;
+    border-bottom: 0.5pt solid #d8ddda;
+  }
+
+  /* Pie: código de la guía + período / número de página / marca */
+  @bottom-left {
+    content: string(course-code) " · " string(course-period);
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+    font-size: 8pt;
+    letter-spacing: 0.06em;
+    color: #66716e;
+  }
+
+  @bottom-center {
+    content: counter(page);
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 9.5pt;
+    color: #182322;
+  }
+
+  @bottom-right {
+    content: "jintia";
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+    font-size: 8pt;
+    letter-spacing: 0.04em;
+    color: #66716e;
+    text-align: right;
   }
 }
 
 /* Primera página: sin encabezado corrido */
 @page :first {
-  @top-center { content: none; }
+  @top-left { content: none; border-bottom: none; }
+  @top-center { content: none; border-bottom: none; }
+  @top-right { content: none; border-bottom: none; }
+  @bottom-left { content: none; }
   @bottom-center { content: none; }
   @bottom-right { content: none; }
 }
@@ -76,6 +113,20 @@ h2 {
 /* Captura el nombre del curso desde .jintia-cover__course */
 .jintia-cover__course {
   string-set: course-name content(text);
+}
+
+/* Captura el código de la guía desde la portada (si existe) */
+.jintia-cover__code {
+  string-set: course-code content(text);
+}
+
+/* Captura la semana y el período desde la portada (si existen) */
+.jintia-cover__week {
+  string-set: course-week content(text);
+}
+
+.jintia-cover__period {
+  string-set: course-period content(text);
 }
 
 /* ════════════════════════════════════════════════════════
@@ -126,6 +177,13 @@ p {
 /* Bloques pedagógicos: por defecto no se dividen */
 .jintia-block {
   break-inside: avoid;
+}
+
+/* Bloques marcados explícitamente como splittable (p. ej. teoría extensa)
+   deben poder fragmentarse entre páginas; el selector más específico
+   gana sobre la regla general de arriba. */
+.jintia-block[data-pagination="splittable"] {
+  break-inside: auto;
 }
 
 /* Figuras: caption siempre con su imagen */

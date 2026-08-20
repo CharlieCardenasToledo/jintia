@@ -32,7 +32,7 @@ test("editorial-svg usa rejilla de cuatro pixeles y conectores ortogonales", () 
   assert.equal(new Set(paths).size, paths.length);
   assert.ok(new Set(paths.map(value => value.match(/M ([^ ]+) ([^ ]+)/).slice(1).join(","))).size > 1);
   assert.match(svg, / Q /);
-  assert.match(svg, /fill="#f8fafc"/);
+  assert.match(svg, /fill="#f3f7f5"/);
 });
 
 test("editorial-svg aplica palette y tokens del tema Jintia", () => {

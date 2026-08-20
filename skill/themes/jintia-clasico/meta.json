@@ -1,8 +1,8 @@
 {
   "id": "jintia-clasico",
   "name": "Jintia Clásico",
-  "description": "Guía académica de una columna con bloques de color por tipo pedagógico. Ideal para materias con alto contenido conceptual y teórico.",
-  "version": "1.0.0",
+  "description": "Guía académica editorial de una columna, con jerarquía tipográfica, composición pedagógica diferenciada y optimización para lectura e impresión.",
+  "version": "1.1.0",
   "tags": ["académico", "una-columna", "bloques-color"],
   "featured": true,
   "page": {

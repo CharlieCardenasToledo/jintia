@@ -1,6 +1,9 @@
 /**
  * Jintia Clásico — Componentes pedagógicos
- * Estilos de cada bloque semántico del sistema editorial Jintia.
+ * Dirección editorial: jerarquía tipográfica y composición antes que
+ * tarjetas de color. El teal es firma de marca (navegación, énfasis,
+ * numeración), no relleno de cada bloque.
+ *
  * Importa tokens.css antes de este archivo.
  */
 
@@ -12,10 +15,46 @@ body {
   font-family: var(--jintia-font-body);
   font-size: var(--jintia-size-body);
   line-height: var(--jintia-line-height);
-  color: var(--jintia-text);
+  color: var(--jintia-ink);
   background: var(--jintia-bg);
   margin: 0;
   padding: 0;
+}
+
+/* Contadores globales del documento */
+body {
+  counter-reset: jintia-figure jintia-table jintia-concept assessment-item;
+}
+
+/* ════════════════════════════════════════════════════════
+   Presentación de papel (solo vista previa web)
+   El PDF es el resultado prioritario; en pantalla la portada y el
+   contenido se muestran como una hoja A4 sobre un canvas exterior.
+   ════════════════════════════════════════════════════════ */
+
+@media screen {
+  body {
+    padding: 32px 0 48px;
+  }
+
+  .jintia-cover,
+  .jintia-content {
+    width: min(210mm, calc(100vw - 32px));
+    margin-left: auto;
+    margin-right: auto;
+    background: var(--jintia-paper);
+  }
+
+  .jintia-cover {
+    min-height: 297mm;
+    margin-bottom: 24px;
+    box-shadow: 0 18px 48px rgba(33, 45, 42, 0.10);
+  }
+
+  .jintia-content {
+    padding: 18mm;
+    box-shadow: 0 18px 48px rgba(33, 45, 42, 0.08);
+  }
 }
 
 /* ════════════════════════════════════════════════════════
@@ -24,15 +63,15 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--jintia-font-heading);
-  font-weight: var(--jintia-weight-bold);
-  color: var(--jintia-text);
+  font-weight: var(--jintia-weight-medium);
+  color: var(--jintia-ink);
   margin-top: var(--jintia-space-lg);
   margin-bottom: var(--jintia-space-sm);
-  line-height: 1.25;
+  line-height: 1.22;
 }
 
 h1 { font-size: var(--jintia-size-h1); }
-h2 { font-size: var(--jintia-size-h2); border-bottom: 1px solid var(--jintia-border); padding-bottom: 4pt; }
+h2 { font-size: var(--jintia-size-h2); border-bottom: 1px solid var(--jintia-line); padding-bottom: 4pt; }
 h3 { font-size: var(--jintia-size-h3); }
 h4 { font-size: var(--jintia-size-h4); font-weight: var(--jintia-weight-medium); }
 
@@ -50,18 +89,18 @@ a:hover { text-decoration: underline; }
 code, pre {
   font-family: var(--jintia-font-mono);
   font-size: 0.9em;
-  background: var(--jintia-surface);
+  background: var(--jintia-soft);
   border-radius: var(--jintia-radius-sm);
 }
 
 code {
   padding: 1pt 4pt;
-  border: 1px solid var(--jintia-border);
+  border: 1px solid var(--jintia-line);
 }
 
 pre {
   padding: var(--jintia-space-sm) var(--jintia-space-md);
-  border: 1px solid var(--jintia-border);
+  border: 1px solid var(--jintia-line);
   overflow-x: auto;
   white-space: pre-wrap;
 }
@@ -80,78 +119,216 @@ ul, ol {
 li { margin-bottom: 3pt; }
 
 /* ════════════════════════════════════════════════════════
-   Portada
+   Portada — cubierta editorial, no tarjeta vertical
    ════════════════════════════════════════════════════════ */
 
 .jintia-cover {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   min-height: 100vh;
-  padding: var(--jintia-space-xl);
-  background: var(--jintia-surface-raised);
+  padding: 18mm;
+  background: var(--jintia-paper);
+  color: var(--jintia-ink);
   break-after: page;
 }
 
-.jintia-cover__course {
+/* Masthead: marca + código de la guía */
+.jintia-cover__masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jintia-space-md);
+  padding-bottom: var(--jintia-space-sm);
+  border-bottom: 1px solid var(--jintia-line);
+  font-family: var(--jintia-font-body);
+}
+
+.jintia-cover__brand {
+  font-weight: var(--jintia-weight-bold);
+  font-size: 11pt;
+  letter-spacing: 0.02em;
+  color: var(--jintia-brand);
+}
+
+.jintia-cover__code,
+.jintia-cover__masthead-label {
   font-size: var(--jintia-size-small);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
   color: var(--jintia-muted);
-  margin-bottom: var(--jintia-space-sm);
+}
+
+.jintia-cover__code + .jintia-cover__masthead-label::before {
+  content: " · ";
+}
+
+/* Cuerpo principal: centrado verticalmente entre masthead y footer */
+.jintia-cover__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--jintia-space-xl) 0;
+}
+
+.jintia-cover__unit {
+  display: flex;
+  align-items: center;
+  gap: 10pt;
+  font-family: var(--jintia-font-body);
+  font-size: var(--jintia-size-small);
+  font-weight: var(--jintia-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--jintia-brand-hover);
+  margin: 0 0 var(--jintia-space-md);
+}
+
+.jintia-cover__unit::before {
+  content: "";
+  display: inline-block;
+  width: 22pt;
+  height: 2px;
+  background: var(--jintia-brand);
+}
+
+/* Número de semana: elemento editorial grande, decorativo */
+.jintia-cover__week-number {
+  font-family: var(--jintia-font-heading);
+  font-size: 70pt;
+  line-height: 0.85;
+  color: #dce9e5;
+  letter-spacing: -0.06em;
+  font-weight: 400;
+  margin: 0 0 var(--jintia-space-sm) -2pt;
+}
+
+.jintia-cover__course {
+  font-family: var(--jintia-font-body);
+  font-size: var(--jintia-size-small);
+  color: var(--jintia-muted);
+  margin: var(--jintia-space-sm) 0 0;
 }
 
 .jintia-cover__week {
-  font-size: 10pt;
-  color: var(--jintia-brand);
-  font-weight: var(--jintia-weight-medium);
-  margin-bottom: var(--jintia-space-xs);
+  font-family: var(--jintia-font-body);
+  font-size: var(--jintia-size-small);
+  color: var(--jintia-muted);
+  margin: 0;
+}
+
+.jintia-cover__hours {
+  font-family: var(--jintia-font-body);
+  font-size: var(--jintia-size-small);
+  color: var(--jintia-muted);
+  margin: 0;
+}
+
+.jintia-cover__course + .jintia-cover__week::before,
+.jintia-cover__course + .jintia-cover__hours::before,
+.jintia-cover__week + .jintia-cover__hours::before {
+  content: " · ";
 }
 
 .jintia-cover__title {
-  font-size: 24pt;
-  font-weight: var(--jintia-weight-bold);
-  line-height: 1.15;
-  color: var(--jintia-text);
-  margin-bottom: var(--jintia-space-md);
+  font-family: var(--jintia-font-heading);
+  font-size: 30pt;
+  line-height: 1.05;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  max-width: 165mm;
+  color: var(--jintia-ink);
+  margin: var(--jintia-space-sm) 0 0;
 }
 
 .jintia-cover__outcome {
-  font-size: var(--jintia-size-body);
-  color: var(--jintia-muted);
-  border-left: var(--jintia-border-width) solid var(--jintia-brand);
-  padding-left: var(--jintia-space-sm);
-  margin-top: var(--jintia-space-md);
+  margin-top: var(--jintia-space-lg);
+  padding-top: var(--jintia-space-md);
+  border-top: 1px solid var(--jintia-ink);
+  display: grid;
+  grid-template-columns: minmax(30mm, 34mm) 1fr;
+  gap: var(--jintia-space-lg);
 }
 
+.jintia-cover__outcome-label {
+  font-family: var(--jintia-font-body);
+  font-size: var(--jintia-size-small);
+  font-weight: var(--jintia-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--jintia-brand);
+}
+
+.jintia-cover__outcome p {
+  font-family: var(--jintia-font-heading);
+  font-size: 13pt;
+  line-height: 1.45;
+  color: var(--jintia-ink);
+  margin: 0;
+}
+
+/* Footer: docente / período / formato */
+.jintia-cover__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jintia-space-lg);
+  justify-content: space-between;
+  padding-top: var(--jintia-space-md);
+  border-top: 1px solid var(--jintia-line);
+  font-family: var(--jintia-font-body);
+  font-size: var(--jintia-size-small);
+  color: var(--jintia-muted);
+}
+
+.jintia-cover__authors,
+.jintia-cover__period,
+.jintia-cover__format {
+  margin: 0;
+}
+
+.jintia-cover__authors::before,
+.jintia-cover__period::before,
+.jintia-cover__format::before {
+  display: block;
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--jintia-ink);
+  margin-bottom: 3pt;
+}
+
+.jintia-cover__authors::before { content: "Docente"; }
+.jintia-cover__period::before  { content: "Período"; }
+.jintia-cover__format::before  { content: "Formato"; }
+
 /* ════════════════════════════════════════════════════════
-   Base de bloque pedagógico
+   Base de bloque pedagógico — neutra; cada tipo compone la suya
    ════════════════════════════════════════════════════════ */
 
 .jintia-block {
-  border-radius: var(--jintia-radius);
-  padding: var(--jintia-space-md);
-  margin-bottom: var(--jintia-space-md);
-  border-left: var(--jintia-border-width) solid transparent;
+  position: relative;
+  margin: 0 0 var(--jintia-space-lg);
+  color: var(--jintia-ink);
 }
 
 .jintia-block__label {
   font-size: var(--jintia-size-small);
   font-weight: var(--jintia-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.11em;
+  display: block;
   margin-bottom: var(--jintia-space-xs);
-  display: flex;
-  align-items: center;
-  gap: 5pt;
 }
 
 .jintia-block__title {
+  font-family: var(--jintia-font-heading);
   font-size: var(--jintia-size-h3);
-  font-weight: var(--jintia-weight-bold);
+  font-weight: 600;
   margin-top: 0;
   margin-bottom: var(--jintia-space-xs);
   color: inherit;
+  border: none;
+  padding: 0;
 }
 
 .jintia-block__content {
@@ -161,132 +338,224 @@ li { margin-bottom: 3pt; }
 .jintia-block__content > *:last-child { margin-bottom: 0; }
 
 /* ════════════════════════════════════════════════════════
-   Orientación
+   Orientación — puerta de entrada; único bloque "de acogida"
+   además de evaluación
    ════════════════════════════════════════════════════════ */
 
 .jintia-orientation {
   background: var(--jintia-orientation-bg);
-  border-left-color: var(--jintia-orientation-border);
+  border: 1px solid var(--jintia-line);
+  border-left: 4px solid var(--jintia-orientation-border);
+  border-radius: var(--jintia-radius);
+  padding: var(--jintia-space-md);
 }
 
 .jintia-orientation .jintia-block__label {
   color: var(--jintia-orientation-border);
 }
 
-.jintia-orientation .jintia-block__label::before {
-  content: "→";
+.jintia-orientation .jintia-block__title {
+  color: var(--jintia-ink);
 }
 
 /* ════════════════════════════════════════════════════════
-   Teoría
+   Teoría — texto académico; sin card azul
    ════════════════════════════════════════════════════════ */
 
 .jintia-theory {
-  background: var(--jintia-theory-bg);
-  border-left-color: var(--jintia-theory-border);
+  padding: var(--jintia-space-md) 0 0 30mm;
+  border-top: 1px solid var(--jintia-ink);
 }
 
-.jintia-theory .jintia-block__label { color: var(--jintia-theory-border); }
+.jintia-theory > .jintia-block__label {
+  position: absolute;
+  left: 0;
+  top: var(--jintia-space-md);
+  width: 24mm;
+  color: var(--jintia-theory-accent);
+  margin-bottom: 0;
+}
+
+.jintia-theory > .jintia-block__label::before {
+  content: "";
+  display: block;
+  width: 20pt;
+  height: 2px;
+  background: var(--jintia-theory-accent);
+  margin-bottom: 7pt;
+}
+
+.jintia-theory .jintia-block__title {
+  font-size: 15pt;
+}
 
 /* ════════════════════════════════════════════════════════
-   Concepto
+   Concepto — ficha de referencia numerada
    ════════════════════════════════════════════════════════ */
 
 .jintia-concept {
-  background: var(--jintia-concept-bg);
-  border-left-color: var(--jintia-concept-border);
-  border-left-width: 4px;
+  padding: var(--jintia-space-md) var(--jintia-space-md) var(--jintia-space-md) 30mm;
+  border: 1px solid var(--jintia-concept-border);
+  border-radius: var(--jintia-radius);
+  counter-increment: jintia-concept;
+  break-inside: avoid;
 }
 
-.jintia-concept .jintia-block__label { color: var(--jintia-concept-border); }
+.jintia-concept::before {
+  content: counter(jintia-concept, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 24mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--jintia-font-heading);
+  font-size: 22pt;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  color: var(--jintia-brand);
+  background: var(--jintia-concept-bg);
+  border-right: 1px solid var(--jintia-concept-border);
+}
+
+.jintia-concept .jintia-block__label {
+  color: var(--jintia-muted);
+}
 
 /* ════════════════════════════════════════════════════════
-   Práctica
+   Práctica — hoja de trabajo, no tarjeta verde
    ════════════════════════════════════════════════════════ */
 
 .jintia-practice {
-  background: var(--jintia-practice-bg);
-  border-left-color: var(--jintia-practice-border);
+  padding-top: var(--jintia-space-md);
+  border-top: 3px solid var(--jintia-practice-border);
+  margin-top: var(--jintia-space-sm);
 }
 
 .jintia-practice .jintia-block__label {
   color: var(--jintia-practice-border);
 }
 
-.jintia-practice .jintia-block__label::before {
-  content: "✎";
+.jintia-practice .jintia-block__title {
+  font-size: 15pt;
+}
+
+.jintia-practice .jintia-block__content p {
+  white-space: pre-line;
 }
 
 /* ════════════════════════════════════════════════════════
-   Advertencia
+   Advertencia — excepción semántica: conserva color fuerte
    ════════════════════════════════════════════════════════ */
 
 .jintia-warning {
   background: var(--jintia-warning-bg);
-  border-left-color: var(--jintia-warning-border);
+  border: 1px solid var(--jintia-warning-border);
+  border-left-width: 4px;
+  border-radius: var(--jintia-radius);
+  padding: var(--jintia-space-md);
 }
 
 .jintia-warning .jintia-block__label {
   color: var(--jintia-warning-border);
 }
 
-.jintia-warning .jintia-block__label::before {
-  content: "⚠";
-}
-
 /* ════════════════════════════════════════════════════════
-   Error crítico
+   Error crítico — excepción semántica: rojo exclusivo de esta
+   categoría
    ════════════════════════════════════════════════════════ */
 
 .jintia-critical-error {
   background: var(--jintia-error-bg);
-  border-left-color: var(--jintia-error-border);
+  border: 1px solid var(--jintia-danger);
   border-left-width: 5px;
+  border-radius: var(--jintia-radius);
+  padding: var(--jintia-space-md);
 }
 
 .jintia-critical-error .jintia-block__label {
-  color: var(--jintia-error-border);
-}
-
-.jintia-critical-error .jintia-block__label::before {
-  content: "✗";
+  color: var(--jintia-danger);
 }
 
 /* ════════════════════════════════════════════════════════
-   Escenario
+   Escenario — caso de estudio, no card morada
    ════════════════════════════════════════════════════════ */
 
 .jintia-scenario {
   background: var(--jintia-scenario-bg);
-  border-left-color: var(--jintia-scenario-border);
+  border: 1px solid var(--jintia-line);
+  border-left: 2px solid var(--jintia-scenario-border);
+  border-radius: var(--jintia-radius);
+  padding: var(--jintia-space-md);
 }
 
-.jintia-scenario .jintia-block__label { color: var(--jintia-scenario-border); }
+.jintia-scenario .jintia-block__label {
+  color: var(--jintia-scenario-border);
+}
 
 /* ════════════════════════════════════════════════════════
-   Evaluación / Assessment
+   Evaluación / Assessment — superficie propia, sin ser alerta
    ════════════════════════════════════════════════════════ */
 
 .jintia-assessment {
   background: var(--jintia-assessment-bg);
-  border-left-color: var(--jintia-assessment-border);
+  border: 1px solid var(--jintia-assessment-border);
+  border-radius: var(--jintia-radius);
+  padding: var(--jintia-space-md);
 }
 
 .jintia-assessment .jintia-block__label {
-  color: var(--jintia-assessment-border);
+  color: var(--jintia-assessment-accent);
+}
+
+.jintia-assessment__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  counter-reset: assessment-item;
 }
 
 .jintia-assessment__item {
-  margin-bottom: var(--jintia-space-sm);
-  padding: var(--jintia-space-sm);
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: var(--jintia-radius-sm);
   counter-increment: assessment-item;
+  display: grid;
+  grid-template-columns: 20pt 1fr;
+  gap: var(--jintia-space-sm);
+  padding: var(--jintia-space-sm) 0;
+  border-top: 1px solid rgba(154, 100, 23, 0.18);
+  margin-bottom: 0;
+}
+
+.jintia-assessment__item:first-child {
+  border-top: none;
+  padding-top: 0;
 }
 
 .jintia-assessment__item::before {
-  content: counter(assessment-item) ". ";
+  content: counter(assessment-item);
+  width: 18pt;
+  height: 18pt;
+  border: 1px solid var(--jintia-assessment-accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5pt;
   font-weight: var(--jintia-weight-bold);
+  color: var(--jintia-assessment-accent);
+}
+
+/* ════════════════════════════════════════════════════════
+   Nota marginal
+   ════════════════════════════════════════════════════════ */
+
+.jintia-margin-note {
+  font-size: var(--jintia-size-small);
+  color: var(--jintia-muted);
+  border-left: 2px solid var(--jintia-line);
+  padding-left: var(--jintia-space-sm);
+  margin: var(--jintia-space-sm) 0;
 }
 
 /* ════════════════════════════════════════════════════════
@@ -294,7 +563,7 @@ li { margin-bottom: 3pt; }
    ════════════════════════════════════════════════════════ */
 
 .jintia-figure {
-  margin: var(--jintia-space-md) 0;
+  margin: var(--jintia-space-lg) 0;
   text-align: center;
 }
 
@@ -303,46 +572,48 @@ li { margin-bottom: 3pt; }
   height: auto;
   display: block;
   margin: 0 auto;
+  background: var(--jintia-paper);
 }
 
 .jintia-figure figcaption,
 .jintia-caption {
   font-size: var(--jintia-size-caption);
-  color: var(--jintia-caption-color);
+  color: var(--jintia-muted);
   text-align: left;
   margin-top: var(--jintia-space-xs);
-  font-style: italic;
+  font-style: normal;
+  line-height: 1.4;
 }
 
 .jintia-figure figcaption::before {
   content: "Figura " counter(jintia-figure) ". ";
   counter-increment: jintia-figure;
   font-weight: var(--jintia-weight-bold);
-  font-style: normal;
-  color: var(--jintia-text);
+  color: var(--jintia-ink);
 }
 
 /* ════════════════════════════════════════════════════════
-   Tabla
+   Tabla — tratamiento de publicación académica
    ════════════════════════════════════════════════════════ */
 
 .jintia-table {
-  margin: var(--jintia-space-md) 0;
+  margin: var(--jintia-space-lg) 0;
   overflow-x: auto;
 }
 
 .jintia-table table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 10pt;
+  font-size: 9.5pt;
+  background: var(--jintia-paper);
 }
 
 .jintia-table caption {
   font-size: var(--jintia-size-caption);
-  color: var(--jintia-caption-color);
+  color: var(--jintia-muted);
   text-align: left;
   margin-bottom: var(--jintia-space-xs);
-  font-style: italic;
+  font-style: normal;
   caption-side: top;
 }
 
@@ -350,39 +621,23 @@ li { margin-bottom: 3pt; }
   content: "Tabla " counter(jintia-table) ". ";
   counter-increment: jintia-table;
   font-weight: var(--jintia-weight-bold);
-  font-style: normal;
-  color: var(--jintia-text);
+  color: var(--jintia-ink);
 }
 
 .jintia-table th {
-  background: var(--jintia-brand);
-  color: #ffffff;
+  background: transparent;
+  color: var(--jintia-ink);
   font-weight: var(--jintia-weight-bold);
-  padding: 5pt 8pt;
+  padding: 6pt 8pt;
   text-align: left;
-  font-size: 9.5pt;
+  font-size: 9pt;
+  border-bottom: 2px solid var(--jintia-brand);
 }
 
 .jintia-table td {
-  padding: 4pt 8pt;
-  border-bottom: 1px solid var(--jintia-border);
+  padding: 5pt 8pt;
+  border-bottom: 1px solid var(--jintia-line);
   vertical-align: top;
-}
-
-.jintia-table tr:nth-child(even) td {
-  background: var(--jintia-surface);
-}
-
-/* ════════════════════════════════════════════════════════
-   Nota marginal (modo impresión: flotante; modo web: aside)
-   ════════════════════════════════════════════════════════ */
-
-.jintia-margin-note {
-  font-size: var(--jintia-size-small);
-  color: var(--jintia-muted);
-  border-left: 2px solid var(--jintia-border);
-  padding-left: var(--jintia-space-sm);
-  margin: var(--jintia-space-sm) 0;
 }
 
 /* ════════════════════════════════════════════════════════
@@ -390,14 +645,15 @@ li { margin-bottom: 3pt; }
    ════════════════════════════════════════════════════════ */
 
 .jintia-bibliography {
-  margin-top: var(--jintia-space-lg);
+  margin-top: var(--jintia-space-xl);
   padding-top: var(--jintia-space-md);
-  border-top: 2px solid var(--jintia-border);
+  border-top: 1px solid var(--jintia-ink);
 }
 
 .jintia-bibliography h2 {
   font-size: var(--jintia-size-h3);
   border-bottom: none;
+  padding-bottom: 0;
 }
 
 .jintia-bibliography__list {
@@ -407,16 +663,26 @@ li { margin-bottom: 3pt; }
 }
 
 .jintia-bibliography__item {
-  font-size: 9.5pt;
+  font-size: 9pt;
   padding: var(--jintia-space-xs) 0;
   padding-left: 2em;
   text-indent: -2em;
-  line-height: 1.5;
-  color: var(--jintia-text);
+  line-height: 1.45;
+  color: var(--jintia-ink);
 }
 
-/* Cita inline */
+/* ════════════════════════════════════════════════════════
+   Keyterms y citas inline
+   ════════════════════════════════════════════════════════ */
+
+.jintia-keyterm {
+  font-weight: 600;
+  color: var(--jintia-ink);
+  border-bottom: 1px solid rgba(15, 118, 110, 0.35);
+}
+
 .jintia-citation {
+  font-style: normal;
   color: var(--jintia-brand);
 }
 
@@ -436,7 +702,56 @@ li { margin-bottom: 3pt; }
   border-width: 0;
 }
 
-/* Contadores globales del documento */
-body {
-  counter-reset: jintia-figure jintia-table assessment-item;
+/* ════════════════════════════════════════════════════════
+   Responsive web preview
+   ════════════════════════════════════════════════════════ */
+
+@media screen and (max-width: 700px) {
+  .jintia-cover,
+  .jintia-content {
+    width: calc(100vw - 20px);
+  }
+
+  .jintia-cover {
+    padding: 24px 20px;
+  }
+
+  .jintia-content {
+    padding: 24px 20px;
+  }
+
+  .jintia-cover__week-number {
+    font-size: 44pt;
+  }
+
+  .jintia-cover__title {
+    font-size: 22pt;
+    max-width: 100%;
+  }
+
+  .jintia-cover__outcome {
+    grid-template-columns: 1fr;
+    gap: var(--jintia-space-xs);
+  }
+
+  .jintia-theory,
+  .jintia-concept {
+    padding-left: 0;
+  }
+
+  .jintia-theory > .jintia-block__label {
+    position: static;
+    width: auto;
+    margin-bottom: 6px;
+  }
+
+  .jintia-concept::before {
+    position: static;
+    width: auto;
+    display: inline-flex;
+    padding: 2px 10px;
+    border-right: none;
+    border-bottom: 1px solid var(--jintia-concept-border);
+    margin-bottom: 8px;
+  }
 }

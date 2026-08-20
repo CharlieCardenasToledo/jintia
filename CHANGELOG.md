@@ -5,6 +5,19 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.7.0 — 2026-08-20
+
+### Añadido
+
+- Rediseño editorial del tema `jintia-clasico` ("más editorial, menos tarjeta"): portada con masthead, número de semana como elemento tipográfico, resultado de aprendizaje en dos columnas y footer docente/período/formato; bloques pedagógicos diferenciados por composición (regla, gutter, numeración) en vez de fondos de color por tipo; encabezado corrido de dos columnas y pie curso/código/página en `print.css`.
+- `renderCover()` expone de forma retrocompatible los campos `unit`, `hours` y `code` de `guide.json` en la portada; ninguno es obligatorio.
+
+### Corregido
+
+- Corregida la regla de fragmentación `[data-pagination="splittable"]` en `print.css`, que la regla global `.jintia-block { break-inside: avoid }` neutralizaba antes de tiempo.
+- `jintia-tecnico`: aislado `--jintia-paper` de `--jintia-surface-raised` para que el tinte azul de sus tarjetas no se filtre a portada y contenido.
+- `jintia-cuaderno`: el encabezado corrido A5 propio ya no se duplica con las nuevas cajas de esquina de `jintia-clasico`.
+
 ## `jintia-skill` 11.6.19 — 2026-08-20
 
 ### Corregido

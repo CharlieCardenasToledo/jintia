@@ -13,11 +13,21 @@
   /* margen izquierdo más amplio para encuadernado */
   margin: 15mm 14mm 18mm 18mm;
 
+  /* Cuaderno conserva su encabezado corrido de una sola columna centrada
+     (más adecuado al ancho A5); se anulan las cajas de esquina de dos
+     columnas que jintia-clasico añade para A4. */
+  @top-left  { content: none; border-bottom: none; }
+  @top-right { content: none; border-bottom: none; }
+
   @top-center {
     content: string(section-title);
     font-size: 8pt;
     color: #9ca3af;
+    border-bottom: none;
   }
+
+  @bottom-left  { content: none; }
+  @bottom-right { content: none; }
 
   @bottom-center {
     content: counter(page);

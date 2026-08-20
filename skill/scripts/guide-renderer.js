@@ -151,16 +151,45 @@ function copyThemeAssets(themeId, outputHtmlPath) {
 // ─── Renders por tipo de nodo ────────────────────────────────────────────────
 
 function renderCover(metadata) {
-  const week    = metadata.week    ? `Semana ${metadata.week}` : "";
-  const authors = (metadata.authors || []).map(escapeHtml).join(" · ");
+  const week       = metadata.week ? `Semana ${metadata.week}` : "";
+  const weekNumber = metadata.week ? String(metadata.week).padStart(2, "0") : "";
+  const authors    = (metadata.authors || []).map(escapeHtml).join(" · ");
+  const hours      = Number.isFinite(metadata.hours)
+    ? `${metadata.hours} ${metadata.hours === 1 ? "hora" : "horas"}`
+    : "";
+
+  const footerParts = [
+    authors ? `<p class="jintia-cover__authors">${authors}</p>` : "",
+    metadata.period ? `<p class="jintia-cover__period">${escapeHtml(metadata.period)}</p>` : "",
+    `<p class="jintia-cover__format">Jintia Clásico</p>`,
+  ].filter(Boolean).join("\n  ");
+
   return `
 <header class="jintia-cover" data-pagination="page-contained" role="banner">
-  <p class="jintia-cover__course">${escapeHtml(metadata.course || "")}</p>
-  ${week ? `<p class="jintia-cover__week">${escapeHtml(week)}</p>` : ""}
-  <h1 class="jintia-cover__title">${escapeHtml(metadata.topic || "")}</h1>
-  ${metadata.outcome ? `<p class="jintia-cover__outcome">${escapeHtml(metadata.outcome)}</p>` : ""}
-  ${authors ? `<p class="jintia-cover__authors">${authors}</p>` : ""}
-  ${metadata.period ? `<p class="jintia-cover__period">${escapeHtml(metadata.period)}</p>` : ""}
+  <div class="jintia-cover__masthead">
+    <span class="jintia-cover__brand" aria-hidden="true">jintia</span>
+    <span>
+      ${metadata.code ? `<span class="jintia-cover__code">${escapeHtml(metadata.code)}</span>` : ""}
+      <span class="jintia-cover__masthead-label">Guía semanal</span>
+    </span>
+  </div>
+  <div class="jintia-cover__main">
+    ${metadata.unit ? `<p class="jintia-cover__unit">${escapeHtml(metadata.unit)}</p>` : ""}
+    ${weekNumber ? `<p class="jintia-cover__week-number" aria-hidden="true">${escapeHtml(weekNumber)}</p>` : ""}
+    <h1 class="jintia-cover__title">${escapeHtml(metadata.topic || "")}</h1>
+    <p class="jintia-cover__course">${escapeHtml(metadata.course || "")}</p>
+    ${week ? `<p class="jintia-cover__week">${escapeHtml(week)}</p>` : ""}
+    ${hours ? `<p class="jintia-cover__hours">${escapeHtml(hours)} de trabajo académico</p>` : ""}
+    ${metadata.outcome
+      ? `<div class="jintia-cover__outcome">
+      <span class="jintia-cover__outcome-label">Resultado de aprendizaje</span>
+      <p>${escapeHtml(metadata.outcome)}</p>
+    </div>`
+      : ""}
+  </div>
+  <div class="jintia-cover__footer">
+  ${footerParts}
+  </div>
 </header>`;
 }
 

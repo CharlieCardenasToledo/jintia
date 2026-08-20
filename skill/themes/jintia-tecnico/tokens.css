@@ -29,6 +29,12 @@
   --jintia-surface:      #f0f4ff;
   --jintia-surface-raised: #e8f0fe;
 
+  /* La hoja/documento ("papel") debe permanecer blanca — jintia-clasico
+     define --jintia-paper como alias de --jintia-surface-raised, pero
+     Técnico usa ese último token para tarjetas internas con tinte azul,
+     no para el fondo de portada/contenido. Se desacopla aquí. */
+  --jintia-paper: #ffffff;
+
   /* Bloques pedagógicos — paleta técnica */
 
   /* Orientación: azul suave */

@@ -1,67 +1,85 @@
 /**
  * Jintia Clásico — Design Tokens
  * Variables CSS para el sistema editorial HTML de Jintia.
- * Derivado del sistema de diseño documentado en DESIGN.md.
+ * Dirección visual: editorial académica — "más editorial, menos tarjeta".
  *
  * Uso: importado por theme.css; no usar directamente en templates HTML.
+ * Los nombres públicos se mantienen para no romper jintia-tecnico y
+ * jintia-cuaderno, que heredan este archivo con @import y sobreescriben
+ * variables puntuales.
  */
 
 :root {
   /* ─── Marca ─────────────────────────────────────────────────── */
   --jintia-brand:          #0f766e;
-  --jintia-brand-hover:    #115e59;
-  --jintia-brand-light:    #ccfbf1;
+  --jintia-brand-hover:    #0b5f59;
+  --jintia-brand-light:    #edf3f1;
 
-  /* ─── Superficies y texto ───────────────────────────────────── */
-  --jintia-bg:             #eef2f4;
-  --jintia-surface:        #f8fafc;
-  --jintia-surface-raised: #ffffff;
-  --jintia-text:           #111827;
-  --jintia-muted:          #6b7280;
-  --jintia-border:         #e2e8f0;
+  /* ─── Documento / superficies ───────────────────────────────── */
+  --jintia-bg:             #e9ece9; /* canvas exterior (solo pantalla) */
+  --jintia-surface:        #f3f7f5;
+  --jintia-surface-raised: #fffefa;
+  --jintia-text:           #182322;
+  --jintia-muted:          #66716e;
+  --jintia-border:         #d8ddda;
+
+  /* Alias editoriales explícitos (misma paleta, nombres del contrato visual) */
+  --jintia-paper:          var(--jintia-surface-raised);
+  --jintia-ink:            var(--jintia-text);
+  --jintia-line:           var(--jintia-border);
+  --jintia-soft:           var(--jintia-surface);
 
   /* ─── Bloques pedagógicos ────────────────────────────────────── */
-  --jintia-orientation-bg:     #e8f4f1;
-  --jintia-orientation-border: #0f766e;
-  --jintia-orientation-icon:   "→";
+  /* Orientación: superficie suave de entrada + rail teal */
+  --jintia-orientation-bg:     var(--jintia-soft);
+  --jintia-orientation-border: var(--jintia-brand);
 
-  --jintia-theory-bg:          #f0f9ff;
-  --jintia-theory-border:      #0369a1;
+  /* Teoría: sin fondo; solo regla y color de acento (gris azulado) */
+  --jintia-theory-bg:          transparent;
+  --jintia-theory-border:      #315d73;
 
-  --jintia-concept-bg:         #f0f4ff;
-  --jintia-concept-border:     #4338ca;
+  /* Concepto: ficha de referencia numerada; gutter con tinte de marca */
+  --jintia-concept-bg:         var(--jintia-brand-light);
+  --jintia-concept-border:     var(--jintia-line);
 
-  --jintia-practice-bg:        #e8f7f0;
-  --jintia-practice-border:    #059669;
-  --jintia-practice-icon:      "✎";
+  /* Práctica: hoja de trabajo; regla superior en color de marca */
+  --jintia-practice-bg:        transparent;
+  --jintia-practice-border:    var(--jintia-brand);
 
-  --jintia-warning-bg:         #fdf5e6;
-  --jintia-warning-border:     #d97706;
-  --jintia-warning-icon:       "⚠";
+  /* Advertencia: única categoría (con error) que conserva color fuerte */
+  --jintia-warning-bg:         #fdf6e8;
+  --jintia-warning-border:     #b4750f;
 
-  --jintia-error-bg:           #fdf0f0;
-  --jintia-error-border:       #dc2626;
-  --jintia-error-icon:         "✗";
+  /* Error crítico: rojo editorial, exclusivo de esta categoría */
+  --jintia-error-bg:           #fbeceb;
+  --jintia-error-border:       #9b3a34;
 
-  --jintia-scenario-bg:        #faf5ff;
-  --jintia-scenario-border:    #7c3aed;
+  /* Escenario: caso de estudio; acento discreto teal/muted */
+  --jintia-scenario-bg:        var(--jintia-surface-raised);
+  --jintia-scenario-border:    var(--jintia-muted);
 
-  --jintia-assessment-bg:      #fff7ed;
-  --jintia-assessment-border:  #ea580c;
+  /* Evaluación: superficie propia, ámbar de atención */
+  --jintia-assessment-bg:      #fbf8f1;
+  --jintia-assessment-border:  #9a6417;
+
+  /* Alias de acento con nombre editorial explícito (mismo valor con cascada) */
+  --jintia-theory-accent:      var(--jintia-theory-border);
+  --jintia-assessment-accent:  var(--jintia-assessment-border);
+  --jintia-danger:             var(--jintia-error-border);
 
   /* ─── Tipografía ─────────────────────────────────────────────── */
-  --jintia-font-body:    "Inter", "Segoe UI", system-ui, sans-serif;
-  --jintia-font-heading: "Inter", "Segoe UI", system-ui, sans-serif;
-  --jintia-font-mono:    "Cascadia Code", "Consolas", "Courier New", monospace;
+  --jintia-font-body:    "Inter", "Segoe UI", Arial, system-ui, sans-serif;
+  --jintia-font-heading: Georgia, "Times New Roman", Times, serif;
+  --jintia-font-mono:    "Cascadia Code", Consolas, "Courier New", monospace;
 
-  --jintia-size-body:    11pt;
-  --jintia-size-h1:      18pt;
-  --jintia-size-h2:      14pt;
-  --jintia-size-h3:      12pt;
+  --jintia-size-body:    10.5pt;
+  --jintia-size-h1:      28pt;
+  --jintia-size-h2:      18pt;
+  --jintia-size-h3:      13.5pt;
   --jintia-size-h4:      11pt;
-  --jintia-size-small:   9pt;
-  --jintia-size-caption: 9.5pt;
-  --jintia-line-height:  1.55;
+  --jintia-size-small:   8.5pt;
+  --jintia-size-caption: 9pt;
+  --jintia-line-height:  1.52;
 
   --jintia-weight-normal: 400;
   --jintia-weight-medium: 500;
@@ -69,14 +87,14 @@
 
   /* ─── Espaciado ──────────────────────────────────────────────── */
   --jintia-space-xs:  4pt;
-  --jintia-space-sm:  8pt;
-  --jintia-space-md:  14pt;
+  --jintia-space-sm:  7pt;
+  --jintia-space-md:  13pt;
   --jintia-space-lg:  20pt;
-  --jintia-space-xl:  28pt;
+  --jintia-space-xl:  30pt;
 
   /* ─── Bordes ─────────────────────────────────────────────────── */
-  --jintia-radius:     6px;
-  --jintia-radius-sm:  4px;
+  --jintia-radius:       2px;
+  --jintia-radius-sm:    2px;
   --jintia-border-width: 3px;
 
   /* ─── Figura y tabla ─────────────────────────────────────────── */
@@ -85,29 +103,29 @@
 
   /* ─── Encabezados corridos (via Vivliostyle string-set) ─────── */
   --jintia-running-head-color: var(--jintia-muted);
-  --jintia-running-head-size:  9pt;
+  --jintia-running-head-size:  8.5pt;
 }
 
-/* Tema oscuro (solo para vista previa web; no afecta impresión) */
-@media (prefers-color-scheme: dark) {
+/*
+ * Jintia Clásico es "paper-first": la hoja/documento representa el PDF y
+ * debe permanecer clara siempre. En modo oscuro del sistema solo se oscurece
+ * el canvas exterior (detrás de la hoja); el papel, la tinta y los acentos
+ * pedagógicos NO se invierten.
+ */
+@media screen and (prefers-color-scheme: dark) {
   :root {
-    --jintia-bg:             #0f172a;
-    --jintia-surface:        #1e293b;
-    --jintia-surface-raised: #334155;
-    --jintia-text:           #f1f5f9;
-    --jintia-muted:          #94a3b8;
-    --jintia-border:         #334155;
+    --jintia-bg: #1b1f1e;
   }
 }
 
-/* Impresión: siempre tema claro */
+/* Impresión: siempre tema claro, sin depender de preferencias del sistema */
 @media print {
   :root {
     --jintia-bg:             #ffffff;
-    --jintia-surface:        #f8fafc;
+    --jintia-surface:        var(--jintia-soft);
     --jintia-surface-raised: #ffffff;
-    --jintia-text:           #111827;
-    --jintia-muted:          #4b5563;
-    --jintia-border:         #d1d5db;
+    --jintia-text:           #182322;
+    --jintia-muted:          #66716e;
+    --jintia-border:         #d8ddda;
   }
 }

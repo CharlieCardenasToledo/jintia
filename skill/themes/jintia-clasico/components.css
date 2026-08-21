@@ -38,7 +38,8 @@ body {
   }
 
   .jintia-cover,
-  .jintia-content {
+  .jintia-content,
+  .jintia-colophon {
     width: min(210mm, calc(100vw - 32px));
     margin-left: auto;
     margin-right: auto;
@@ -53,6 +54,12 @@ body {
 
   .jintia-content {
     padding: 18mm;
+    box-shadow: 0 18px 48px rgba(33, 45, 42, 0.08);
+  }
+
+  .jintia-colophon {
+    min-height: 297mm;
+    margin-top: 24px;
     box-shadow: 0 18px 48px rgba(33, 45, 42, 0.08);
   }
 }
@@ -144,10 +151,18 @@ li { margin-bottom: 3pt; }
 }
 
 .jintia-cover__brand {
-  font-weight: var(--jintia-weight-bold);
+  display: block;
+  height: 24pt;
+  line-height: 24pt;
   font-size: 11pt;
-  letter-spacing: 0.02em;
+  font-weight: var(--jintia-weight-bold);
   color: var(--jintia-brand);
+}
+
+.jintia-cover__brand svg {
+  display: block;
+  height: 100%;
+  width: auto;
 }
 
 .jintia-cover__code,
@@ -672,6 +687,57 @@ li { margin-bottom: 3pt; }
 }
 
 /* ════════════════════════════════════════════════════════
+   Colofón — hoja final con el logotipo de Jintia
+   ════════════════════════════════════════════════════════ */
+
+.jintia-colophon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--jintia-space-sm);
+  padding: 18mm;
+  text-align: center;
+  color: var(--jintia-muted);
+}
+
+.jintia-colophon__mark {
+  width: 55mm;
+  max-width: 60%;
+  margin-bottom: var(--jintia-space-md);
+}
+
+.jintia-colophon__mark svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.jintia-colophon__note {
+  font-family: var(--jintia-font-heading);
+  font-size: 13pt;
+  font-style: italic;
+  color: var(--jintia-ink);
+  line-height: 1.5;
+  max-width: 100mm;
+  margin: 0;
+}
+
+.jintia-colophon__identity,
+.jintia-colophon__date {
+  font-family: var(--jintia-font-body);
+  font-size: 8pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--jintia-muted);
+  margin: 0;
+}
+
+.jintia-colophon__date {
+  margin-top: var(--jintia-space-md);
+}
+
+/* ════════════════════════════════════════════════════════
    Keyterms y citas inline
    ════════════════════════════════════════════════════════ */
 
@@ -708,7 +774,8 @@ li { margin-bottom: 3pt; }
 
 @media screen and (max-width: 700px) {
   .jintia-cover,
-  .jintia-content {
+  .jintia-content,
+  .jintia-colophon {
     width: calc(100vw - 20px);
   }
 
@@ -716,7 +783,8 @@ li { margin-bottom: 3pt; }
     padding: 24px 20px;
   }
 
-  .jintia-content {
+  .jintia-content,
+  .jintia-colophon {
     padding: 24px 20px;
   }
 

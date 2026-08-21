@@ -28,6 +28,7 @@ const { collectCitationKeys } = require("./citation-keys");
 
 const ROOT       = path.resolve(__dirname, "..");
 const THEMES_DIR = path.join(ROOT, "themes");
+const BRAND_LOGO_PATH = path.join(ROOT, "assets", "brand", "jintia-logo.svg");
 
 // ─── Utilidades ──────────────────────────────────────────────────────────────
 
@@ -167,7 +168,7 @@ function renderCover(metadata) {
   return `
 <header class="jintia-cover" data-pagination="page-contained" role="banner">
   <div class="jintia-cover__masthead">
-    <span class="jintia-cover__brand" aria-hidden="true">jintia</span>
+    <span class="jintia-cover__brand" aria-hidden="true">${brandLogoSvg() || "jintia"}</span>
     <span>
       ${metadata.code ? `<span class="jintia-cover__code">${escapeHtml(metadata.code)}</span>` : ""}
       <span class="jintia-cover__masthead-label">Guía semanal</span>
@@ -341,6 +342,46 @@ const RENDERERS = {
   citation:         renderCitation,
 };
 
+/**
+ * Carga el logotipo oficial de Jintia (SVG vectorial) para incrustarlo en la
+ * hoja de colofón. Se hace inline (no como <img src>) para no depender de
+ * ninguna copia de assets ni de resolución de rutas relativas en el HTML de
+ * salida. Se retiran los atributos width/height del archivo fuente para que
+ * el tamaño lo controle exclusivamente el CSS del tema (mantiene viewBox).
+ */
+let _brandLogoSvg = null;
+function brandLogoSvg() {
+  if (_brandLogoSvg === null) {
+    try {
+      _brandLogoSvg = fs
+        .readFileSync(BRAND_LOGO_PATH, "utf8")
+        .replace(/\s(width|height)="[^"]*"/g, "");
+    } catch {
+      _brandLogoSvg = "";
+    }
+  }
+  return _brandLogoSvg;
+}
+
+/**
+ * Colofón: última hoja de toda guía generada por Jintia, con el logotipo
+ * oficial y una nota breve de procedencia. No forma parte del contenido
+ * pedagógico (no se cuenta como sección en guide.json); se añade siempre
+ * al final del documento, sea cual sea el tema activo.
+ */
+function renderColophon(metadata) {
+  const logo        = brandLogoSvg();
+  const generatedOn = new Date().toISOString().slice(0, 10);
+  const identity    = [metadata.course, metadata.code].filter(Boolean).join(" · ");
+  return `
+<footer class="jintia-colophon" data-pagination="page-contained" role="contentinfo">
+  ${logo ? `<div class="jintia-colophon__mark">${logo}</div>` : ""}
+  <p class="jintia-colophon__note">Guías de clase claras y bien diseñadas, semana a semana.</p>
+  ${identity ? `<p class="jintia-colophon__identity">${escapeHtml(identity)}</p>` : ""}
+  <p class="jintia-colophon__date">${escapeHtml(generatedOn)}</p>
+</footer>`;
+}
+
 function renderSection(node, bib = null, usedKeys = [], style = "apa") {
   const renderer = RENDERERS[node.type];
   if (!renderer) {
@@ -360,7 +401,8 @@ function buildHtml(guide, cssHref, bib) {
   const title = metadata.topic         || "Guía Semanal";
   const style = metadata.citationStyle || "apa";
 
-  const coverHtml = renderCover(metadata);
+  const coverHtml    = renderCover(metadata);
+  const colophonHtml = renderColophon(metadata);
 
   // Pre-recolectar claves citadas recursivamente (nodos citation, content inline y assessment.items)
   const usedKeys = bib ? collectCitationKeys(guide) : [];
@@ -384,6 +426,8 @@ ${coverHtml}
 <main class="jintia-content" role="main">
 ${sectionsHtml}
 </main>
+
+${colophonHtml}
 
 </body>
 </html>`;
@@ -478,6 +522,7 @@ if (require.main === module) {
 module.exports = {
   renderGuide,
   renderSection,
+  renderColophon,
   htmlFigure,
   escapeHtml,
   textToHtml,

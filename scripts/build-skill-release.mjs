@@ -10,7 +10,7 @@ const root = resolve(import.meta.dirname, "..");
 const skillRoot = join(root, "skill");
 const pluginRoot = join(root, "openai-plugin");
 const fixedMtime = new Date("1980-01-01T00:00:00.000Z");
-const skillDirectories = ["references", "scripts", "runtime", "themes", "config", "agents", "commands", "bin", "rules", "schemas"];
+const skillDirectories = ["references", "scripts", "runtime", "themes", "config", "agents", "commands", "bin", "rules", "schemas", "assets"];
 const skillFiles = ["SKILL.md", "requirements.txt", "package.json"];
 const privateConfigNames = new Set(["config/institution.json", "config/notebooks.json"]);
 

@@ -5,6 +5,13 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 11.8.0 — 2026-08-21
+
+### Añadido
+
+- Colofón final en toda guía generada (independiente del tema activo): logotipo oficial de Jintia incrustado como SVG inline, frase breve de identidad y curso/código/fecha de generación. Nuevo `skill/assets/brand/jintia-logo.svg` (empaquetado en el release y en el paquete npm).
+- La portada (`renderCover`) ya no muestra "jintia" como texto: usa el logotipo vectorial real (isotipo + wordmark + eslogan) incrustado inline, con fallback a texto si el asset no está disponible.
+
 ## `jintia-skill` 11.7.1 — 2026-08-20
 
 ### Corregido

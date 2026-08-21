@@ -215,7 +215,63 @@ ${renderContent(node.content, bib, style)}
 function renderOrientation(node, bib, style)   { return renderBlock(node, "jintia-orientation",   "Orientación", bib, style); }
 function renderTheory(node, bib, style)         { return renderBlock(node, "jintia-theory",         "Teoría",       bib, style); }
 function renderConcept(node, bib, style)        { return renderBlock(node, "jintia-concept",        "Concepto",     bib, style); }
-function renderPractice(node, bib, style)       { return renderBlock(node, "jintia-practice",       "Práctica guiada", bib, style); }
+
+const PRACTICE_MODE_LABELS = {
+  guided:      "Práctica guiada",
+  retrieval:   "Recuperación",
+  independent: "Práctica autónoma",
+  transfer:    "Transferencia",
+};
+
+/**
+ * Practice: además del content libre, renderiza los campos estructurados
+ * opcionales de guide.schema.json (workedExample, prompt, steps, hints,
+ * successCriteria, selfCheck, feedback, remediation, transfer). La etiqueta
+ * del bloque depende de `mode`. Reutiliza las mismas clases y jerarquía de
+ * encabezado que el resto de bloques — no introduce CSS nueva.
+ */
+function renderPractice(node, bib, style) {
+  const mode       = node.mode || "guided";
+  const label      = PRACTICE_MODE_LABELS[mode] || PRACTICE_MODE_LABELS.guided;
+  const pagination = node.pagination || "atomic";
+  const idAttr     = node.id ? ` id="${escapeHtml(node.id)}"` : "";
+  const titleHtml  = node.title ? `<h2 class="jintia-block__title">${escapeHtml(node.title)}</h2>` : "";
+
+  const extraBlock = (className, heading, value, asList = false) => {
+    if (asList) {
+      if (!Array.isArray(value) || value.length === 0) return "";
+      const items = value.map(item => `<li>${processInlineMarkup(String(item), bib, style)}</li>`).join("\n");
+      return `<div class="${className}"><h3>${escapeHtml(heading)}</h3><ul>${items}</ul></div>`;
+    }
+    if (!value) return "";
+    return `<div class="${className}"><h3>${escapeHtml(heading)}</h3>${renderContent(value, bib, style)}</div>`;
+  };
+
+  const extraHtml = [
+    extraBlock("jintia-practice__worked-example", "Ejemplo trabajado", node.workedExample),
+    extraBlock("jintia-practice__prompt", "Ahora inténtalo tú", node.prompt),
+    extraBlock("jintia-practice__steps", "Pasos", node.steps, true),
+    extraBlock("jintia-practice__hints", "Pistas", node.hints, true),
+    extraBlock("jintia-practice__success-criteria", "Criterios de éxito", node.successCriteria, true),
+    extraBlock("jintia-practice__self-check", "Comprueba tu respuesta", node.selfCheck),
+    extraBlock("jintia-practice__feedback", "Retroalimentación", node.feedback),
+    extraBlock("jintia-practice__remediation", "¿No coincidió?", node.remediation),
+    extraBlock("jintia-practice__transfer", "Transferencia", node.transfer),
+  ].filter(Boolean).join("\n  ");
+
+  return `
+<aside class="jintia-block jintia-practice"
+       data-pagination="${escapeHtml(pagination)}"
+       role="note"${idAttr}>
+  <span class="jintia-block__label" aria-hidden="true">${escapeHtml(label)}</span>
+  ${titleHtml}
+  <div class="jintia-block__content">
+${renderContent(node.content, bib, style)}
+  </div>
+  ${extraHtml}
+</aside>`;
+}
+
 function renderWarning(node, bib, style)        { return renderBlock(node, "jintia-warning",        "Advertencia",  bib, style); }
 function renderCriticalError(node, bib, style)  { return renderBlock(node, "jintia-critical-error", "Error crítico", bib, style); }
 function renderScenario(node, bib, style)       { return renderBlock(node, "jintia-scenario",       "Escenario",    bib, style); }
@@ -267,17 +323,42 @@ function renderTable(node) {
 </div>`;
 }
 
-/** Assessment: lista numerada de preguntas/actividades. */
+/** Assessment: lista numerada de preguntas/actividades, más criterios/producto/checklist estructurados. */
 function renderAssessment(node, bib, style) {
   const pagination = node.pagination || "atomic";
   const idAttr     = node.id ? ` id="${escapeHtml(node.id)}"` : "";
+  const codeHtml   = node.code ? `<span class="jintia-assessment__code">${escapeHtml(node.code)}</span>` : "";
   const titleHtml  = node.title
-    ? `<h2 class="jintia-block__title">${escapeHtml(node.title)}</h2>`
-    : "";
+    ? `<h2 class="jintia-block__title">${codeHtml}${escapeHtml(node.title)}</h2>`
+    : codeHtml
+      ? `<h2 class="jintia-block__title">${codeHtml}</h2>`
+      : "";
   const items      = Array.isArray(node.items) ? node.items : [];
   const itemsHtml  = items.length
     ? `<ol class="jintia-assessment__list">${items.map(item => `<li class="jintia-assessment__item">${renderContent(item, bib, style)}</li>`).join("\n")}</ol>`
     : renderContent(node.content, bib, style);
+
+  const productHtml = node.product
+    ? `<div class="jintia-assessment__product"><h3>Producto esperado</h3>${renderContent(node.product, bib, style)}</div>`
+    : "";
+
+  const criteria    = Array.isArray(node.criteria) ? node.criteria : [];
+  const criteriaHtml = criteria.length
+    ? `<div class="jintia-assessment__criteria"><h3>Criterios</h3><ul>${criteria.map(c => {
+        const weight = typeof c.weight === "number" ? ` (${escapeHtml(String(c.weight))}%)` : "";
+        return `<li>${escapeHtml(c.description || "")}${weight}</li>`;
+      }).join("")}</ul></div>`
+    : "";
+
+  const scoreHtml = typeof node.score === "number"
+    ? `<p class="jintia-assessment__score">Ponderación: ${escapeHtml(String(node.score))}%</p>`
+    : "";
+
+  const checklist    = Array.isArray(node.checklist) ? node.checklist : [];
+  const checklistHtml = checklist.length
+    ? `<div class="jintia-assessment__checklist"><h3>Checklist de entrega</h3><ul>${checklist.map(c => `<li>${processInlineMarkup(String(c), bib, style)}</li>`).join("")}</ul></div>`
+    : "";
+
   return `
 <section class="jintia-block jintia-assessment" data-pagination="${escapeHtml(pagination)}"${idAttr}>
   <span class="jintia-block__label" aria-hidden="true">Actividad evaluativa</span>
@@ -285,6 +366,10 @@ function renderAssessment(node, bib, style) {
   <div class="jintia-block__content">
     ${itemsHtml}
   </div>
+  ${productHtml}
+  ${criteriaHtml}
+  ${scoreHtml}
+  ${checklistHtml}
 </section>`;
 }
 

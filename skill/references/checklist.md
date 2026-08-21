@@ -77,8 +77,24 @@ Referencia de `jintia-skill`. Ejecutar esta verificación completa antes de entr
 - [ ] Los colores usan el branding institucional configurado o una paleta justificada.
 - [ ] Los PNG fueron generados con `node screenshot.mjs` **antes** de compilar el HTML final.
 
+**Targets, práctica y evaluación estructurada (si `metadata.targets` está declarado)**
+- [ ] Cada target tiene al menos una sección de enseñanza, una práctica formativa y una evaluación (`JIN-ALN-010/011/013`).
+- [ ] Ningún nodo `assessment` evalúa un target sin sección de enseñanza previa (`JIN-ALN-014`).
+- [ ] Toda práctica con `mode: "guided"` (o sin `mode`) declara `workedExample` (`JIN-SELF-002`).
+- [ ] Toda práctica declara `successCriteria` y (`selfCheck` o `feedback`) (`JIN-SELF-003/004`).
+- [ ] Existe al menos una práctica `retrieval` y una `transfer`, y al menos una declara `remediation` y `selfCheck` (`JIN-SELF-005/006/008/009`).
+- [ ] El conjunto de nodos `assessment` cubre, entre todos, cada target declarado (`JIN-SELF-007`).
+- [ ] Todo nodo `assessment` declara `product` y `criteria` con targetIds válidos (`JIN-ASM-010/011/012`).
+- [ ] La carga horaria planificada (`estimatedMinutes`) cae entre 90-110% de `metadata.hours` (`JIN-WRK-001/002`).
+
+**`evidence.json` (si existe)**
+- [ ] Todo `claimId` referenciado desde `guide.json` existe en `evidence.json` (`JIN-EVD-005`).
+- [ ] Ninguna afirmación con `sourceMode: "ai-knowledge"` declara `bibliographyKey` (`JIN-EVD-007`).
+
 **Validación automática**
-- [ ] `jintia validate guide.json` terminó sin errores (JIN-SCH-* y JIN-CNT-*).
+- [ ] `jintia validate guide.json` terminó sin errores (JIN-SCH-*, JIN-CNT-*, JIN-BIB-*, y JIN-ALN-*/JIN-WRK-*/JIN-SELF-*/JIN-ASM-* cuando aplican).
 - [ ] `node "<skill-root>/scripts/html-linter.js" guide.html` terminó sin errores cuando la guía contiene figuras.
 - [ ] `jintia preflight guide.html` terminó sin errores críticos de paginación.
+- [ ] `jintia compile guide.json --publish` no reporta degradación bibliográfica (`JIN-BIB-002..005`) antes de compartir el PDF final.
+- [ ] Se aplicó la prueba "estudiante sin profesor" (`agents/jintia-selfstudy-reviewer.md`) y su decisión es `PASS`.
 - [ ] Las reglas editoriales, pedagógicas y de evidencia no cubiertas por los scripts se revisaron manualmente.

@@ -5,6 +5,20 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 12.1.0 — 2026-08-21
+
+### Añadido
+
+- **Targets del RA y matriz de alineación**: `metadata.targets` descompone el resultado de aprendizaje en desempeños observables (`{ id, verb, description }`); cada nodo de `sections` declara qué targets enseña/practica/evalúa vía `targetIds`. Opt-in: al declararlo, `jintia validate` exige por target enseñanza, práctica con feedback/autocorrección y evaluación (`JIN-ALN-010`…`JIN-ALN-014`, error) y advierte si la enseñanza no cita ninguna fuente (`JIN-ALN-015`, warning). Guías sin `metadata.targets` no se ven afectadas.
+- **Carga horaria real**: `estimatedMinutes` en cada nodo, comparado contra `metadata.hours` (`JIN-WRK-001` advertencia 70-89%/111-130%, `JIN-WRK-002` error fuera de ese rango).
+- **Nodo `practice` estructurado**: `mode` (`guided`/`retrieval`/`independent`/`transfer`, con etiqueta editorial propia), `workedExample`, `prompt`, `steps`, `hints`, `successCriteria`, `selfCheck`, `feedback`, `remediation`, `transfer`. Contrato de autoinstruccionalidad `JIN-SELF-001`…`JIN-SELF-009`: exige, entre otras cosas, ejemplo trabajado en práctica guiada, criterios de éxito, autocorrección, remediación, una práctica de recuperación y una de transferencia, y una comprobación final que cubra todos los targets. `guide-renderer.js` renderiza estos campos como bloques semánticos (Ejemplo trabajado / Ahora inténtalo tú / Pasos / Pistas / Criterios de éxito / Comprueba tu respuesta / Retroalimentación / ¿No coincidió? / Transferencia) reutilizando las clases existentes, sin rediseño visual.
+- **Nodo `assessment` estructurado**: `code`, `product`, `criteria` (`{ description, weight }`), `score`, `checklist`. `JIN-ASM-010`/`011`/`012` exigen criterios, producto observable y `targetIds` válidos; `JIN-ASM-013` advierte si la suma de `score` entre actividades supera 100.
+- **`evidence.json`** (opcional, `schemas/evidence.schema.json`): registro de procedencia por afirmación (`sourceMode`: `notebooklm`/`local`/`ai-knowledge`, `bibliographyKey`, `evidence`, `status`). `guide.json` referencia cada afirmación vía `claimIds`. `jintia validate` comprueba que todo `claimId` referenciado exista en `evidence.json` (`JIN-EVD-005`) y — la implementación automática de "nunca fabricar bibliografía en modo ai-knowledge" — que ninguna afirmación `ai-knowledge` declare `bibliographyKey` (`JIN-EVD-007`); `notebooklm`/`local` sin `bibliographyKey` advierte (`JIN-EVD-006`).
+- Nuevo agente `agents/jintia-selfstudy-reviewer.md`: ejecuta la prueba "estudiante sin profesor" (¿puede un estudiante sin docente alcanzar el RA, comprobarlo y recuperarse?) y emite `PASS`/`NEEDS_CHANGES`/`BLOCKED` por target.
+- Golden test de regresión (`tests/golden.test.js` + `tests/fixtures/golden-flawed-guide.json`): fija en un test automático el caso que motivó este release — una guía visualmente completa (con horas y bibliografía declaradas) que sin embargo evalúa un target no enseñado, tiene una práctica sin modelo ni autocorrección y una carga horaria real muy por debajo de la declarada.
+- `rules/catalog.json` sube a `2.2.0` con las familias `JIN-ALN-01x`, `JIN-WRK-*`, `JIN-SELF-*`, `JIN-ASM-01x` y `JIN-EVD-005`…`007`. Aclarada la nota de `JIN-ACC-002` (cubierta en la práctica por `JIN-CNT-002`, ya que `rules-runner.js` solo procesa `README.md`).
+- `skill/package-lock.json` regenerado tras mover Citation.js a `dependencies` en 12.0.0.
+
 ## `jintia-skill` 12.0.0 — 2026-08-21
 
 ### Añadido

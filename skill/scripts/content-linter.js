@@ -18,10 +18,11 @@
 const fs   = require("node:fs");
 const path = require("node:path");
 const { validate: validateSchema } = require("./schema-validator");
-const { collectCitationKeys } = require("./citation-keys");
+const { collectCitationKeys, collectFromContent } = require("./citation-keys");
 
-const ROOT        = path.resolve(__dirname, "..");
-const SCHEMA_PATH = path.join(ROOT, "schemas", "guide.schema.json");
+const ROOT             = path.resolve(__dirname, "..");
+const SCHEMA_PATH      = path.join(ROOT, "schemas", "guide.schema.json");
+const EVIDENCE_SCHEMA_PATH = path.join(ROOT, "schemas", "evidence.schema.json");
 
 // ─── Catálogo de reglas HTML/JSON ────────────────────────────────────────────
 
@@ -85,6 +86,102 @@ const RULES = {
   "JIN-BIB-001": {
     id: "JIN-BIB-001", category: "bibliography", severity: "error",
     description: "metadata.citationStyle debe ser 'apa'; Jintia no admite otro estilo bibliográfico en esta versión.",
+  },
+  "JIN-ALN-010": {
+    id: "JIN-ALN-010", category: "alignment", severity: "error",
+    description: "Un target de metadata.targets no tiene ninguna sección de enseñanza (theory/concept).",
+  },
+  "JIN-ALN-011": {
+    id: "JIN-ALN-011", category: "alignment", severity: "error",
+    description: "Un target de metadata.targets no tiene ninguna práctica formativa (practice/scenario).",
+  },
+  "JIN-ALN-012": {
+    id: "JIN-ALN-012", category: "alignment", severity: "error",
+    description: "Un target tiene práctica pero ninguna declara feedback ni selfCheck.",
+  },
+  "JIN-ALN-013": {
+    id: "JIN-ALN-013", category: "alignment", severity: "error",
+    description: "Un target de metadata.targets no tiene ninguna sección 'assessment' que lo evalúe.",
+  },
+  "JIN-ALN-014": {
+    id: "JIN-ALN-014", category: "alignment", severity: "error",
+    description: "Un nodo 'assessment' evalúa un target que ninguna sección de enseñanza cubre.",
+  },
+  "JIN-ALN-015": {
+    id: "JIN-ALN-015", category: "bibliography", severity: "warning",
+    description: "Las secciones de enseñanza de un target no citan ninguna fuente bibliográfica.",
+  },
+  "JIN-WRK-001": {
+    id: "JIN-WRK-001", category: "workload", severity: "warning",
+    description: "La carga instruccional planificada (estimatedMinutes) se aleja de metadata.hours (70-89% o 111-130%).",
+  },
+  "JIN-WRK-002": {
+    id: "JIN-WRK-002", category: "workload", severity: "error",
+    description: "La carga instruccional planificada (estimatedMinutes) no corresponde a metadata.hours (<70% o >130%).",
+  },
+  "JIN-SELF-001": {
+    id: "JIN-SELF-001", category: "self-instruction", severity: "error",
+    description: "Ninguna sección declara estimatedMinutes: no hay ruta de aprendizaje con tiempo estimado.",
+  },
+  "JIN-SELF-002": {
+    id: "JIN-SELF-002", category: "self-instruction", severity: "error",
+    description: "Una práctica guiada (mode='guided') no declara workedExample.",
+  },
+  "JIN-SELF-003": {
+    id: "JIN-SELF-003", category: "self-instruction", severity: "error",
+    description: "Un nodo 'practice' no declara successCriteria (criterios de éxito observables).",
+  },
+  "JIN-SELF-004": {
+    id: "JIN-SELF-004", category: "self-instruction", severity: "error",
+    description: "Una práctica no declara selfCheck ni feedback: el estudiante no puede autocorregirse.",
+  },
+  "JIN-SELF-005": {
+    id: "JIN-SELF-005", category: "self-instruction", severity: "error",
+    description: "Ninguna práctica de la guía declara remediation.",
+  },
+  "JIN-SELF-006": {
+    id: "JIN-SELF-006", category: "self-instruction", severity: "error",
+    description: "Ninguna práctica de la guía usa mode='retrieval' (recuperación).",
+  },
+  "JIN-SELF-007": {
+    id: "JIN-SELF-007", category: "self-instruction", severity: "error",
+    description: "Ningún conjunto de nodos 'assessment' cubre, en total, todos los targets declarados.",
+  },
+  "JIN-SELF-008": {
+    id: "JIN-SELF-008", category: "self-instruction", severity: "error",
+    description: "Ninguna práctica de la guía declara selfCheck: no hay monitorización explícita de progreso.",
+  },
+  "JIN-SELF-009": {
+    id: "JIN-SELF-009", category: "self-instruction", severity: "error",
+    description: "Ninguna práctica de la guía usa mode='transfer' ni declara el campo transfer.",
+  },
+  "JIN-ASM-010": {
+    id: "JIN-ASM-010", category: "assessment", severity: "error",
+    description: "Un nodo 'assessment' no declara criteria.",
+  },
+  "JIN-ASM-011": {
+    id: "JIN-ASM-011", category: "assessment", severity: "error",
+    description: "Un nodo 'assessment' no declara product (producto observable).",
+  },
+  "JIN-ASM-012": {
+    id: "JIN-ASM-012", category: "assessment", severity: "error",
+    description: "Un nodo 'assessment' no declara targetIds válidos entre metadata.targets.",
+  },
+  "JIN-ASM-013": {
+    id: "JIN-ASM-013", category: "assessment", severity: "warning",
+    description: "La suma de 'score' entre todos los nodos 'assessment' supera 100.",
+  },
+  "JIN-EVD-005": {
+    id: "JIN-EVD-005", category: "evidence", severity: "error",
+    description: "guide.json referencia un claimId que no existe en evidence.json (o evidence.json no es JSON válido).",
+  },
+  "JIN-EVD-006": {
+    id: "JIN-EVD-006", category: "evidence", severity: "warning",
+    description: "Una afirmación con sourceMode 'notebooklm' o 'local' en evidence.json no declara bibliographyKey.",
+  },
+  "JIN-EVD-007": {
+    id: "JIN-EVD-007", category: "evidence", severity: "error",
+    description: "Una afirmación con sourceMode 'ai-knowledge' declara bibliographyKey: no se puede fabricar bibliografía en ese modo.",
   },
 };
 
@@ -301,6 +398,167 @@ function lintGuide(guidePath) {
           message: `Clave citada "${key}" (inline o nodo citation) no existe en ${metadata.bibliography}.`,
           file: absolute,
         });
+      }
+    }
+  }
+
+  // ── JIN-WRK-*: carga horaria real vs. metadata.hours ──
+  // Independiente del contrato de targets: solo requiere que se declare
+  // metadata.hours y que al menos un nodo use estimatedMinutes (adopción
+  // progresiva; guías que no usan el campo no se penalizan).
+  const anyEstimated = sections.some(s => typeof s.estimatedMinutes === "number");
+  if (typeof metadata.hours === "number" && metadata.hours > 0 && anyEstimated) {
+    const declaredMinutes = metadata.hours * 60;
+    const plannedMinutes  = sections.reduce((sum, s) => sum + (typeof s.estimatedMinutes === "number" ? s.estimatedMinutes : 0), 0);
+    const coverage        = (plannedMinutes / declaredMinutes) * 100;
+    const coverageStr     = coverage.toFixed(1);
+    if (coverage < 70 || coverage > 130) {
+      issue("JIN-WRK-002", `Cobertura de horas: ${coverageStr}% (${plannedMinutes} min planificados de ${declaredMinutes} min declarados en metadata.hours=${metadata.hours}). Fuera del rango aceptable.`);
+    } else if (coverage < 90 || coverage > 110) {
+      issue("JIN-WRK-001", `Cobertura de horas: ${coverageStr}% (${plannedMinutes} min planificados de ${declaredMinutes} min declarados en metadata.hours=${metadata.hours}). Fuera del rango ideal (90-110%).`);
+    }
+  }
+
+  // ── Contrato de targets: JIN-ALN-01x, JIN-SELF-*, JIN-ASM-01x ──
+  // Se activa solo cuando metadata.targets está declarado; las guías que aún
+  // no adoptaron el contrato de targets no se penalizan retroactivamente.
+  const targets = Array.isArray(metadata.targets) ? metadata.targets : [];
+  if (targets.length > 0) {
+    const targetIds       = new Set(targets.map(t => t.id));
+    const practiceNodes   = sections.filter(s => s.type === "practice");
+    const assessmentNodes = sections.filter(s => s.type === "assessment");
+    const hasContent      = value => value !== undefined && value !== null && value !== "" &&
+      !(Array.isArray(value) && value.length === 0);
+
+    // JIN-ALN-010 .. JIN-ALN-015: matriz de alineación por target
+    for (const target of targets) {
+      const nodesForTarget = sections.filter(s => Array.isArray(s.targetIds) && s.targetIds.includes(target.id));
+      const teachingNodes  = nodesForTarget.filter(s => s.type === "theory" || s.type === "concept");
+      const practiceForT   = nodesForTarget.filter(s => s.type === "practice" || s.type === "scenario");
+      const assessmentForT = nodesForTarget.filter(s => s.type === "assessment");
+
+      if (teachingNodes.length === 0) {
+        issue("JIN-ALN-010", `Target ${target.id}: no tiene ninguna sección de enseñanza ('theory'/'concept') con targetIds que lo incluya.`);
+      }
+      if (practiceForT.length === 0) {
+        issue("JIN-ALN-011", `Target ${target.id}: no tiene ninguna práctica formativa ('practice'/'scenario') con targetIds que lo incluya.`);
+      } else if (!practiceForT.some(s => hasContent(s.feedback) || hasContent(s.selfCheck))) {
+        issue("JIN-ALN-012", `Target ${target.id}: tiene práctica pero ninguna declara 'feedback' ni 'selfCheck'.`);
+      }
+      if (assessmentForT.length === 0) {
+        issue("JIN-ALN-013", `Target ${target.id}: no tiene ninguna sección 'assessment' con targetIds que lo evalúe.`);
+      }
+      if (teachingNodes.length > 0) {
+        const citedInTeaching = teachingNodes.flatMap(s => collectFromContent(s.content));
+        if (citedInTeaching.length === 0) {
+          issue("JIN-ALN-015", `Target ${target.id}: sus secciones de enseñanza no citan ninguna fuente ({{cite:clave}}).`);
+        }
+      }
+    }
+
+    // JIN-ALN-014: assessment evalúa un target sin enseñanza en toda la guía
+    const teachingTargetIds = new Set(
+      sections
+        .filter(s => (s.type === "theory" || s.type === "concept") && Array.isArray(s.targetIds))
+        .flatMap(s => s.targetIds)
+    );
+    assessmentNodes.forEach(node => {
+      const idx = sections.indexOf(node);
+      for (const tid of (node.targetIds || [])) {
+        if (!teachingTargetIds.has(tid)) {
+          issue("JIN-ALN-014", `Nodo ${idx + 1} (assessment): evalúa ${tid}, pero ninguna sección de enseñanza declara ese target.`, { nodeIndex: idx });
+        }
+      }
+    });
+
+    // JIN-SELF-001: ruta de aprendizaje con tiempo estimado
+    if (!anyEstimated) {
+      issue("JIN-SELF-001", "Ninguna sección declara 'estimatedMinutes': no hay ruta de aprendizaje con tiempo estimado.");
+    }
+
+    // JIN-SELF-002 .. JIN-SELF-004: por nodo practice
+    practiceNodes.forEach(node => {
+      const idx  = sections.indexOf(node);
+      const mode = node.mode || "guided";
+      if (mode === "guided" && !hasContent(node.workedExample)) {
+        issue("JIN-SELF-002", `Nodo ${idx + 1} (practice, mode='guided'): no declara 'workedExample'.`, { nodeIndex: idx });
+      }
+      if (!hasContent(node.successCriteria)) {
+        issue("JIN-SELF-003", `Nodo ${idx + 1} (practice): no declara 'successCriteria'.`, { nodeIndex: idx });
+      }
+      if (!hasContent(node.selfCheck) && !hasContent(node.feedback)) {
+        issue("JIN-SELF-004", `Nodo ${idx + 1} (practice): no declara 'selfCheck' ni 'feedback'; el estudiante no puede autocorregirse.`, { nodeIndex: idx });
+      }
+    });
+    // JIN-SELF-005 .. JIN-SELF-009: contratos a nivel de guía completa
+    if (!practiceNodes.some(s => hasContent(s.remediation))) {
+      issue("JIN-SELF-005", "Ninguna práctica de la guía declara 'remediation'.");
+    }
+    if (!practiceNodes.some(s => s.mode === "retrieval")) {
+      issue("JIN-SELF-006", "Ninguna práctica de la guía usa mode='retrieval' (recuperación).");
+    }
+    const assessedTargetIds = new Set(assessmentNodes.flatMap(s => s.targetIds || []));
+    const missingFromFinalCheck = [...targetIds].filter(id => !assessedTargetIds.has(id));
+    if (missingFromFinalCheck.length > 0) {
+      issue("JIN-SELF-007", `Ningún nodo 'assessment' cubre, en conjunto, todos los targets declarados. Faltan: ${missingFromFinalCheck.join(", ")}.`);
+    }
+    if (!practiceNodes.some(s => hasContent(s.selfCheck))) {
+      issue("JIN-SELF-008", "Ninguna práctica de la guía declara 'selfCheck': no hay monitorización explícita de progreso.");
+    }
+    if (!practiceNodes.some(s => s.mode === "transfer" || hasContent(s.transfer))) {
+      issue("JIN-SELF-009", "Ninguna práctica de la guía usa mode='transfer' ni declara el campo 'transfer'.");
+    }
+
+    // JIN-ASM-010 .. JIN-ASM-013
+    assessmentNodes.forEach(node => {
+      const idx = sections.indexOf(node);
+      if (!hasContent(node.criteria)) {
+        issue("JIN-ASM-010", `Nodo ${idx + 1} (assessment): no declara 'criteria'.`, { nodeIndex: idx });
+      }
+      if (!hasContent(node.product)) {
+        issue("JIN-ASM-011", `Nodo ${idx + 1} (assessment): no declara 'product' (producto observable).`, { nodeIndex: idx });
+      }
+      const nodeTargetIds = node.targetIds || [];
+      const invalidTargets = nodeTargetIds.filter(tid => !targetIds.has(tid));
+      if (nodeTargetIds.length === 0 || invalidTargets.length > 0) {
+        issue("JIN-ASM-012", `Nodo ${idx + 1} (assessment): targetIds ausente o inválido (${invalidTargets.join(", ") || "vacío"}).`, { nodeIndex: idx });
+      }
+    });
+    const totalScore = assessmentNodes.reduce((sum, s) => sum + (typeof s.score === "number" ? s.score : 0), 0);
+    if (totalScore > 100) {
+      issue("JIN-ASM-013", `La suma de 'score' entre nodos 'assessment' es ${totalScore}, supera 100.`);
+    }
+  }
+
+  // ── evidence.json (opcional): procedencia por afirmación ──
+  // Artefacto hermano de guide.json. Si no existe, no se valida nada (opt-in).
+  const evidencePath = path.join(path.dirname(absolute), "evidence.json");
+  if (fs.existsSync(evidencePath)) {
+    let evidenceDoc = null;
+    try {
+      evidenceDoc = JSON.parse(fs.readFileSync(evidencePath, "utf8"));
+    } catch (err) {
+      issues.push({
+        rule: "JIN-EVD-005", category: "evidence", severity: "error",
+        message: `evidence.json no es JSON válido: ${err.message}`, file: evidencePath,
+      });
+    }
+    if (evidenceDoc) {
+      const claims     = Array.isArray(evidenceDoc.claims) ? evidenceDoc.claims : [];
+      const claimIds    = new Set(claims.map(c => c.id));
+      const referenced  = new Set(sections.flatMap(s => Array.isArray(s.claimIds) ? s.claimIds : []));
+
+      for (const claimId of referenced) {
+        if (!claimIds.has(claimId)) {
+          issue("JIN-EVD-005", `guide.json referencia claimIds "${claimId}" que no existe en evidence.json.`);
+        }
+      }
+      for (const claim of claims) {
+        if (claim.sourceMode === "ai-knowledge" && claim.bibliographyKey) {
+          issue("JIN-EVD-007", `Claim "${claim.id}": procedencia 'ai-knowledge' con bibliographyKey "${claim.bibliographyKey}" declarado — no se puede fabricar bibliografía en ese modo.`);
+        } else if ((claim.sourceMode === "notebooklm" || claim.sourceMode === "local") && !claim.bibliographyKey) {
+          issue("JIN-EVD-006", `Claim "${claim.id}" (sourceMode='${claim.sourceMode}'): no declara bibliographyKey.`);
+        }
       }
     }
   }

@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://jintia.dev/schemas/evidence.schema.json",
+  "title": "Jintia Evidence",
+  "description": "Registro de procedencia por afirmación disciplinar: qué claim proviene de NotebookLM, de una fuente local o de conocimiento del modelo (ai-knowledge). Artefacto opcional junto a guide.json y reference.bib; ver SKILL.md §2 y references/bibliografia.md.",
+  "type": "object",
+  "required": ["claims"],
+  "additionalProperties": false,
+  "properties": {
+    "claims": {
+      "type": "array",
+      "description": "Una entrada por afirmación disciplinar central. El 'id' se referencia desde guide.json en el campo claimIds de cada nodo.",
+      "items": { "$ref": "#/definitions/claim" }
+    }
+  },
+  "definitions": {
+    "claim": {
+      "type": "object",
+      "required": ["id", "claim", "sourceMode", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador único de la afirmación (ej. 'CLM-003'). Referenciado desde guide.json vía claimIds."
+        },
+        "claim": {
+          "type": "string",
+          "description": "La afirmación disciplinar redactada."
+        },
+        "targetIds": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^T[0-9]+$" },
+          "description": "Targets de metadata.targets que esta afirmación sustenta."
+        },
+        "sourceMode": {
+          "type": "string",
+          "enum": ["notebooklm", "local", "ai-knowledge"],
+          "description": "Procedencia declarada: NotebookLM, fuente local verificable, o conocimiento del modelo."
+        },
+        "bibliographyKey": {
+          "type": "string",
+          "description": "Clave en reference.bib que respalda esta afirmación. Prohibido cuando sourceMode='ai-knowledge' (JIN-EVD-007): no se fabrica bibliografía en ese modo."
+        },
+        "evidence": {
+          "type": "object",
+          "description": "Procedencia devuelta por la consulta (NotebookLM u origen local).",
+          "properties": {
+            "sourceId": { "type": "string" },
+            "sourceName": { "type": "string" },
+            "sourceType": { "type": "string" },
+            "url": { "type": "string" },
+            "excerpt": { "type": "string" },
+            "location": { "type": "object" },
+            "extractionStatus": { "type": "string" }
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["notebook-grounded", "local-verified", "ai-knowledge", "partial", "conflict"],
+          "description": "Estado de verificación de la afirmación."
+        }
+      }
+    }
+  }
+}

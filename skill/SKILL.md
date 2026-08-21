@@ -85,6 +85,7 @@ en los contratos de `agents/`:
 | Evidencia y procedencia | `agents/jintia-researcher.md` |
 | Alineación y diseño pedagógico | `agents/jintia-instructional-reviewer.md` |
 | Figuras y representaciones | `agents/jintia-visual-producer.md` |
+| Prueba "estudiante sin profesor" (autoinstruccionalidad) | `agents/jintia-selfstudy-reviewer.md` |
 | Revisión independiente de entrega | `agents/jintia-finish-reviewer.md` |
 
 El agente principal conserva la orquestación. Cada delegado devuelve su
@@ -274,6 +275,40 @@ Aplicar Backward Design:
 3. Diseñar práctica guiada y recuperación.
 4. Redactar teoría suficiente para ejecutar esa práctica.
 
+**Descomponer el resultado de aprendizaje en targets** (opcional pero
+recomendado): declarar `metadata.targets` como una lista de `{ id: "T1",
+verb, description }` por cada desempeño observable distinto que el RA exige.
+Cada nodo de `sections` que enseñe, practique o evalúe un target debe
+declarar ese `targetIds`. Al declarar `metadata.targets`, Jintia activa la
+matriz de alineación (`JIN-ALN-01x`): cada target necesita, como mínimo, una
+sección de enseñanza (`theory`/`concept`), una práctica formativa
+(`practice`/`scenario`) con `feedback` o `selfCheck`, y una evaluación
+(`assessment`) — un target evaluado sin enseñanza (`JIN-ALN-014`) bloquea la
+entrega. Ver `skill/tests/fixtures/golden-flawed-guide.json` para el caso
+que motivó esta regla: una guía visualmente completa pero con un target
+evaluado que nunca se enseñó.
+
+**Estructurar la práctica**, no dejarla como prosa libre. El nodo `practice`
+admite `mode` (`guided`/`retrieval`/`independent`/`transfer`, cada uno con su
+etiqueta editorial), `workedExample` (obligatorio cuando `mode: "guided"`),
+`prompt`, `steps`, `hints`, `successCriteria`, `selfCheck`, `feedback`,
+`remediation` y `transfer`. El contrato de autoinstruccionalidad
+(`JIN-SELF-001`…`009`) exige, a nivel de guía completa: al menos una práctica
+de recuperación (`retrieval`) y una de transferencia (`transfer`), que
+ninguna práctica quede sin forma de autocorregirse (`selfCheck`/`feedback`)
+ni sin ruta de recuperación (`remediation`), y que exista una comprobación
+final que cubra todos los targets. Esto se activa junto con `metadata.targets`.
+
+**Estructurar la evaluación**: el nodo `assessment` admite `code`, `product`
+(producto observable, obligatorio), `criteria` (lista de `{ description,
+weight }`, obligatoria), `score` y `checklist`. Sin `criteria` ni `product`
+declarados, `JIN-ASM-010`/`JIN-ASM-011` bloquean.
+
+**Declarar `estimatedMinutes`** en cada nodo relevante para que Jintia pueda
+comprobar la carga horaria real contra `metadata.hours` (`JIN-WRK-001`
+advertencia entre 70-89%/111-130% de cobertura, `JIN-WRK-002` error fuera de
+ese rango).
+
 La guía incluye recuperación y transferencia no calificadas. Incluir actividades calificadas solo cuando `.jintia/course.json` tenga `includeGradedActivities: true`; para cursos antiguos sin ese archivo, aceptar también `options.includeGradedActivities: true`; o cuando el usuario lo solicite explícitamente. En ese caso, conservar código, nombre y ponderación del sílabo.
 
 Aplicar UDL 3.0:
@@ -359,6 +394,21 @@ bloquear el trabajo en curso. `jintia compile --publish` bloquea en cambio
 ante cualquier degradación bibliográfica (`JIN-BIB-001`…`JIN-BIB-005`, ver
 `commands/compile.md`). Ningún material académico final se publica con
 bibliografía degradada.
+
+### `evidence.json` (opcional)
+
+Junto a `guide.json` y `reference.bib`, una semana puede declarar
+`semanas/semana-XX/evidence.json` (ver `schemas/evidence.schema.json`): un
+registro por afirmación disciplinar central con `sourceMode`
+(`notebooklm`/`local`/`ai-knowledge`), la `evidence` devuelta por la consulta
+y, si aplica, `bibliographyKey`. Cada nodo de `guide.json` que redacte una de
+esas afirmaciones declara su `claimId` en `claimIds`. Si existe
+`evidence.json`, `jintia validate` verifica: que todo `claimId` referenciado
+desde `guide.json` exista en `evidence.json` (`JIN-EVD-005`), y que ninguna
+afirmación con `sourceMode: "ai-knowledge"` declare `bibliographyKey`
+(`JIN-EVD-007`) — la comprobación automática de que nunca se fabrica
+bibliografía en ese modo. Es un artefacto opt-in: sin él, no se valida nada
+adicional.
 
 ## Integraciones opcionales
 

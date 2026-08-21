@@ -7,11 +7,22 @@ categoría, severidad y descripción. El ejecutor es
 Categorías actuales:
 
 - `syllabus`: contrato y campos mínimos del sílabo;
-- `alignment`: conexión entre resultado y evidencia semanal;
+- `alignment`: conexión entre resultado y evidencia semanal, y matriz de alineación por target (`JIN-ALN-01x`, opt-in vía `metadata.targets`);
 - `bibliography`: claves citadas, `reference.bib` y `citationStyle` (APA obligatorio; `JIN-BIB-*`);
-- `evidence`: procedencia NotebookLM / local / conocimiento del modelo (`JIN-EVD-*`, ver `SKILL.md` §2);
+- `evidence`: procedencia NotebookLM / local / conocimiento del modelo (`JIN-EVD-*`, ver `SKILL.md` §2, y validación de `evidence.json` opcional);
+- `workload`: carga instruccional real (`estimatedMinutes`) vs. `metadata.hours` (`JIN-WRK-*`);
+- `self-instruction`: contrato de autoinstruccionalidad de cada `practice` (modelo, criterios, autocorrección, remediación, recuperación, transferencia — `JIN-SELF-*`);
+- `assessment`: criterios, producto observable y alineación de cada `assessment` (`JIN-ASM-01x`);
 - `accessibility`: caption y texto alternativo;
 - `structure`, `pedagogy`, `pagination`: estructura y secuencia de `guide.json` (`JIN-CNT-*`).
+
+Las familias `JIN-ALN-01x`, `JIN-WRK-*`, `JIN-SELF-*` y `JIN-ASM-01x` solo se
+activan cuando `guide.json` declara `metadata.targets` (o, para `JIN-WRK-*`,
+cuando al menos un nodo declara `estimatedMinutes`): son un contrato opcional
+que una guía adopta progresivamente, no una exigencia retroactiva sobre
+guías que aún no lo usan. Ver `skill/tests/fixtures/golden-flawed-guide.json`
+para un ejemplo de guía que pasa validación estructural pero falla estas
+reglas.
 
 Uso:
 

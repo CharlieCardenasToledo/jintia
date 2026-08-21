@@ -76,6 +76,29 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "Nombres de los docentes autores."
+        },
+        "targets": {
+          "type": "array",
+          "description": "Desempeños observables en los que se descompone metadata.outcome (ej. T1, T2...). Opcional: habilita la matriz de alineación JIN-ALN-01x.",
+          "items": {
+            "type": "object",
+            "required": ["id", "description"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^T[0-9]+$",
+                "description": "Identificador del target (ej. 'T1')."
+              },
+              "verb": {
+                "type": "string",
+                "description": "Verbo observable del desempeño (ej. 'diagnosticar', 'diferenciar')."
+              },
+              "description": {
+                "type": "string",
+                "description": "Desempeño observable que demuestra este target."
+              }
+            }
+          }
         }
       }
     },
@@ -132,9 +155,71 @@
             "keep-with-next",
             "page-contained"
           ]
+        },
+        "targetIds": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^T[0-9]+$" },
+          "description": "Targets de metadata.targets que este nodo enseña, practica o evalúa. Habilita JIN-ALN-01x."
+        },
+        "claimIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "IDs de afirmación en evidence.json que este nodo redacta. Ver evidence.schema.json."
+        },
+        "estimatedMinutes": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Minutos de trabajo autónomo que consume este nodo. Habilita JIN-WRK-*."
         }
       },
       "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "practice" } } },
+          "then": {
+            "properties": {
+              "mode": {
+                "type": "string",
+                "default": "guided",
+                "enum": ["guided", "retrieval", "independent", "transfer"],
+                "description": "guided = práctica guiada; retrieval = recuperación; independent = práctica autónoma; transfer = transferencia."
+              },
+              "workedExample": {
+                "description": "Modelo o ejemplo trabajado. Obligatorio cuando mode='guided' (JIN-SELF-002)."
+              },
+              "prompt": {
+                "type": "string",
+                "description": "Consigna de la práctica."
+              },
+              "steps": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Pasos guiados de la práctica."
+              },
+              "hints": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Pistas disponibles ante bloqueo del estudiante."
+              },
+              "successCriteria": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Criterios de éxito observables. Obligatorio (JIN-SELF-003)."
+              },
+              "selfCheck": {
+                "description": "Mecanismo de autocorrección (respuesta modelo, checklist o comparación). Ver JIN-SELF-004."
+              },
+              "feedback": {
+                "description": "Retroalimentación asociada a la práctica. Ver JIN-SELF-004."
+              },
+              "remediation": {
+                "description": "Ruta de recuperación cuando el desempeño no alcanza el criterio de éxito. Ver JIN-SELF-005."
+              },
+              "transfer": {
+                "description": "Consigna de transferencia a un contexto distinto. Ver JIN-SELF-009."
+              }
+            }
+          }
+        },
         {
           "if": { "properties": { "type": { "const": "figure" } } },
           "then": {
@@ -229,6 +314,36 @@
               "items": {
                 "type": "array",
                 "description": "Ítems o preguntas de la actividad."
+              },
+              "code": {
+                "type": "string",
+                "description": "Código de la actividad calificada según el sílabo (ej. 'PE-1.1')."
+              },
+              "product": {
+                "type": "string",
+                "description": "Producto observable esperado. Obligatorio (JIN-ASM-011)."
+              },
+              "criteria": {
+                "type": "array",
+                "description": "Criterios de evaluación. Obligatorio (JIN-ASM-010).",
+                "items": {
+                  "type": "object",
+                  "required": ["description"],
+                  "properties": {
+                    "description": { "type": "string" },
+                    "weight": { "type": "number", "minimum": 0, "maximum": 100 }
+                  }
+                }
+              },
+              "score": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Ponderación de la actividad según el sílabo, si es calificada."
+              },
+              "checklist": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Checklist de entrega para el estudiante."
               }
             }
           }

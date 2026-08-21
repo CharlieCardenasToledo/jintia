@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "course": "Bases de Datos",
+    "week": 3,
+    "topic": "Redundancia y evolución histórica de las bases de datos",
+    "outcome": "Diferenciar el enfoque de bases de datos frente a archivos, diagnosticar redundancia e investigar la evolución histórica.",
+    "hours": 10,
+    "citationStyle": "chicago",
+    "targets": [
+      { "id": "T1", "verb": "diferenciar", "description": "Diferenciar el enfoque de bases de datos frente a archivos." },
+      { "id": "T2", "verb": "diagnosticar", "description": "Diagnosticar redundancia en un sistema dado." },
+      { "id": "T3", "verb": "investigar", "description": "Investigar la evolución histórica de las bases de datos." }
+    ]
+  },
+  "sections": [
+    {
+      "type": "orientation",
+      "id": "orientacion",
+      "content": "Esta semana trabajas la diferencia entre archivos y bases de datos, y diagnosticas redundancia en un caso concreto."
+    },
+    {
+      "type": "theory",
+      "id": "teoria-modelo-relacional",
+      "targetIds": ["T1", "T2"],
+      "estimatedMinutes": 60,
+      "content": "Un sistema de archivos duplica datos entre programas independientes; una base de datos centraliza el almacenamiento y reduce redundancia {{cite:date2004}}."
+    },
+    {
+      "type": "practice",
+      "id": "practica-diagnostico",
+      "targetIds": ["T2"],
+      "estimatedMinutes": 30,
+      "prompt": "Identifica las tablas redundantes en el esquema dado."
+    },
+    {
+      "type": "assessment",
+      "id": "evaluacion-evolucion",
+      "targetIds": ["T3"],
+      "estimatedMinutes": 20,
+      "format": "open",
+      "items": ["Investiga y resume la evolución histórica de los sistemas de bases de datos."]
+    },
+    { "type": "bibliography", "id": "referencias" }
+  ]
+}

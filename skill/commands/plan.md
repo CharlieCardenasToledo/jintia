@@ -74,19 +74,28 @@ Si alguna precondición falla, informar claramente y detener.
 
 ## Flujo ante NotebookLM no disponible
 
+Jerarquía única (fuente de verdad: `SKILL.md` §2): NotebookLM (3 intentos) →
+fuentes locales → conocimiento del modelo (`ai-knowledge`, ya no bloquea).
+
 ```
-get_health
+intento 1: resolver notebook + ask_question
+↓ falla
+intento 2: reutilizar/recrear session_id + reconsultar
+↓ falla
+intento 3: re_auth SOLO si hay evidencia real de fallo de login + reconsultar
+↓ falla
+registrar NotebookLM como no disponible (temporal)
 ↓
-si falla → re_auth una vez
+revisar fuentes locales (recortes, bibliografía, reference.bib)
 ↓
-si vuelve a fallar → registrar NotebookLM como no disponible
-↓
-revisar fuentes locales (reference.bib, recortes, bibliografía)
-↓
-si ninguna fuente → bloquear con JIN-EVD-001
+si hay fuente local → continuar con procedencia "local"
+↓ si ninguna fuente local
+continuar con procedencia "ai-knowledge" (JIN-EVD-001 / JIN-EVD-003, advertencia)
+nunca fabricar autor, obra, año, página o DOI en este modo
 ```
 
-Código JIN-EVD-002 si el agente intenta sustituir evidencia por conocimiento genérico.
+Código JIN-EVD-002 (bloquea) si el agente presenta conocimiento genérico como
+evidencia verificada sin declarar la procedencia `ai-knowledge`.
 
 ## Uso determinista (CLI)
 

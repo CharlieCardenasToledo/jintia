@@ -1,6 +1,6 @@
 {
   "name": "jintia-skill",
-  "version": "11.8.0",
+  "version": "12.0.0",
   "description": "Jintia Skill for evidence-based self-paced instructional design — HTML editorial engine with Vivliostyle PDF support",
   "license": "MIT",
   "bin": {
@@ -43,7 +43,7 @@
     "audit": "node bin/jintia.js audit",
     "state": "node bin/jintia.js state update"
   },
-  "optionalDependencies": {
+  "dependencies": {
     "@citation-js/core": "^0.7.21",
     "@citation-js/plugin-bibtex": "^0.7.21",
     "@citation-js/plugin-csl": "^0.7.22"

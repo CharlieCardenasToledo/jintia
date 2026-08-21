@@ -8,10 +8,10 @@ Categorías actuales:
 
 - `syllabus`: contrato y campos mínimos del sílabo;
 - `alignment`: conexión entre resultado y evidencia semanal;
-- `bibliography`: claves citadas y `reference.bib`;
-- `latex`: estructura de figuras y referencias;
+- `bibliography`: claves citadas, `reference.bib` y `citationStyle` (APA obligatorio; `JIN-BIB-*`);
+- `evidence`: procedencia NotebookLM / local / conocimiento del modelo (`JIN-EVD-*`, ver `SKILL.md` §2);
 - `accessibility`: caption y texto alternativo;
-- `template`: clase y archivos requeridos.
+- `structure`, `pedagogy`, `pagination`: estructura y secuencia de `guide.json` (`JIN-CNT-*`).
 
 Uso:
 

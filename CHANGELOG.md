@@ -5,6 +5,17 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 12.0.0 — 2026-08-21
+
+### Añadido
+
+- **Política de fuentes unificada** (Release 12.0, primer hito del plan de mejora): una sola jerarquía documentada en `SKILL.md` §2 — NotebookLM (3 intentos estructurados: consulta normal → recrear sesión → `re_auth` solo ante fallo de login confirmado) → fuentes locales → conocimiento del modelo (`ai-knowledge`). Antes convivían tres órdenes contradictorios entre `SKILL.md`, `references/bibliografia.md` y `agents/jintia-researcher.md`; ahora `bibliografia.md` y el researcher remiten a `SKILL.md` como fuente única.
+- `evidence-gate.js` ya no bloquea la generación por falta total de evidencia: cuando NotebookLM y las fuentes locales no resuelven una afirmación, continúa con procedencia `ai-knowledge` declarada explícitamente (advertencia `JIN-EVD-001`/`JIN-EVD-003`, en vez de bloqueo). Sigue bloqueando (`JIN-EVD-002`) cuando se presenta conocimiento genérico como evidencia verificada sin declarar esa procedencia. Nunca se fabrica bibliografía en modo `ai-knowledge`.
+- Consulta a NotebookLM con `source_format: "json"` en vez de `"footnotes"`, aprovechando que el MCP ya devuelve `source_id`, tipo, ubicación, extracto y `extraction_status` de forma estructurada.
+- **Bibliografía sin degradación**: Citation.js (`@citation-js/core`, `@citation-js/plugin-bibtex`, `@citation-js/plugin-csl`) pasa de `optionalDependencies` a `dependencies` en `skill/package.json`. Nuevo flag `jintia compile --publish`, que corre `bibliography-manager.assertPublishReady()` antes de generar el PDF y bloquea (`JIN-BIB-001`…`JIN-BIB-005`) ante `citationStyle` distinto de `"apa"`, Citation.js ausente, `.bib` faltante, `.bib` sin parsear o claves sin resolver. El modo draft (por defecto, sin `--publish`) sigue tolerando estas condiciones con marcadores explícitos.
+- **APA obligatorio**: `metadata.citationStyle` debe ser `"apa"`; cualquier otro valor dispara `JIN-BIB-001` tanto en `jintia validate` (content-linter) como en `jintia compile --publish`.
+- `rules/catalog.json` sube a `2.1.0`: se añaden `JIN-CNT-011`/`012`/`013` (ya implementadas en `content-linter.js` pero ausentes del catálogo — corrige el desfase entre catálogo y linter) y las familias `JIN-EVD-*` y `JIN-BIB-*`, antes inexistentes o solo documentadas en código.
+
 ## `jintia-skill` 11.8.0 — 2026-08-21
 
 ### Añadido

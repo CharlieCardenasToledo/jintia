@@ -19,6 +19,7 @@
 
 const fs   = require("node:fs");
 const path = require("node:path");
+const { collectCitationKeys } = require("./citation-keys");
 
 function escHtml(str) {
   if (typeof str !== "string") return "";
@@ -56,7 +57,7 @@ function loadBibliography(bibPath) {
   if (cache.has(absolute)) return cache.get(absolute);
 
   if (!fs.existsSync(absolute)) {
-    const result = { entries: [], raw: "", available: false, path: absolute };
+    const result = { entries: [], raw: "", available: false, notFound: true, path: absolute };
     cache.set(absolute, result);
     return result;
   }
@@ -64,7 +65,7 @@ function loadBibliography(bibPath) {
   const raw = fs.readFileSync(absolute, "utf8");
 
   if (!citationJs) {
-    // Modo degradado: extraer claves manualmente con regex
+    // Modo degradado (solo válido en draft): extraer claves manualmente con regex
     const keyPattern = /@\w+\s*\{\s*([^,\s]+)/g;
     const keys = [];
     let match;
@@ -82,7 +83,7 @@ function loadBibliography(bibPath) {
     return result;
   } catch (err) {
     console.warn(`[bibliography-manager] No se pudo parsear ${absolute}: ${err.message}`);
-    const result = { entries: [], raw, available: false, path: absolute };
+    const result = { entries: [], raw, available: false, parseError: err.message, path: absolute };
     cache.set(absolute, result);
     return result;
   }
@@ -160,9 +161,9 @@ function renderCitation(keys, mode, bib, style = "apa") {
  */
 function renderBibliographyEntries(keys, bib, style = "apa") {
   if (!citationJs || !bib.available) {
-    // Modo degradado: listar claves
+    // Modo degradado (solo draft): listar claves sin formatear
     const allKeys = keys || bib.keys || [];
-    return allKeys.map(k => `<span class="bib-key">[${k}]</span> (bibliografía no disponible — instalar @citation-js/core)`);
+    return allKeys.map(k => `<span class="bib-key">[${k}]</span> [referencia no formateada]`);
   }
 
   try {
@@ -189,6 +190,78 @@ function renderBibliographyEntries(keys, bib, style = "apa") {
     console.warn(`[bibliography-manager] Error al formatear bibliografía: ${err.message}`);
     return (keys || []).map(k => `[${k}]`);
   }
+}
+
+/**
+ * Comprueba que la guía puede publicarse sin degradación bibliográfica.
+ *
+ * A diferencia del modo draft (que tolera Citation.js ausente, .bib faltante
+ * o claves sin resolver mostrando marcadores), `publish` debe fallar de forma
+ * explícita ante cualquiera de esas condiciones — nunca degradar en silencio
+ * un documento académico final.
+ *
+ * @param {{ metadata?: object, sections?: object[] }} guide - guide.json parseado
+ * @param {string} guidePath - Ruta absoluta al guide.json (para resolver metadata.bibliography)
+ * @returns {{ ready: boolean, errors: {code: string, message: string}[] }}
+ */
+function assertPublishReady(guide, guidePath) {
+  const errors   = [];
+  const metadata = guide.metadata || {};
+  const style    = metadata.citationStyle || "apa";
+
+  if (style !== "apa") {
+    errors.push({
+      code: "JIN-BIB-001",
+      message: `citationStyle "${style}" no está permitido; Jintia exige "apa" en esta versión.`,
+    });
+  }
+
+  const citedKeys = collectCitationKeys(guide);
+  if (citedKeys.length === 0) return { ready: errors.length === 0, errors };
+
+  if (!citationJs) {
+    errors.push({
+      code: "JIN-BIB-002",
+      message: "Citation.js no está disponible; no se puede publicar bibliografía formateada. Instala @citation-js/core, @citation-js/plugin-bibtex y @citation-js/plugin-csl.",
+    });
+    return { ready: false, errors };
+  }
+
+  if (!metadata.bibliography) {
+    errors.push({
+      code: "JIN-BIB-003",
+      message: "Hay citas pero metadata.bibliography no está declarado.",
+    });
+    return { ready: false, errors };
+  }
+
+  const bibPath = path.resolve(path.dirname(guidePath), metadata.bibliography);
+  const bib     = loadBibliography(bibPath);
+
+  if (bib.notFound) {
+    errors.push({ code: "JIN-BIB-003", message: `El archivo declarado en metadata.bibliography no existe: ${bibPath}` });
+    return { ready: false, errors };
+  }
+
+  if (!bib.available) {
+    errors.push({
+      code: "JIN-BIB-004",
+      message: bib.parseError
+        ? `reference.bib no pudo parsearse como BibTeX válido: ${bib.parseError}`
+        : "reference.bib no pudo cargarse en modo publish.",
+    });
+    return { ready: false, errors };
+  }
+
+  const missing = citedKeys.filter(key => !keyExists(key, bib));
+  if (missing.length > 0) {
+    errors.push({
+      code: "JIN-BIB-005",
+      message: `Clave(s) citada(s) sin entrada en ${metadata.bibliography}: ${missing.join(", ")}.`,
+    });
+  }
+
+  return { ready: errors.length === 0, errors };
 }
 
 // ─── CLI diagnóstico ──────────────────────────────────────────────────────────
@@ -231,5 +304,6 @@ module.exports = {
   keyExists,
   renderCitation,
   renderBibliographyEntries,
+  assertPublishReady,
   isCitationJsAvailable: () => citationJs,
 };

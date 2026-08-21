@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "rules": [
     { "id": "JIN-SYL-001", "category": "syllabus", "severity": "error",  "description": "El sílabo debe declarar un resultado de aprendizaje." },
     { "id": "JIN-SYL-002", "category": "syllabus", "severity": "error",  "description": "El sílabo debe contener al menos una semana canónica." },
@@ -15,6 +15,17 @@
     { "id": "JIN-CNT-007", "category": "accessibility","severity": "warning", "description": "Todo nodo 'table' debe declarar 'caption' y 'headers'." },
     { "id": "JIN-CNT-008", "category": "structure",    "severity": "warning", "description": "Los IDs de nodo deben ser únicos en el documento." },
     { "id": "JIN-CNT-009", "category": "bibliography", "severity": "warning", "description": "Si hay nodos 'citation', la metadata debe declarar 'bibliography'." },
-    { "id": "JIN-CNT-010", "category": "pagination",   "severity": "warning", "description": "Los valores de 'pagination' deben ser tipos válidos." }
+    { "id": "JIN-CNT-010", "category": "pagination",   "severity": "warning", "description": "Los valores de 'pagination' deben ser tipos válidos." },
+    { "id": "JIN-CNT-011", "category": "structure",    "severity": "warning", "description": "El nodo 'bibliography' debe ser el último nodo de sections." },
+    { "id": "JIN-CNT-012", "category": "bibliography", "severity": "warning", "description": "El nodo 'citation' está deprecado. Usar sintaxis inline {{cite:clave}} en campos content." },
+    { "id": "JIN-CNT-013", "category": "accessibility", "severity": "error",  "description": "Todo nodo 'figure' debe declarar 'src' o 'visualSpec' (no ambos, no ninguno)." },
+    { "id": "JIN-EVD-001", "category": "evidence", "severity": "warning", "description": "Sin NotebookLM ni fuentes locales verificables: la sección se redacta con conocimiento del modelo (procedencia 'ai-knowledge')." },
+    { "id": "JIN-EVD-002", "category": "evidence", "severity": "error",   "description": "No está permitido presentar conocimiento general como evidencia verificada sin declarar procedencia 'ai-knowledge'." },
+    { "id": "JIN-EVD-003", "category": "evidence", "severity": "warning", "description": "NotebookLM no disponible tras los 3 intentos y sin fuentes locales de respaldo: se continúa con conocimiento del modelo (procedencia 'ai-knowledge')." },
+    { "id": "JIN-BIB-001", "category": "bibliography", "severity": "error", "description": "metadata.citationStyle debe ser 'apa'; Jintia no admite otro estilo bibliográfico en esta versión." },
+    { "id": "JIN-BIB-002", "category": "bibliography", "severity": "error", "description": "Citation.js no está disponible; no se puede publicar bibliografía formateada (modo publish)." },
+    { "id": "JIN-BIB-003", "category": "bibliography", "severity": "error", "description": "El archivo declarado en metadata.bibliography no existe (modo publish)." },
+    { "id": "JIN-BIB-004", "category": "bibliography", "severity": "error", "description": "reference.bib no pudo parsearse como BibTeX válido (modo publish)." },
+    { "id": "JIN-BIB-005", "category": "bibliography", "severity": "error", "description": "Una o más claves citadas no tienen entrada en reference.bib (modo publish)." }
   ]
 }

@@ -3,14 +3,20 @@
 /**
  * evidence-gate.js — Compuerta de evidencia verificable
  *
- * Bloquea la generación de cualquier sección de guía cuando no existe
- * evidencia verificable. Un agente NO puede sustituir fuentes verificables
- * por conocimiento general sin disparar JIN-EVD-002.
+ * Jerarquía única de fuentes: NotebookLM (3 intentos estructurados, ver
+ * SKILL.md §2) → fuentes locales verificables → conocimiento del modelo
+ * ("ai-knowledge") como último recurso. La generación ya no se detiene por
+ * falta total de evidencia: continúa con procedencia 'ai-knowledge'
+ * declarada explícitamente, para que el audit pueda advertirlo (JIN-EVD-001 /
+ * JIN-EVD-003) sin bloquear al usuario. Lo que sigue bloqueando es que un
+ * agente presente conocimiento general COMO SI fuera evidencia verificada,
+ * sin declarar esa procedencia (JIN-EVD-002). En modo 'ai-knowledge' nunca
+ * se fabrica bibliografía: ningún autor, obra, año, página o DOI inventado.
  *
- * Códigos de error:
- *   JIN-EVD-001  Sin evidencia verificable disponible (ninguna fuente)
- *   JIN-EVD-002  Intento de sustituir evidencia por conocimiento genérico
- *   JIN-EVD-003  NotebookLM falló y no hay fuentes locales de respaldo
+ * Códigos:
+ *   JIN-EVD-001  Sin NotebookLM ni fuentes locales → continúa con ai-knowledge (warning)
+ *   JIN-EVD-002  Intento de sustituir evidencia por conocimiento genérico sin declararlo (bloquea)
+ *   JIN-EVD-003  NotebookLM falló tras 3 intentos y sin fuentes locales → continúa con ai-knowledge (warning)
  */
 
 const fs   = require("node:fs");
@@ -21,18 +27,18 @@ const path = require("node:path");
 const ERRORS = {
   JIN_EVD_001: {
     code:    "JIN-EVD-001",
-    message: "No existe evidencia verificable para redactar esta semana.",
-    detail:  "Proporciona un notebook de NotebookLM, bibliografía local o recortes antes de continuar.",
+    message: "No existe evidencia verificable (NotebookLM ni fuentes locales) para esta semana.",
+    detail:  "Se continúa con conocimiento del modelo (procedencia 'ai-knowledge'). No se fabricará bibliografía: registra un notebook o fuente local para elevar la procedencia.",
   },
   JIN_EVD_002: {
     code:    "JIN-EVD-002",
-    message: "No está permitido sustituir evidencia verificable por conocimiento general.",
-    detail:  "Jintia requiere procedencia verificable en cada afirmación disciplinar.",
+    message: "No está permitido presentar conocimiento general como evidencia verificada sin declarar procedencia 'ai-knowledge'.",
+    detail:  "Jintia requiere procedencia explícita en cada afirmación disciplinar: 'notebooklm', 'local' o 'ai-knowledge'.",
   },
   JIN_EVD_003: {
     code:    "JIN-EVD-003",
-    message: "NotebookLM no está disponible y no hay fuentes locales verificables.",
-    detail:  "Registra al menos una fuente local antes de intentar generar la guía.",
+    message: "NotebookLM no disponible tras los 3 intentos y sin fuentes locales de respaldo.",
+    detail:  "Se continúa con conocimiento del modelo (procedencia 'ai-knowledge'). No se fabricará bibliografía: registra una fuente local o resuelve NotebookLM para elevar la procedencia.",
   },
 };
 
@@ -96,10 +102,10 @@ function checkLocalSources(courseRoot, weekNumber) {
  *                    { configured, available, reason }
  * @param {boolean} [options.allowGeneric]   Si true, genera JIN-EVD-002 en lugar
  *                                           de bloquear (para registrar el intento)
- * @returns {{ allowed: boolean, code?: string, message?: string, detail?: string,
- *             sources: object[] }}
+ * @returns {{ allowed: boolean, provenance: string, code?: string, message?: string,
+ *             detail?: string, warning?: string, sources: object[] }}
  */
-function check({ courseRoot, weekNumber, notebookLM = {}, allowGeneric = false }) {
+function check({ courseRoot, weekNumber, notebookLM = {} }) {
   if (!courseRoot) throw new TypeError("Se requiere courseRoot.");
   if (!weekNumber) throw new TypeError("Se requiere weekNumber.");
 
@@ -111,36 +117,41 @@ function check({ courseRoot, weekNumber, notebookLM = {}, allowGeneric = false }
   // NotebookLM disponible → siempre permitir (la comprobación de autenticación
   // es responsabilidad del flujo de trabajo, no de esta compuerta)
   if (nlmConfigured && nlmAvailable) {
-    return { allowed: true, sources: [{ type: "notebooklm" }, ...localSources] };
+    return { allowed: true, provenance: "notebooklm", sources: [{ type: "notebooklm" }, ...localSources] };
   }
 
-  // NotebookLM falló + sin fuentes locales → JIN-EVD-003
+  // NotebookLM falló tras sus 3 intentos + sin fuentes locales → continuar con
+  // ai-knowledge, advertido mediante JIN-EVD-003 (ya no bloquea la generación).
   if (nlmConfigured && !nlmAvailable && localSources.length === 0) {
-    return { allowed: false, ...ERRORS.JIN_EVD_003, sources: [] };
+    return { allowed: true, provenance: "ai-knowledge", ...ERRORS.JIN_EVD_003, sources: [] };
   }
 
-  // Sin ninguna fuente → JIN-EVD-001
+  // Sin NotebookLM configurado y sin fuentes locales → continuar con
+  // ai-knowledge, advertido mediante JIN-EVD-001 (ya no bloquea la generación).
   if (!nlmConfigured && localSources.length === 0) {
-    return { allowed: false, ...ERRORS.JIN_EVD_001, sources: [] };
+    return { allowed: true, provenance: "ai-knowledge", ...ERRORS.JIN_EVD_001, sources: [] };
   }
 
-  // Fuentes locales sin NotebookLM → permitir con advertencia
-  if (localSources.length > 0) {
-    return { allowed: true, sources: localSources, warning: "NotebookLM no disponible; se usarán fuentes locales." };
-  }
-
-  return { allowed: false, ...ERRORS.JIN_EVD_001, sources: [] };
+  // Fuentes locales disponibles (con o sin NotebookLM) → permitir con procedencia local
+  return {
+    allowed: true,
+    provenance: "local",
+    sources: localSources,
+    warning: nlmConfigured ? "NotebookLM no disponible; se usarán fuentes locales." : undefined,
+  };
 }
 
 /**
- * Registra un intento de sustituir evidencia por conocimiento genérico.
- * Siempre devuelve allowed: false con JIN-EVD-002.
+ * Registra un intento de presentar conocimiento genérico como evidencia
+ * verificada sin declarar procedencia 'ai-knowledge'. Siempre devuelve
+ * allowed: false con JIN-EVD-002. A diferencia del fallback de check(), esto
+ * bloquea porque oculta la procedencia en vez de declararla.
  *
  * Llamar esto cuando el agente detecte que está a punto de afirmar algo
- * disciplinar sin respaldo verificable.
+ * disciplinar sin respaldo verificable y sin marcarlo como 'ai-knowledge'.
  */
 function blockGenericKnowledge() {
-  return { allowed: false, ...ERRORS.JIN_EVD_002, sources: [] };
+  return { allowed: false, provenance: "ai-knowledge", ...ERRORS.JIN_EVD_002, sources: [] };
 }
 
 /**
@@ -148,12 +159,13 @@ function blockGenericKnowledge() {
  */
 function toReport(result) {
   return {
-    allowed:  result.allowed,
-    code:     result.code || null,
-    message:  result.message || null,
-    detail:   result.detail || null,
-    warning:  result.warning || null,
-    sources:  result.sources || [],
+    allowed:    result.allowed,
+    provenance: result.provenance || null,
+    code:       result.code || null,
+    message:    result.message || null,
+    detail:     result.detail || null,
+    warning:    result.warning || null,
+    sources:    result.sources || [],
   };
 }
 

@@ -24,13 +24,41 @@ node "<skill-root>/bin/jintia.js" compile semanas/semana-03/guide.json --output 
 
 # Compilar directamente desde HTML (si ya existe)
 node "<skill-root>/bin/jintia.js" compile semanas/semana-03/guide.html
+
+# Compilar en modo publicación (bibliografía sin degradación, ver más abajo)
+node "<skill-root>/bin/jintia.js" compile semanas/semana-03/guide.json --publish
 ```
+
+## Draft vs. publish
+
+`jintia compile` tiene dos modos frente a la bibliografía:
+
+- **draft** (por defecto): tolera Citation.js ausente, `reference.bib` incompleto
+  o claves sin resolver. Las citas se muestran como marcadores (`[cita
+  pendiente]`, `[referencia no formateada]`) para poder revisar el resto del
+  documento sin bloquear el trabajo en curso.
+- **publish** (`--publish`): antes de generar el PDF, corre
+  `bibliography-manager.assertPublishReady()` sobre `guide.json`. Bloquea la
+  compilación (código de salida 1) si encuentra cualquiera de estas
+  condiciones y reporta el código `JIN-BIB-*` correspondiente:
+
+  | Código | Condición |
+  |---|---|
+  | `JIN-BIB-001` | `metadata.citationStyle` distinto de `"apa"` |
+  | `JIN-BIB-002` | Citation.js no está instalado |
+  | `JIN-BIB-003` | `metadata.bibliography` ausente o el archivo `.bib` declarado no existe |
+  | `JIN-BIB-004` | `reference.bib` no pudo parsearse como BibTeX válido |
+  | `JIN-BIB-005` | Una o más claves citadas no tienen entrada en `reference.bib` |
+
+  Ningún material académico final debe publicarse con bibliografía
+  degradada. Usar `--publish` en el paso final antes de compartir el PDF.
 
 ## Flujo completo recomendado
 
 ```bash
-jintia validate  guide.json   # linter pedagógico + validación de esquema
-jintia render    guide.json   # genera guide.html
-jintia compile   guide.json   # genera guide.pdf (render implícito si se pasa .json)
-jintia preflight guide.html   # verifica paginación sobre el HTML renderizado
+jintia validate  guide.json            # linter pedagógico + validación de esquema
+jintia render    guide.json            # genera guide.html (draft)
+jintia compile   guide.json            # genera guide.pdf en draft (render implícito si se pasa .json)
+jintia preflight guide.html            # verifica paginación sobre el HTML renderizado
+jintia compile   guide.json --publish  # paso final: bloquea si la bibliografía está degradada
 ```

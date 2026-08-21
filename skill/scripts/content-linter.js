@@ -82,6 +82,10 @@ const RULES = {
     id: "JIN-CNT-013", category: "accessibility", severity: "error",
     description: "Todo nodo 'figure' debe declarar 'src' o 'visualSpec' (no ambos, no ninguno).",
   },
+  "JIN-BIB-001": {
+    id: "JIN-BIB-001", category: "bibliography", severity: "error",
+    description: "metadata.citationStyle debe ser 'apa'; Jintia no admite otro estilo bibliográfico en esta versión.",
+  },
 };
 
 const VALID_TYPES = new Set([
@@ -154,6 +158,11 @@ function lintGuide(guidePath) {
   // ── JIN-CNT-005: outcome obligatorio ──
   if (!metadata.outcome || metadata.outcome.trim() === "") {
     issue("JIN-CNT-005", "El campo 'outcome' en metadata está ausente o vacío.");
+  }
+
+  // ── JIN-BIB-001: citationStyle debe ser 'apa' ──
+  if (metadata.citationStyle && metadata.citationStyle !== "apa") {
+    issue("JIN-BIB-001", `citationStyle "${metadata.citationStyle}" no está permitido; Jintia exige "apa" en esta versión.`);
   }
 
   // ── JIN-CNT-001: al menos un nodo orientation ──

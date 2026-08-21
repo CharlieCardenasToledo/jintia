@@ -136,24 +136,63 @@ No solicitar información que el sílabo o la configuración ya proporcionan.
 
 ### 2. Verificar evidencia
 
-Comprobar NotebookLM primero, de forma obligatoria, antes de recurrir a cualquier otra fuente:
+Jerarquía única de fuentes, en este orden estricto: **NotebookLM → fuentes
+locales → conocimiento del modelo (`ai-knowledge`)**. Esta es la única
+versión de la política; `references/bibliografia.md`, `agents/jintia-researcher.md`
+y `commands/plan.md` deben leerse como aplicaciones de esta misma jerarquía,
+no como órdenes alternativos.
 
-1. Llamar `get_health`.
-2. Si `authenticated` es falso, llamar `setup_auth` y volver a verificar. La autenticación puede abrir Chrome y permanecer disponible hasta 10 minutos.
-3. Si la sesión guardada es inválida, usar `re_auth` y volver a verificar.
-4. Resolver el notebook desde `config/notebooks.json`. Usar `select_notebook`, `search_notebooks` o `list_notebooks`.
-5. Antes de `add_notebook`, solicitar confirmación explícita al usuario.
-6. Si el curso tiene un notebook configurado y disponible, consultar con `ask_question` y `source_format: "footnotes"`; reutilizar el `session_id` en consultas relacionadas y conservar la procedencia devuelta por el servidor para verificar las citas.
+**Paso 1 — NotebookLM, hasta 3 intentos estructurados** (no tres llamadas
+idénticas):
 
-Solo si NotebookLM no está disponible (sin autenticación posible, sin notebook configurado para el curso, o el servidor no responde), recurrir en este orden a las fuentes locales:
+| Intento | Acción |
+|---|---|
+| 1 | Resolver el notebook (`config/notebooks.json`, `select_notebook`/`search_notebooks`/`list_notebooks`) y consultar con `ask_question` normalmente. |
+| 2 | Reutilizar el `session_id` existente o recrear la sesión (`reset_session`) y volver a consultar. |
+| 3 | Recuperar autenticación (`re_auth`) **solo si hay evidencia real de fallo de login** (la operación anterior fue redirigida a inicio de sesión de Google, o devolvió un error de sesión inválida) y reintentar la consulta. |
 
-1. `README.md` del curso.
-2. Recortes en `bibliografia/recortes_por_semana/semana-XX/`.
-3. Fuentes locales verificables en `bibliografia/`.
+`get_health` solo informa si existe un respaldo de autenticación legible; **no
+prueba la sesión contra Google** (`authenticated` puede ser `null` de forma
+intencional). No llamar `re_auth` únicamente porque `authenticated !== true`
+— solo ante un fallo de autenticación confirmado por una operación real.
+`setup_auth` (primera instalación, abre el navegador) es distinto de
+`re_auth` (sesión guardada inválida); no confundirlos.
 
-Antes de redactar, comprobar si existe *alguna* evidencia disponible: NotebookLM con contenido relevante, o al menos una de las tres fuentes locales. Si NotebookLM no está disponible y el sílabo no cita fuentes, no hay recortes ni bibliografía local, detener la operación por completo antes de escribir cualquier sección: informar al usuario que no hay evidencia verificable para esta semana y pedir explícitamente una fuente (bibliografía, notebook o material de referencia) antes de continuar. No generar una guía completa apoyada solo en explicaciones genéricas cuando la promesa de la skill es evidencia verificable.
+Si los 3 intentos fallan, registrar NotebookLM como **temporalmente no
+disponible** para esta consulta y continuar al paso 2. Antes de `add_notebook`,
+solicitar siempre confirmación explícita al usuario.
 
-Si existe evidencia por al menos una vía, continuar normalmente. Si durante la redacción surge una afirmación puntual sin respaldo en ninguna de las fuentes ya verificadas, detener únicamente el párrafo afectado y pedir la fuente o una respuesta manual de NotebookLM. Nunca inventar autores, años, páginas, citas o resultados.
+Al consultar, usar `source_format: "json"` (no `"footnotes"`): el MCP
+devuelve `source_id`, nombre, tipo, URL, ubicación, extracto y
+`extraction_status` de forma estructurada, más `_provenance`. NotebookLM es la
+fuente operativa primaria, pero la bibliografía **nunca cita "NotebookLM"
+como autor**: se cita la fuente subyacente que NotebookLM identifica en cada
+respuesta, registrada en `reference.bib` con su propia clave.
+
+**Paso 2 — Fuentes locales** (solo si NotebookLM no resolvió la consulta):
+
+1. Recortes en `bibliografia/recortes_por_semana/semana-XX/`.
+2. Fuentes locales verificables en `bibliografia/`.
+3. `README.md` del curso (autoridad para tema, resultado, horas y
+   actividades; no se trata como fuente disciplinar suficiente por sí sola).
+
+**Paso 3 — Conocimiento del modelo (`ai-knowledge`)**, solo si NotebookLM y
+las fuentes locales no resolvieron la afirmación. La generación **ya no se
+detiene** por falta total de evidencia externa: continúa, pero con reglas
+estrictas:
+
+- Declarar explícitamente que ese fragmento tiene procedencia `ai-knowledge`
+  (JIN-EVD-001 o JIN-EVD-003 según el caso, ambos advertencia, no bloqueo).
+- **Nunca fabricar bibliografía**: prohibido inventar autor, obra, año,
+  página o DOI para una afirmación en modo `ai-knowledge`. Puede explicarse
+  el concepto; no puede atribuírsele una fuente que no se verificó.
+- Presentar ese contenido como conocimiento general sin declarar su
+  procedencia (en vez de marcarlo `ai-knowledge`) dispara JIN-EVD-002 y
+  bloquea, porque oculta en vez de declarar.
+
+Si durante la redacción surge una afirmación puntual sin respaldo en ninguna
+de las fuentes ya verificadas, aplicar la misma jerarquía a esa afirmación
+puntual antes de repetirla en el resto del documento.
 
 ### 3. Extraer el contrato semanal
 
@@ -292,7 +331,11 @@ esté disponible.
 
 ## Bibliografía
 
-Usar `reference.bib` como única fuente bibliográfica local.
+Usar `reference.bib` como única fuente bibliográfica local. **APA es el
+estilo obligatorio**: `metadata.citationStyle` debe ser `"apa"`; cualquier
+otro valor dispara `JIN-BIB-001` en `jintia validate`. No es solo el valor
+por defecto — es el estándar exigido en esta versión, salvo que una futura
+configuración institucional explícita habilite otro estilo.
 
 **Sintaxis de citas inline** (única forma reconocida por el renderer):
 
@@ -307,6 +350,16 @@ Según {{cite:date2004|narrative}}, el modelo relacional...
 - Usar un nodo `bibliography` al final de la guía para generar la lista de referencias.
 - El nodo independiente `citation` está deprecado; usar exclusivamente la sintaxis inline.
 
+Citation.js (`@citation-js/core`, `@citation-js/plugin-bibtex`,
+`@citation-js/plugin-csl`) es una dependencia normal de la skill, no opcional:
+sin él no se puede publicar bibliografía formateada. `jintia render`/`jintia
+compile` sin `--publish` (modo draft) toleran citas sin resolver mostrando
+marcadores (`[cita pendiente]`, `[referencia no formateada]`) para no
+bloquear el trabajo en curso. `jintia compile --publish` bloquea en cambio
+ante cualquier degradación bibliográfica (`JIN-BIB-001`…`JIN-BIB-005`, ver
+`commands/compile.md`). Ningún material académico final se publica con
+bibliografía degradada.
+
 ## Integraciones opcionales
 
 Tratar logos, socios, módulos internacionales y ecosistemas institucionales como opcionales. Incluirlos solo si la configuración los define. No exigir ASU, Banco de Loja ni otra institución específica en una instalación genérica.
@@ -318,7 +371,7 @@ Tratar logos, socios, módulos internacionales y ecosistemas institucionales com
    (`node "<skill-root>/scripts/visual-pipeline.js" --spec figure/specs/fig-id.json --template jintia-clasico`);
    ejecutar además `node "<skill-root>/scripts/visual-linter.js" <guide.json>` como comprobación global de accesibilidad y manifiesto.
 3. Generar y revisar el HTML: `jintia render <guide.json>` y luego `node "<skill-root>/scripts/html-linter.js" <guide.html>`.
-4. Compilar a PDF con `jintia compile <guide.json>` y comprobar `jintia preflight <guide.html>`.
+4. Compilar a PDF con `jintia compile <guide.json>` y comprobar `jintia preflight <guide.html>`. Antes de compartir el material final, ejecutar `jintia compile <guide.json> --publish` para confirmar que la bibliografía no quedó degradada.
 5. Verificar `reference.bib`, recortes, figuras y referencias cruzadas.
 6. Ejecutar `references/checklist.md` punto por punto.
 7. Informar archivos creados, validaciones ejecutadas y limitaciones reales.

@@ -4,20 +4,24 @@ Leer cuando una tarea redacte contenido académico, resuelva fuentes o construya
 
 ## Política vinculante
 
-- Verificar toda afirmación teórica central.
-- No inventar citas, autores, años, páginas, claves o referencias.
+- Verificar toda afirmación teórica central según la jerarquía de fuentes.
+- No inventar citas, autores, años, páginas, claves o referencias — en ningún modo, incluido `ai-knowledge`.
 - No entregar marcadores como `[Pendiente de Verificación]`.
 - Distinguir una elaboración propia de una afirmación respaldada.
 - Conservar recortes de las páginas citadas cuando las fuentes estén en PDF.
 
-## Orden de resolución
+## Orden de resolución (fuente única de verdad: `SKILL.md` §2 "Verificar evidencia")
 
-1. `README.md` del curso.
-2. `bibliografia/recortes_por_semana/semana-XX/`.
-3. Fuentes locales en `bibliografia/`.
-4. NotebookLM MCP.
+1. **NotebookLM**, hasta 3 intentos estructurados (resolver+consultar → recrear sesión y reconsultar → `re_auth` solo ante fallo de login confirmado y reconsultar).
+2. **Fuentes locales**: `bibliografia/recortes_por_semana/semana-XX/`, luego `bibliografia/`, luego el `README.md` del curso.
+3. **Conocimiento del modelo (`ai-knowledge`)**, como último recurso: nunca fabrica bibliografía; se declara explícitamente y el audit lo advierte (`JIN-EVD-001`/`JIN-EVD-003`).
 
-NotebookLM contrasta la cobertura y facilita localizar fuentes. No sustituye la comprobación de la referencia original.
+NotebookLM es la fuente operativa primaria — no un contraste posterior. Aun
+así, la bibliografía nunca cita "NotebookLM" como autor: se cita la fuente
+subyacente que NotebookLM identifica en cada respuesta (`source_id`, nombre,
+tipo, ubicación), registrada en `reference.bib` con su propia clave. Ver
+`SKILL.md` §2 para el detalle completo de los 3 intentos y las reglas de
+`ai-knowledge`.
 
 ## NotebookLM MCP 2.0
 
@@ -27,20 +31,42 @@ La aplicación y esta skill usan la versión verificada:
 npx -y @charlie.act7/gemini-notebook-mcp@2.3.3
 ```
 
-Flujo:
+Flujo (ver también `SKILL.md` §2 para los 3 intentos estructurados):
 
-1. Llamar `get_health`.
-2. Si `authenticated` es falso, llamar `setup_auth`. El navegador puede permanecer abierto hasta 10 minutos.
-3. Si las cookies no son válidas, llamar `re_auth`.
+1. Llamar `get_health`. Esto solo informa si existe un respaldo de
+   autenticación legible — **no prueba la sesión contra Google**
+   (`authenticated` puede devolver `null` de forma intencional). No llamar
+   `re_auth` solo porque `authenticated !== true`.
+2. Primera instalación sin respaldo de autenticación: llamar `setup_auth`. El navegador puede permanecer abierto hasta 10 minutos.
+3. Solo si una operación real confirma que Google redirigió a inicio de sesión (fallo de login, no un `authenticated` incierto): llamar `re_auth`.
 4. Resolver el curso desde `config/notebooks.json`.
 5. Usar `select_notebook` cuando exista un id válido.
 6. Si el id no está disponible, usar `search_notebooks` o `list_notebooks`.
 7. Antes de llamar `add_notebook`, mostrar la URL y pedir confirmación explícita.
-8. Llamar `ask_question` con una pregunta específica y `source_format: "footnotes"`.
-9. Guardar y reutilizar el `session_id`.
+8. Llamar `ask_question` con una pregunta específica y `source_format: "json"` (no `"footnotes"`): el MCP devuelve `source_id`, nombre, tipo, URL, ubicación, extracto y `extraction_status` de forma estructurada, más `_provenance`.
+9. Guardar y reutilizar el `session_id`; si la sesión se pierde, recrearla (`reset_session`) antes de recurrir a `re_auth`.
 10. Revisar la procedencia devuelta por el servidor antes de redactar.
 
 `add_source` admite URLs y texto. No asumir que puede subir archivos locales. La indexación puede tardar varios segundos.
+
+## Conocimiento del modelo (`ai-knowledge`)
+
+Cuando NotebookLM (tras sus 3 intentos) y las fuentes locales no resuelven
+una afirmación, la generación continúa — ya no se detiene por completo —
+pero bajo reglas estrictas:
+
+- Declarar la procedencia como `ai-knowledge` en vez de presentarla como
+  evidencia verificada.
+- Nunca fabricar autor, obra, año, página o DOI para respaldar esa
+  afirmación.
+- El audit advierte estos fragmentos mediante `JIN-EVD-001`/`JIN-EVD-003`
+  (advertencia, no bloqueo). Presentar contenido `ai-knowledge` sin declarar
+  su procedencia dispara `JIN-EVD-002` y sí bloquea, porque oculta en vez de
+  declarar.
+- El seguimiento formal por afirmación (`evidence.json`, cobertura
+  Notebook/local/ai-knowledge en `audit`) llega en una versión posterior;
+  por ahora la declaración de procedencia es responsabilidad del redactor y
+  de `agents/jintia-researcher.md`.
 
 ## Flujo manual
 
@@ -102,7 +128,24 @@ Mantener una entrada BibLaTeX en `reference.bib` por cada clave citada:
 }
 ```
 
-En el HTML final, las citas se procesan con Citation.js. El nodo `bibliography` al final de `sections` genera la lista formateada. No combinar nodos `citation` con HTML bibliográfico manual.
+En el HTML final, las citas se procesan con Citation.js (dependencia normal,
+no opcional). El nodo `bibliography` al final de `sections` genera la lista
+formateada. No combinar nodos `citation` con HTML bibliográfico manual.
+
+`jintia render`/`jintia compile` (modo draft, por defecto) toleran Citation.js
+ausente, `.bib` incompleto o claves sin resolver, mostrando marcadores en vez
+de fallar. `jintia compile --publish` bloquea ante cualquiera de esas
+condiciones:
+
+| Código | Condición |
+|---|---|
+| `JIN-BIB-001` | `citationStyle` distinto de `"apa"` |
+| `JIN-BIB-002` | Citation.js no instalado |
+| `JIN-BIB-003` | `metadata.bibliography` ausente o el `.bib` declarado no existe |
+| `JIN-BIB-004` | `reference.bib` no parsea como BibTeX válido |
+| `JIN-BIB-005` | Clave citada sin entrada en `reference.bib` |
+
+Ningún material académico final se publica con bibliografía degradada.
 
 ## Recortes
 

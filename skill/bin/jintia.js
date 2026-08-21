@@ -75,7 +75,7 @@ Uso:
   — Motor editorial HTML —
   jintia validate  <guide.json> [--strict] [--json]
   jintia render    <guide.json> [--theme ID] [--output guide.html]
-  jintia compile   <guide.json> [--output guide.pdf]
+  jintia compile   <guide.json> [--output guide.pdf] [--publish]
   jintia preview   <guide.json>
   jintia preflight <guide.html>
 
@@ -504,9 +504,29 @@ function main(argv) {
   }
 
   if (command === "compile") {
-    const restArgs = argv.slice(1);
+    const restArgs  = argv.slice(1).filter(a => a !== "--publish");
+    const publish   = argv.slice(1).includes("--publish");
     const inputFile = restArgs.find(a => !a.startsWith("-"));
     if (inputFile && /\.json$/i.test(inputFile)) {
+      if (publish) {
+        const { assertPublishReady } = require(path.join(SCRIPTS, "bibliography-manager.js"));
+        const guideAbsolute = path.resolve(inputFile);
+        let guide;
+        try {
+          guide = JSON.parse(fs.readFileSync(guideAbsolute, "utf8"));
+        } catch (err) {
+          console.error(`jintia compile --publish: no se pudo leer ${guideAbsolute}: ${err.message}`);
+          process.exitCode = 1;
+          return;
+        }
+        const { ready, errors } = assertPublishReady(guide, guideAbsolute);
+        if (!ready) {
+          console.error("jintia compile --publish: bloqueado por bibliografía sin resolver.");
+          for (const err of errors) console.error(`✗ ${err.code} · ${err.message}`);
+          process.exitCode = 1;
+          return;
+        }
+      }
       // guide.json → render a HTML → compilar a PDF
       const htmlPath  = inputFile.replace(/\.json$/i, ".html");
       const themeArg  = option(restArgs, "--theme", null);
@@ -814,9 +834,10 @@ function main(argv) {
     if (asJson) { console.log(JSON.stringify(report)); }
     else {
       if (result.allowed) {
-        console.log(`✓ Evidencia disponible para semana ${weekNumber}.`);
+        console.log(`✓ Evidencia disponible para semana ${weekNumber} (procedencia: ${result.provenance}).`);
         result.sources.forEach(s => console.log(`  • ${s.type}: ${s.path || "(notebook)"}`));
         if (result.warning) console.log(`  ⚠ ${result.warning}`);
+        if (result.code) console.log(`  ⚠ ${result.code}: ${result.message}${result.detail ? ` — ${result.detail}` : ""}`);
       } else {
         console.error(`✗ ${result.code}: ${result.message}`);
         if (result.detail) console.error(`  ${result.detail}`);

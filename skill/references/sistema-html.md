@@ -1,4 +1,4 @@
-# Sistema Editorial HTML — Referencia técnica
+# Sistema Editorial HTML — Referencia técnica (contrato 12.4)
 
 ## Visión general
 
@@ -10,52 +10,92 @@ un PDF imprimible a través de Vivliostyle CLI.
 guide.json  →  guide-renderer.js  →  guide.html  →  vivliostyle-adapter.js  →  guide.pdf
 ```
 
-Ningún paso escribe LaTeX ni invoca pdflatex. Todo el control tipográfico vive
-en CSS Paged Media.
+Ningún paso escribe ni compila LaTeX. Todo el control tipográfico vive en
+CSS Paged Media, vía **Vivliostyle CLI** (único motor soportado,
+invocado como proceso externo — nunca importado, para preservar la licencia
+MIT de Jintia frente al AGPL-3.0 de Vivliostyle Core).
 
 ---
 
 ## 1. Formato fuente — `guide.json`
 
-El esquema canónico está en `schemas/guide.schema.json`. La estructura mínima:
+El esquema canónico está en `schemas/guide.schema.json`. Estructura mínima
+que acepta `jintia validate` en modo **draft** (sin `metadata.targets` ni
+`metadata.hours`, el contrato de alineación/autoinstruccionalidad/evaluación
+estructurada no se activa — ver `docs/rules.md`):
 
 ```json
 {
   "metadata": {
-    "course":      "Nombre del Curso",
-    "week":        3,
-    "topic":       "Tema de la semana",
-    "outcome":     "Resultado de aprendizaje en infinitivo.",
-    "theme":       "jintia-clasico",
-    "bibliography":"reference.bib",
-    "lang":        "es"
+    "course": "Nombre del Curso", "week": 3, "topic": "Tema de la semana",
+    "outcome": "Resultado de aprendizaje en infinitivo.",
+    "theme": "jintia-clasico", "bibliography": "reference.bib", "citationStyle": "apa"
   },
   "sections": [
-    { "type": "orientation", "title": "...", "content": "..." },
-    { "type": "theory",      "title": "...", "content": "..." },
-    { "type": "practice",    "title": "...", "content": "..." },
-    { "type": "assessment",  "title": "...", "items":   [] }
+    { "type": "orientation", "id": "orientacion", "content": "..." },
+    { "type": "theory",      "id": "teoria",      "content": "... {{cite:clave}}" },
+    { "type": "practice",    "id": "practica",    "content": "..." },
+    { "type": "assessment",  "id": "evaluacion",  "items": [] },
+    { "type": "bibliography","id": "referencias" }
   ]
 }
 ```
+
+**Contrato exigido en modo publish** (`jintia compile --publish`, `jintia
+report --final`, `jintia ready`) — `targets`, `hours` y estructura completa
+de `orientation`/`practice`/`assessment`:
+
+```json
+{
+  "metadata": {
+    "course": "...", "week": 3, "topic": "...", "outcome": "...",
+    "hours": 4, "theme": "jintia-tecnico", "bibliography": "reference.bib", "citationStyle": "apa",
+    "targets": [{ "id": "T1", "verb": "diseñar", "description": "..." }]
+  },
+  "sections": [
+    { "type": "orientation", "id": "o", "route": ["Teoría", "Práctica", "Evaluación"], "purpose": "...", "materials": ["..."], "successCriteria": ["..."], "estimatedMinutes": 15 },
+    { "type": "theory", "id": "t", "targetIds": ["T1"], "claimIds": ["CLM-001"], "content": "... {{cite:clave}}", "estimatedMinutes": 60 },
+    { "type": "practice", "id": "p", "mode": "guided", "targetIds": ["T1"], "workedExample": "...", "prompt": "...", "steps": ["...", "..."], "successCriteria": ["..."], "selfCheck": "...", "remediation": "...", "estimatedMinutes": 40 },
+    { "type": "assessment", "id": "e", "targetIds": ["T1"], "product": "...", "criteria": [{ "description": "...", "weight": 100 }], "estimatedMinutes": 20 },
+    { "type": "bibliography", "id": "refs" }
+  ]
+}
+```
+
+Junto a `guide.json`, `evidence.json` (ver `schemas/evidence.schema.json`)
+registra un keyClaim por cada `claimIds` usado, con `sourceMode` y (en
+publish) `targetId` obligatorio — ver `docs/notebooklm.md`.
 
 ### Tipos de nodo disponibles
 
 | Tipo | Clase CSS | Uso |
 |---|---|---|
-| `orientation` | `.jintia-orientation` | Orientación inicial de la semana |
+| `orientation` | `.jintia-orientation` | Orientación inicial de la semana; `route` declara la ruta de aprendizaje |
 | `theory` | `.jintia-theory` | Contenido teórico expositivo |
 | `concept` | `.jintia-concept` | Definición resaltada de un concepto |
-| `practice` | `.jintia-practice` | Práctica guiada paso a paso |
+| `practice` | `.jintia-practice` | Práctica (`mode`: `guided`, `independent`, `retrieval`, `transfer`) |
 | `warning` | `.jintia-warning` | Error frecuente o advertencia |
 | `critical-error` | `.jintia-critical-error` | Error crítico que impide avanzar |
 | `scenario` | `.jintia-scenario` | Caso o situación contextualizada |
-| `assessment` | `.jintia-assessment` | Actividad evaluativa con ítems |
-| `figure` | `.jintia-figure` | Imagen con alt y caption |
-| `table` | `.jintia-table` | Tabla estructurada con headers |
+| `assessment` | `.jintia-assessment` | Actividad evaluativa (`criteria`, `product`, `targetIds`) |
+| `figure` | `.jintia-figure` | Imagen con `alt` y `caption`, y `src` **o** `visualSpec` |
+| `table` | `.jintia-table` | Tabla estructurada con `caption` y `headers` |
 | `margin-note` | `.jintia-margin-note` | Nota marginal complementaria |
-| `bibliography` | `.jintia-bibliography` | Sección de referencias |
-| `citation` | `.jintia-citation` | Cita inline (inline only) |
+| `bibliography` | `.jintia-bibliography` | Sección de referencias — debe ser el último nodo |
+| `citation` | `.jintia-citation` | **Deprecado.** No usar en guías nuevas — ver más abajo |
+
+### Citas: sintaxis inline, no el nodo `citation`
+
+La sintaxis vigente es inline, dentro de cualquier campo `content`:
+
+```text
+{{cite:clave}}           → cita parentética: (Apellido, año)
+{{cite:clave|narrative}} → cita narrativa: Apellido (año)
+```
+
+El nodo `{ "type": "citation" }` sigue siendo válido en el esquema por
+compatibilidad con guías existentes, pero está **deprecado** (`JIN-CNT-012`,
+warning) — no lo generes en guías nuevas.
 
 ### Control de paginación por nodo (`data-pagination`)
 
@@ -72,23 +112,26 @@ El esquema canónico está en `schemas/guide.schema.json`. La estructura mínima
 ## 2. Comandos CLI
 
 ```bash
-# Validar pedagogía y estructura
+# Validar pedagogía y estructura (agrega --publish para el contrato completo)
 jintia validate guide.json [--strict] [--json]
 
 # Generar HTML
 jintia render guide.json [--theme jintia-clasico] [--output guide.html]
 
-# Generar PDF (requiere Vivliostyle CLI instalado)
-jintia compile guide.json [--output guide.pdf] [--size A4]
+# Generar PDF (requiere Vivliostyle CLI instalado); el tamaño de página lo fija el tema, no un flag
+jintia compile guide.json [--output guide.pdf] [--publish]
 
 # Vista previa en navegador
 jintia preview guide.html [--port 13000]
 
-# Verificar paginación
+# Verificar paginación (recibe el HTML renderizado, no el PDF)
 jintia preflight guide.html [--strict] [--json]
+
+# Orquestador completo: encadena todo lo anterior y se detiene en el primer bloqueo
+jintia ready guide.json [--json] [--skip-pdf]
 ```
 
-> Para compilar PDF necesitas Node.js ≥22.12.0 y:
+> Para compilar PDF necesitas Node.js `>=22.13.0` y:
 > ```bash
 > npm install --global @vivliostyle/cli
 > ```
@@ -101,23 +144,27 @@ Los temas viven en `skill/themes/<id>/` y siguen esta estructura:
 
 ```
 themes/
-  jintia-clasico/
+  jintia-clasico/    (A4)
     meta.json          ← contrato del tema
     tokens.css         ← variables CSS
     components.css     ← clases de bloques pedagógicos
     print.css          ← @page, break-*, encabezados corridos
     theme.css          ← punto de entrada (importa los tres)
     vivliostyle.config.js
-  jintia-tecnico/
+  jintia-tecnico/    (A4)
     meta.json
     tokens.css         ← sobreescribe tokens.css de clasico
     theme.css          ← importa tokens propios + components/print de clasico
-  jintia-cuaderno/
+  jintia-cuaderno/   (A5)
     meta.json
     tokens.css         ← tamaño A5, mayor espaciado para escritura manual
     print.css          ← márgenes A5 y configuraciones especiales
     theme.css
 ```
+
+El tamaño de página (`A4`/`A5`) se declara en `meta.json` de cada tema
+(`page.size` o `pageSize` según el tema) — no es un valor único para los
+tres.
 
 ### Jerarquía de importación
 
@@ -142,62 +189,68 @@ paginación distintas, su propio `print.css`. No duplican `components.css`.
 ## 4. Pipeline de figuras
 
 El pipeline visual genera imágenes con `visual-renderer.js` y las registra en
-`figure/manifest.json`. La salida JSON incluye ahora el campo `html` con el
+`figure/manifest.json`. La salida JSON incluye el campo `html` con el
 fragmento `<figure>` listo para insertar en el `guide.json`:
 
 ```json
 {
   "entry": { ... },
-  "html":  "<figure class=\"jintia-figure\" ...>...</figure>",
-  "latex": "\\begin{guidefigure}..."
+  "html":  "<figure class=\"jintia-figure\" ...>...</figure>"
 }
 ```
 
 La función `htmlFigure(spec, outputPath)` en `guide-renderer.js` genera ese
-fragmento. El campo `html` en la salida del pipeline es el que debe copiarse al
-nodo `figure` correspondiente del `guide.json`.
+fragmento. El campo `html` en la salida del pipeline es el que debe copiarse
+al nodo `figure` correspondiente del `guide.json`.
 
 ---
 
 ## 5. Pipeline de linting
 
 ```
-guide.json  →  content-linter.js   (JIN-CNT-001…010)
+guide.json  →  content-linter.js   (JIN-SCH-*, JIN-CNT-*, JIN-ALN-*, JIN-WRK-*, JIN-SELF-*, JIN-ASM-*, JIN-EVD-*, JIN-BIB-007)
 guide.html  →  html-linter.js      (JIN-HTM-001…008)
 guide.html  →  pdf-preflight.js    (JIN-PFG-001…006)
-README.md   →  rules-runner.js     (JIN-SYL-*, JIN-ALN-*, JIN-ACC-*)
+README.md   →  rules-runner.js     (JIN-SYL-*, JIN-ALN-002, JIN-ACC-002)
 ```
 
-Ejecutar en cadena:
+Ejecutar en cadena manualmente:
 
 ```bash
-jintia validate guide.json && \
-jintia render   guide.json --output guide.html && \
+jintia validate  guide.json --publish && \
+jintia render    guide.json --output guide.html && \
 node skill/scripts/html-linter.js guide.html && \
-jintia compile  guide.json && \
+jintia compile   guide.json --publish && \
 jintia preflight guide.html
+```
+
+o, de un solo golpe (recomendado, se detiene en el primer bloqueo):
+
+```bash
+jintia ready guide.json
 ```
 
 ---
 
-## 6. Dependencias opcionales
+## 6. Dependencias
 
-| Paquete | Para qué | Instalación |
+| Paquete | Para qué | Estado |
 |---|---|---|
-| `@vivliostyle/cli` | Compilar PDF | `npm install --global @vivliostyle/cli` |
-| `@vivliostyle/theme-base` | Módulos CSS base (CC0-1.0) | `npm install @vivliostyle/theme-base` |
-| `node-html-parser` | html-linter.js con cobertura total | `npm install node-html-parser` |
-| `playwright` | pdf-preflight.js en modo real | `npm install -D playwright && npx playwright install chromium` |
-| `@citation-js/core` | Citas APA desde .bib | `npm install @citation-js/core @citation-js/plugin-bibtex @citation-js/plugin-csl` |
+| `@citation-js/core`, `@citation-js/plugin-bibtex`, `@citation-js/plugin-csl` | Formatear bibliografía APA desde `.bib` | **Dependencia normal** de `skill/package.json` — no opcional. Su ausencia bloquea publish (`JIN-BIB-001`) |
+| `@vivliostyle/cli` | Compilar PDF | Externo, instalación global: `npm install --global @vivliostyle/cli`. Su ausencia bloquea `jintia ready` sin `--skip-pdf` |
+| `node-html-parser` | `html-linter.js` con cobertura total | Dependencia normal |
+| `playwright` | `pdf-preflight.js` en modo real (fallback estático si no está) | Dependencia de desarrollo |
 
-Todas son opcionales. El sistema opera en modo degradado sin ninguna de ellas.
+Solo Vivliostyle CLI es verdaderamente opcional en el sentido de "se puede
+trabajar en draft sin él" (`--skip-pdf` en `jintia ready`, o simplemente no
+compilar PDF todavía). Citation.js **no** es opcional: es dependencia normal
+del paquete y compuerta de publicación.
 
 ---
 
 ## 7. Licencias relevantes
 
 - **Vivliostyle Core** — AGPL-3.0. Jintia lo invoca como proceso externo (`spawnSync`) y nunca lo importa. Esto evita que la licencia AGPL se propague al código de Jintia (MIT).
-- **@vivliostyle/theme-base** — CC0-1.0. Se puede usar sin restricciones.
-- **@citation-js/core** — MIT.
+- **@citation-js/core** y plugins — MIT.
 - **node-html-parser** — MIT.
 - **Playwright** — Apache-2.0.

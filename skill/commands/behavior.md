@@ -1,4 +1,10 @@
-# `/jintia behavior`
+# Operación `behavior`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia behavior` |
 
 Verifica que un `guide.json` cumple los contratos de comportamiento del agente:
 orden de nodos, integridad bibliográfica, outcome sustantivo, secuencia canónica,

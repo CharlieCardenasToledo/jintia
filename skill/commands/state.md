@@ -1,4 +1,10 @@
-# `/jintia state`
+# Operación `state`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia state update` |
 
 Registra el estado editorial de una semana sin sobrescribir el contenido del
 curso:

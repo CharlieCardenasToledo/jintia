@@ -14,9 +14,12 @@ ejecuta el análisis de los archivos staged; no instala hooks en el repositorio
 del proyecto de Jintia ni modifica archivos del curso.
 
 ```bash
-node "<skill-root>/bin/jintia.js" hook post-edit --changed curso/README.md guia.tex
-node "<skill-root>/bin/jintia.js" hook pre-compile guia.tex
+node "<skill-root>/bin/jintia.js" hook post-edit --changed curso/README.md
+node "<skill-root>/bin/jintia.js" hook pre-compile curso/README.md
 ```
 
-`post-edit` revisa archivos compatibles y `pre-compile` aplica las reglas en
-modo estricto antes de iniciar una compilación.
+`post-edit` revisa los archivos compatibles entre los que cambiaron (sílabos
+`README.md`) y `pre-compile` aplica las mismas reglas en modo estricto sobre
+el primer archivo recibido, antes de iniciar una compilación. Ambos corren
+`rules-runner.js` (`JIN-SYL-*`) — no validan `guide.json` (para eso, usa
+`jintia validate`).

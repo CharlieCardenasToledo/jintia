@@ -64,11 +64,11 @@ Referencia de `jintia-skill`. Ejecutar esta verificación completa antes de entr
 - [ ] Todo nodo `table` declara `caption` y `headers` no vacíos.
 - [ ] Las tablas no superan el ancho imprimible A4 (evitar más de 6 columnas sin justificación).
 
-**Nodos `citation` y `bibliography`**
+**Citas y `bibliography`** (el nodo `citation` está deprecado — usar `{{cite:clave}}` inline en campos `content`)
 - [ ] No se inventaron referencias. Toda fuente pasó por el workflow de la Política de Evidencia (`bibliografia.md`).
 - [ ] El documento NO contiene etiquetas `[Pendiente de Verificación]`.
-- [ ] Cada clave en nodos `citation` existe en `reference.bib`.
-- [ ] `metadata.bibliography` apunta a `reference.bib` cuando existen nodos `citation`.
+- [ ] Cada clave citada (`{{cite:clave}}` o, si aparece, un nodo `citation` heredado) existe en `reference.bib`.
+- [ ] `metadata.bibliography` apunta a `reference.bib` cuando existen citas.
 - [ ] `reference.bib` existe y tiene una entrada BibLaTeX por cada clave citada.
 - [ ] Cuando la fuente original es un PDF local, existe un recorte trazable en `bibliografia/recortes_por_semana/semana-XX/`.
 
@@ -81,7 +81,8 @@ Referencia de `jintia-skill`. Ejecutar esta verificación completa antes de entr
 - [ ] Cada target tiene al menos una sección de enseñanza, una práctica formativa y una evaluación (`JIN-ALN-010/011/013`).
 - [ ] Ningún nodo `assessment` evalúa un target sin sección de enseñanza previa (`JIN-ALN-014`), **y el orden real respeta enseñanza/práctica antes de la evaluación** (`JIN-ALN-017`).
 - [ ] El nodo `orientation` declara `route` (ruta de aprendizaje) no vacía (`JIN-SELF-001`).
-- [ ] Toda práctica con `mode: "guided"` (o sin `mode`) declara `workedExample` (`JIN-SELF-002`).
+- [ ] En modo publish, `orientation` también declara `purpose`, `materials`, `successCriteria` y `estimatedMinutes` (`JIN-SELF-010..013`).
+- [ ] Toda práctica con `mode: "guided"` (o sin `mode`) declara `workedExample` (`JIN-SELF-002`); en modo publish, además `prompt` y `steps` (`JIN-SELF-014/015`).
 - [ ] Toda práctica declara `successCriteria` y (`selfCheck` o `feedback`) (`JIN-SELF-003/004`).
 - [ ] Toda práctica `guided`/`independent` declara `remediation` (`JIN-SELF-005`, por práctica, no basta con una sola en toda la guía).
 - [ ] Existe al menos una práctica `retrieval` y una `transfer`, y al menos una declara `selfCheck` a nivel de guía (`JIN-SELF-006/008/009`, advertencia).
@@ -98,12 +99,17 @@ Referencia de `jintia-skill`. Ejecutar esta verificación completa antes de entr
 
 **`evidence.json` (si existe)**
 - [ ] Todo `claimId` referenciado desde `guide.json` existe en `evidence.json` (`JIN-EVD-005`).
+- [ ] Ningún `id` de claim está duplicado dentro de `evidence.json` (`JIN-EVD-025`).
 - [ ] Todo keyClaim declara `sourceMode` (`JIN-EVD-010`).
 - [ ] Todo keyClaim `notebook-primary` declara `evidence.sourceId`/`sourceName`/`extractionStatus` reales (`JIN-EVD-017`); todo `local-fallback` identifica la fuente local (`JIN-EVD-018`).
 - [ ] `evidence.json` declara el mismo `week` que `guide.json`, si lo declara (`JIN-EVD-019`).
 - [ ] Toda `bibliographyKey` declarada existe en `reference.bib` (`JIN-EVD-012`).
 - [ ] Ninguna afirmación con `sourceMode: "ai-fallback"` declara `bibliographyKey` (`JIN-EVD-014`).
 - [ ] El `academicProvenance` calculado no es `BLOCKED` (`JIN-EVD-016`); si es `DEGRADED` (`JIN-EVD-015`), se revisó conscientemente.
+- [ ] En modo publish, todo keyClaim usado declara `targetId` válido (`JIN-EVD-026`) y todo target de `metadata.targets` tiene al menos un keyClaim que lo sustente (`JIN-EVD-027`).
+
+**Plan (antes de generar `guide.json`)**
+- [ ] `targets`, `alignmentMatrix`, `workloadBudget` y `assessmentContract` están completos, salvo que el plan declare `legacy: true` explícitamente (`JIN-PLN-001..004`).
 
 **Validación automática**
 - [ ] `jintia validate guide.json` terminó sin errores (JIN-SCH-*, JIN-CNT-*, JIN-BIB-*, y JIN-ALN-*/JIN-WRK-*/JIN-SELF-*/JIN-ASM-* cuando aplican).
@@ -111,7 +117,7 @@ Referencia de `jintia-skill`. Ejecutar esta verificación completa antes de entr
 - [ ] `jintia preflight guide.html` terminó sin errores críticos de paginación.
 - [ ] `jintia report guide.json --final` termina en `READY` (equivalente a `compile --publish` sin renderizar).
 - [ ] `jintia compile guide.json --publish` no reporta degradación bibliográfica (`JIN-BIB-001..007`) antes de compartir el PDF final.
-- [ ] `jintia ready guide.json` termina en `DETERMINISTIC DECISION: READY` (cadena completa: validate --publish → evidencia → bibliografía pre/post-render → render → html-lint → preflight → compile).
+- [ ] `jintia ready guide.json` termina en `DETERMINISTIC DECISION: READY` (cadena completa, incluido el PDF) o, si se usó `--skip-pdf` deliberadamente, en `PRECHECK_READY` (todo lo demás en orden, PDF pendiente). `NEEDS_CHANGES` o `BLOCKED` significan que aún no está listo.
 - [ ] Se aplicó la prueba "estudiante sin profesor" (`agents/jintia-selfstudy-reviewer.md`) y su decisión es `PASS`.
 - [ ] `agents/jintia-finish-reviewer.md` emitió `ready` incorporando el `PASS` anterior.
 - [ ] Las reglas editoriales, pedagógicas y de evidencia no cubiertas por los scripts se revisaron manualmente.

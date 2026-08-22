@@ -16,6 +16,15 @@ Leer cuando una tarea redacte contenido académico, resuelva fuentes o construya
 2. **Fuentes locales**: `bibliografia/recortes_por_semana/semana-XX/`, luego `bibliografia/`, luego el `README.md` del curso.
 3. **Conocimiento del modelo (`sourceMode: "ai-fallback"`)**, como último recurso: nunca fabrica bibliografía; se declara explícitamente y el audit lo advierte (`JIN-EVD-001`/`JIN-EVD-003`).
 
+**Trazabilidad de los 3 intentos (`notebookResolution`).** `evidence-gate.js`
+`check()` acepta opcionalmente `notebookLM.attempts`
+(`[{ attempt, result, reAuth? }]`) y `notebookLM.fallbackReason`; si se
+declaran, el resultado (y el plan, vía `jintia plan save`) incluye
+`notebookResolution` — así queda demostrado, no solo declarado, que la
+política se agotó antes de caer a `local-fallback`. Sin esta trazabilidad,
+un `local-fallback` con NotebookLM configurado emite `JIN-EVD-028`
+(advertencia).
+
 Los tres modos de procedencia (`sourceMode`) son: `notebook-primary`, `local-fallback` y `ai-fallback`.
 
 NotebookLM es la fuente operativa primaria — no un contraste posterior. Aun
@@ -25,7 +34,7 @@ tipo, ubicación), registrada en `reference.bib` con su propia clave. Ver
 `SKILL.md` §2 para el detalle completo de los 3 intentos y las reglas de
 `ai-fallback`.
 
-## NotebookLM MCP 2.0
+## NotebookLM MCP
 
 La versión canónica es la fijada en `release/release-config.json`
 (`mcp.version`, con su `npmIntegrity` SRI) — esa es la única fuente de
@@ -97,9 +106,19 @@ Clasificación:
 
 Los umbrales son un punto de partida y pueden recalibrarse con casos reales.
 
-## Flujo manual
+## Flujo manual (solo sin herramientas MCP en el harness actual)
 
-Si el MCP no responde y no existen fuentes locales suficientes, detener únicamente el fragmento afectado y emitir:
+Esta sección **no** es un paso adicional sobre el flujo con herramientas MCP
+de arriba — es la alternativa cuando el harness actual no expone
+`ask_question`/`add_notebook` como herramientas invocables (p. ej. un agente
+sin el servidor MCP de NotebookLM configurado) y hay una persona con acceso
+al notebook en el navegador. No sustituye los 3 intentos estructurados
+cuando sí hay herramientas MCP disponibles, y tampoco es un paso previo
+obligatorio antes de `ai-fallback`: si no hay MCP ni persona disponible para
+pegar la respuesta, se continúa directamente con la jerarquía normal
+(fuente local → `ai-fallback`).
+
+Detener únicamente el fragmento afectado y emitir:
 
 ```text
 CONSULTA NOTEBOOKLM REQUERIDA

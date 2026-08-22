@@ -1,4 +1,10 @@
-# `/jintia doctor`
+# Operación `doctor`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia doctor` |
 
 Diagnostica dependencias y contratos locales:
 

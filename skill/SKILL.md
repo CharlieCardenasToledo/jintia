@@ -242,11 +242,18 @@ Mostrar:
 
 Esperar confirmación explícita del usuario antes de crear cualquier archivo.
 
-Después de presentar el plan, persistirlo:
+Después de presentar el plan, persistirlo (el plan se escribe primero como
+JSON — `topic`, `outcomes`, `targets`, `alignmentMatrix`, `workloadBudget`,
+`assessmentContract` — y se guarda con `--file`):
 
 ```bash
-node "<skill-root>/bin/jintia.js" plan save <curso> <semana>
+node "<skill-root>/bin/jintia.js" plan save <curso> <semana> --file plan.json
 ```
+
+`jintia plan approve` bloquea (`JIN-PLN-001..004`) si `targets`, la matriz de
+alineación, `workloadBudget` o `assessmentContract` están incompletos —
+salvo que el plan declare `"legacy": true` explícitamente. Ver
+`commands/plan.md` para el esquema completo.
 
 La operación `guide` verifica que el plan esté aprobado antes de crear archivos:
 
@@ -450,6 +457,15 @@ y clasificación `STRONG`/`GOOD`/`DEGRADED`/`WEAK`/`BLOCKED`, ver
 cuenta, precisamente para que no se pueda inflar `STRONG` agregando claims
 NotebookLM que la guía no usa. Si ningún claim declarado está referenciado,
 la procedencia no es calculable y bloquea (`JIN-EVD-024`).
+
+Además, en modo publish: ningún `id` de claim puede estar duplicado
+(`JIN-EVD-025`); todo keyClaim usado debe declarar un `targetId` válido que
+exista en `metadata.targets` (`JIN-EVD-026`); y todo target declarado debe
+tener al menos un keyClaim usado que lo sustente (`JIN-EVD-027`) — el grafo
+target → claim → evidencia debe cerrar en el propio artefacto. Un
+`local-fallback` con NotebookLM configurado pero sin los 3 intentos
+declarados (`notebookResolution`, ver `references/bibliografia.md`) advierte
+`JIN-EVD-028`.
 
 ## Integraciones opcionales
 

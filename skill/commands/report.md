@@ -1,4 +1,10 @@
-# `/jintia report`
+# Operación `report`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia report --final` |
 
 Genera el **JINTIA QUALITY REPORT**: un resumen de lectura rápida sobre si
 una guía está lista para publicación, agregando lo que ya valida `jintia

@@ -350,7 +350,7 @@ function checkPlanApproved(courseRoot, weekNumber) {
     return {
       approved: false,
       status:   null,
-      message:  `No existe plan para la semana ${weekNumber}. Ejecuta '/jintia plan' primero y obtén aprobación explícita del usuario.`,
+      message:  `No existe plan para la semana ${weekNumber}. Ejecuta la operación 'plan' primero (/jintia-skill en Claude Code, $jintia-skill en Codex, o 'jintia plan save' en CLI) y obtén aprobación explícita del usuario.`,
     };
   }
 

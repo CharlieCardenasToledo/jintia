@@ -21,31 +21,42 @@ Jintia ingiere sílabos, configuraciones institucionales y fuentes verificables 
 
 ## Uso y Flujo del Usuario
 
-El usuario final interactúa con Jintia a través de su agente de IA de preferencia (Claude, ChatGPT, etc.) siguiendo este flujo normal:
+El usuario final interactúa con Jintia a través de su agente de IA de preferencia
+siguiendo el nombre de invocación de cada superficie:
+
+| Superficie | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` (no `/jintia`) |
+| Codex / ChatGPT | `$jintia-skill` |
+| CLI directa | `jintia <comando>` |
+
+El flujo normal de una semana es:
 
 ```mermaid
 sequenceDiagram
     participant U as Usuario
     participant IA as Agente de IA
+    participant N as NotebookLM / local / ai-fallback
     participant J as Jintia Skill
-    participant E as Evidencia (NotebookLM/Local)
 
-    U->>U: 1. Prepara Sílabo (README.md)
-    U->>IA: 2. Conecta fuentes y contexto
-    U->>IA: 3. Prompt: "Genera guía semana X"
-    IA->>E: 4. Extrae resultados y busca evidencia
-    E-->>IA: Retorna información validada
-    IA->>J: 5. Genera AST (guide.json)
-    IA->>J: 6. Ejecuta jintia render & compile
-    J-->>U: Entrega PDF maquetado
+    U->>U: 1. Prepara sílabo (README.md)
+    U->>IA: 2. /jintia-skill plan semana X
+    IA->>J: 3. Descompone el RA en targets + alignmentMatrix
+    IA->>N: 4. Resuelve evidencia (NotebookLM primero, fallback local, ai-fallback último recurso)
+    N-->>IA: keyClaims con procedencia declarada
+    U->>IA: 5. Aprueba el plan (jintia plan approve)
+    IA->>J: 6. Genera guide.json + evidence.json
+    IA->>J: 7. jintia ready guide.json
+    J-->>U: DETERMINISTIC DECISION + PDF (si no hay --skip-pdf)
+    IA->>IA: 8. jintia-selfstudy-reviewer (PASS) + jintia-finish-reviewer (ready)
 ```
 
-1. **Preparación del Entorno**: El usuario debe tener en su espacio de trabajo un archivo `README.md` que actúe como el sílabo canónico del curso (con resultados de aprendizaje definidos), y opcionalmente un archivo de configuración (`config/institution.json`).
-2. **Conexión de Evidencia**: El usuario provee el contexto al agente, ya sea conectando sus cuadernos de investigación a través de la integración de NotebookLM MCP o proporcionando archivos bibliográficos locales.
-3. **Petición (Prompt)**: El usuario solicita al agente la creación de una guía. Por ejemplo: *"Jintia, genera la guía instruccional para la semana 3 basada en el sílabo"*.
-4. **Delegación Agéntica**: Jintia asume el control. Lee el sílabo, extrae los resultados, busca evidencia en las fuentes conectadas y estructura el contenido usando la pedagogía de *Backward Design*.
-5. **Generación del AST**: El agente redacta la guía escribiéndola estrictamente en el formato neutro `guide.json`. Si requiere diagramas, delega la creación de los mismos.
-6. **Compilación y Entrega**: El agente (o el propio usuario, si lo desea) invoca los comandos de la *skill* (`jintia render` y `jintia compile`) para convertir automáticamente el `guide.json` en un PDF maquetado profesionalmente, listo para su distribución.
+1. **Preparación del entorno**: `README.md` actúa como sílabo canónico del curso (resultados de aprendizaje, horas, actividades calificadas), y opcionalmente `config/institution.json`.
+2. **Plan antes de redactar**: `jintia plan` descompone el resultado de aprendizaje en `targets` y completa la matriz de alineación (enseñanza, práctica, feedback, evaluación, evidencia) para cada uno **antes** de escribir contenido. `jintia plan approve` bloquea si la matriz, el presupuesto de horas (`workloadBudget`) o el contrato de evaluación (`assessmentContract`) están incompletos.
+3. **Evidencia con procedencia declarada**: jerarquía única — NotebookLM (3 intentos) → fuente local verificable → conocimiento del modelo (`ai-fallback`, último recurso, nunca fabrica bibliografía). Cada afirmación disciplinar central queda registrada en `evidence.json` con su `sourceMode`.
+4. **Generación del AST**: el agente redacta la guía en el formato neutro `guide.json` (targets, `orientation.route`, práctica estructurada, evaluación con criterios) y cierra el plan con `jintia guide finalize`.
+5. **Cierre determinista (`jintia ready`)**: corre en cadena `validate --publish` → procedencia de evidencia → bibliografía → render → html-lint → preflight → compile (PDF). Se detiene en el primer paso bloqueante.
+6. **Revisión de agente**: `DETERMINISTIC DECISION: READY` es necesaria pero no suficiente — se exige además `PASS` de `jintia-selfstudy-reviewer` y `ready` de `jintia-finish-reviewer` antes de compartir el material.
 
 ## Arquitectura (Pipeline Editorial)
 
@@ -53,30 +64,34 @@ La *skill* opera mediante un flujo secuencial automatizado (el *Pipeline* Editor
 
 ```mermaid
 graph TD
-    A[guide.json<br/>AST Semántico] -->|jintia validate| B(Schema Validator)
-    B -->|Éxito| C[guide-renderer.js]
+    A[guide.json<br/>AST Semántico] -->|jintia validate --publish| B(Schema Validator + rule-catalog.js)
+    B -->|Éxito| P[evidence.json<br/>provenance]
+    P --> C[guide-renderer.js]
     C -->|jintia render| D[HTML5 Puro + Tema]
     D --> E{html-linter.js}
     E -->|Validación DOM| F[jintia preflight<br/>Playwright]
     F -->|Paginación OK| G[Vivliostyle CLI<br/>jintia compile]
     G --> H((PDF Final))
-    
+
     I[Pipeline Visual<br/>TikZ, Mermaid] -.->|Inyección opcional| D
+    A -.->|jintia ready| Z[DETERMINISTIC DECISION<br/>READY / PRECHECK_READY / BLOCKED]
 ```
 
-1. **Ingesta de Contenido (`jintia validate`)**: Lee el archivo semántico `guide.json` (el Árbol de Sintaxis Abstracta) y valida su estructura mediante un validador de esquemas (*Schema Validator*) propio.
-2. **Renderizado Semántico (`jintia render`)**: El motor `guide-renderer.js` toma el AST y construye un documento HTML5 puro, inyectando el tema visual seleccionado (ej. `jintia-tecnico` o `jintia-cuaderno`).
-3. **Control de Calidad de Contenido (`html-linter.js`)**: Analiza el DOM (Document Object Model) resultante buscando violaciones a reglas de accesibilidad (JIN-HTM-*) e instruccionales.
-4. **Pipeline Visual (Figuras Complejas)**: De forma opcional, si la guía incluye diagramas matemáticos o técnicos, se invocan herramientas externas (TikZ, PlantUML, Mermaid) y las imágenes resultantes se inyectan en el HTML final.
-5. **Preflight de Paginación (`jintia preflight`)**: Mediante Playwright, el motor simula el entorno de impresión para detectar errores como "viudas/huérfanas" (títulos aislados al final de una página) o tablas que se cortan incorrectamente.
-6. **Compilación PDF (`jintia compile`)**: Finalmente, delega la composición (typesetting) al motor de CSS Paged Media **Vivliostyle**, generando el PDF final de grado imprenta.
+1. **Ingesta de contenido (`jintia validate` / `--publish`)**: valida `guide.json` contra `guide.schema.json` y contra `rules/catalog.json` (fuente única de severidad/categoría de cada regla `JIN-*`). En modo publish, `targets`, `hours` y `evidence.json` dejan de ser opcionales.
+2. **Procedencia de evidencia**: `evidence.json` se valida contra su propio esquema; el grafo target → claim → evidencia debe cerrar (todo keyClaim usado declara `targetId`, todo target tiene evidencia).
+3. **Renderizado semántico (`jintia render`)**: `guide-renderer.js` construye HTML5 puro con el tema seleccionado (`jintia-clasico`, `jintia-tecnico` o `jintia-cuaderno`).
+4. **Control de calidad de contenido (`html-linter.js`)**: reglas de accesibilidad (`JIN-HTM-*`) e instruccionales sobre el DOM resultante.
+5. **Pipeline visual (figuras complejas)**: si la guía incluye diagramas, se invocan herramientas externas (TikZ, PlantUML, Mermaid, Vega-Lite, Graphviz) y las imágenes se inyectan en el HTML final.
+6. **Preflight de paginación (`jintia preflight`)**: mediante Playwright, detecta viudas/huérfanas o tablas cortadas.
+7. **Compilación PDF (`jintia compile`)**: delega la composición a **Vivliostyle** (CSS Paged Media).
+8. **`jintia ready`**: orquesta los pasos 1-7 de un solo golpe y se detiene en el primer bloqueo; ver [`skill/commands/ready.md`](skill/commands/ready.md).
 
 ## Instalación
 
 ### Con npx (recomendado)
 
-Requiere Node.js 18 o posterior. Desde la raíz del proyecto donde utilizarás
-Jintia, ejecuta:
+Requiere Node.js `>=22.13.0` (ver `engines` en `package.json`). Desde la raíz
+del proyecto donde utilizarás Jintia, ejecuta:
 
 ```bash
 npx @charlie.act7/jintia install
@@ -116,13 +131,17 @@ la raíz de la skill instalada.
 
 La integración usa la versión fijada de
 [`@charlie.act7/gemini-notebook-mcp`](https://www.npmjs.com/package/@charlie.act7/gemini-notebook-mcp),
-también mantenida por Charlie Cárdenas Toledo. La release 10.9.2 fija la versión
-2.3.3 y requiere Node.js 22.13 o superior. No se usa `@latest`.
+también mantenida por Charlie Cárdenas Toledo, según
+[`release/release-config.json`](release/release-config.json) — nunca `@latest`.
+Jerarquía única de evidencia: NotebookLM (3 intentos) → fuente local
+verificable → conocimiento del modelo (`ai-fallback`, último recurso). Ver
+[`docs/notebooklm.md`](docs/notebooklm.md) para el detalle completo.
 
 ## Desarrollo
 
 ```bash
 npm ci
+npm --prefix skill ci
 npm run docs:check
 npm run skill:check
 npm run release:check

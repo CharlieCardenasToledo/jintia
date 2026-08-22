@@ -10,19 +10,27 @@ artifacts.
 
 ## Capabilities
 
-- instructional planning and evidence traceability;
+- instructional planning (`jintia plan`) with a pedagogical contract enforced before drafting: outcomes decomposed into `targets`, an alignment matrix (teaching, practice, feedback, assessment, evidence), workload budget, and assessment contract;
+- evidence traceability with declared provenance per claim: NotebookLM (primary, 3 attempts) → local fallback → model knowledge (`ai-fallback`, last resort, never fabricates bibliography) — see `evidence.json`;
 - HTML themes (jintia-clasico, jintia-tecnico, jintia-cuaderno) with Vivliostyle PDF output;
-- schema, HTML, and visual-quality validation;
+- schema, HTML, and visual-quality validation, plus a single deterministic closing command (`jintia ready`) that chains validation, evidence provenance, bibliography, rendering, linting, preflight, and PDF compilation;
 - reproducible visual generation with fallbacks;
-- optional NotebookLM integration;
-- specialized agent contracts for research, review, and final production.
+- specialized agent contracts for research, self-study review, and final production.
+
+## Invocation surfaces
+
+| Surface | Invocation |
+|---|---|
+| Claude Code | `/jintia-skill` (not `/jintia`) |
+| Codex / ChatGPT | `$jintia-skill` |
+| Direct CLI | `jintia <command>` |
 
 ## Installation
 
 ### With npx (recommended)
 
-Requires Node.js 18 or newer. From the project root where Jintia will be used,
-run:
+Requires Node.js `>=22.13.0` (see `engines` in `package.json`). From the
+project root where Jintia will be used, run:
 
 ```bash
 npx @charlie.act7/jintia install
@@ -52,13 +60,16 @@ universal plugin through a compatible plugin manager.
 
 The integration uses a pinned version of
 [`@charlie.act7/gemini-notebook-mcp`](https://www.npmjs.com/package/@charlie.act7/gemini-notebook-mcp),
-also maintained by Charlie Cárdenas Toledo. Release 10.9.2 pins version 2.3.3
-and requires Node.js 22.13 or newer.
+also maintained by Charlie Cárdenas Toledo, per
+[`release/release-config.json`](release/release-config.json) — never `@latest`.
+See [`docs/notebooklm.md`](docs/notebooklm.md) for the full evidence-provenance
+policy (NotebookLM-first, local fallback, `ai-fallback` as last resort).
 
 ## Development
 
 ```bash
 npm ci
+npm --prefix skill ci
 npm run docs:check
 npm run skill:check
 npm run release:check

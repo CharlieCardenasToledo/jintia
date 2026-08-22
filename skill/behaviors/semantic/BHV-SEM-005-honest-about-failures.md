@@ -41,7 +41,7 @@ Archivos generados:
 
 Falló:
 ✗ semanas/semana-03/guide.pdf — Vivliostyle CLI no encontrado.
-  Para compilar a PDF, instala: npm install --global @vivliostyle/cli (requiere Node.js >=22.12.0)
+  Para compilar a PDF, instala: npm install --global @vivliostyle/cli (requiere Node.js >=22.13.0)
   Luego ejecuta: jintia compile guide.json
 
 Pendiente: jintia preflight guide.html (puede ejecutarse sin Vivliostyle)

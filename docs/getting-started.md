@@ -1,17 +1,28 @@
 # Primeros pasos
 
-Jíntia convierte sílabos y fuentes del curso en guías didácticas semanales exportadas como HTML y PDF A4. Funciona en **Claude Code**, **ChatGPT** (como plugin OpenAI) y **Cursor**.
+Jíntia convierte sílabos y fuentes del curso en guías didácticas semanales
+exportadas como HTML y PDF. Funciona en **Claude Code**, **Codex/ChatGPT**
+(como plugin universal) y **Cursor**.
+
+## Superficies de invocación
+
+| Entorno | Cómo se invoca |
+|---|---|
+| Claude Code | `/jintia-skill` (⚠️ `/jintia` no es el comando registrado) |
+| Codex / ChatGPT | `$jintia-skill` |
+| CLI directa | `jintia <comando>` |
 
 ## Requisitos
 
 | Requisito | Versión mínima | Notas |
 |---|---|---|
-| Node.js | 22.12.0 | Requerido para la CLI y el pipeline HTML |
+| Node.js | `>=22.13.0` | Requerido para la CLI y el pipeline HTML (ver `engines` en `package.json`) |
 | [Claude Code](https://claude.ai/code) | Cualquier versión reciente | Si usas Claude Code |
-| ChatGPT Plus o Team | — | Si usas la integración OpenAI |
-| Cuenta de Google | — | Para NotebookLM (opcional pero recomendado) |
+| Codex o ChatGPT | — | Si usas la integración vía plugin universal |
+| Cuenta de Google | — | Para NotebookLM: es la fuente **primaria** de evidencia (no opcional por diseño), aunque el sistema sigue funcionando sin ella mediante fallback local o `ai-fallback` — ver [`docs/notebooklm.md`](notebooklm.md) |
 
-PDF local requiere además [Vivliostyle CLI](https://vivliostyle.org/):
+PDF local requiere además [Vivliostyle CLI](https://vivliostyle.org/) (único
+motor de compilación soportado):
 
 ```bash
 npm install -g @vivliostyle/cli
@@ -23,51 +34,41 @@ npm install -g @vivliostyle/cli
 
 ## Instalación en Claude Code
 
-### Opción A — Terminal
-
 ```bash
-npx @charlie.act7/jintia install
+npx @charlie.act7/jintia install --providers=claude --yes
 ```
 
-El instalador:
-
-1. Copia la skill en `~/.claude/skills/jintia-skill`
-2. Registra los comandos en Claude Code
-3. Configura el servidor MCP de NotebookLM si hay credenciales disponibles
-
-### Opción B — Sin terminal (explorador de archivos)
-
-1. Descarga el repositorio: `https://github.com/CharlieCardenasToledo/jintia`
-2. Abre tu explorador de archivos y ve a tu carpeta de inicio (`C:\Users\TuNombre` en Windows, `/Users/tunombre` en Mac)
-3. Crea la carpeta `.claude/skills/` si no existe
-4. Copia la carpeta `skill/` del repositorio descargado dentro de `.claude/skills/` y renómbrala `jintia-skill`
-5. Abre Claude Code — la skill estará disponible automáticamente
+El instalador copia la skill en `~/.claude/skills/jintia-skill` (o en el
+proyecto actual con `--scope=project`) y la registra para Claude Code.
 
 ---
 
-## Instalación en ChatGPT (plugin OpenAI)
+## Instalación en Codex / ChatGPT (plugin universal)
 
-1. En ChatGPT, ve a **Explorar GPTs → Mis GPTs → Crear**
-2. En **Configurar**, sección **Acciones**, haz clic en **Importar desde URL**
-3. Ingresa la URL del plugin:
-   ```
-   https://CharlieCardenasToledo.github.io/jintia/openai-plugin
-   ```
-4. Guarda el GPT con el nombre **Jíntia**
-5. Para usar la skill, envía el prompt:
-   ```
-   Actúa como Jíntia. Genera la guía semanal 1 para el curso adjunto.
-   ```
+La vía canónica es el propio CLI de Jintia, no una importación manual de GPT
+Actions:
+
+```bash
+jintia plugin status --json
+jintia plugin install --yes --json
+```
+
+Esto despliega el plugin en `~/.codex/plugins/jintia`, lo registra en el
+marketplace local (`~/.agents/plugins/marketplace.json`) y sincroniza la
+configuración institucional. Reinicia el agente (Codex o ChatGPT) y activa
+Jintia desde el panel de Plugins. Es una instalación local para pruebas o
+distribución privada — no publica Jintia en el Plugin Directory de OpenAI
+(ver [`openai-plugin/README.md`](../openai-plugin/README.md)).
 
 ---
 
 ## Instalación en Cursor
 
 ```bash
-npx @charlie.act7/jintia install --harness cursor
+npx @charlie.act7/jintia install --providers=cursor --yes
 ```
 
-La skill se registra como comando slash en el panel de Cursor.
+La skill se registra como comando en el panel de Cursor.
 
 ---
 
@@ -85,37 +86,41 @@ npx @charlie.act7/jintia update
 npx @charlie.act7/jintia doctor
 ```
 
-La salida muestra el estado de Node.js, Vivliostyle CLI y los temas instalados. Si algún elemento falta, el doctor indica cómo resolverlo.
+La salida muestra el estado de Node.js, Vivliostyle CLI, Python y los temas
+instalados. Si algún elemento falta, el doctor indica cómo resolverlo. No
+gestiona la autenticación de NotebookLM: eso ocurre a través de las
+herramientas MCP del harness (`setup_auth`, `get_health`), no del CLI de
+Jintia.
 
 ---
 
 ## Primer uso
 
+El flujo real no es "pide una guía y ya" — hay un plan pedagógico que se
+aprueba explícitamente antes de redactar (ver
+[`docs/generate-weekly-guide.md`](generate-weekly-guide.md) para el detalle
+completo paso a paso). Para arrancar:
+
 ### Claude Code
 
-Abre Claude Code en la carpeta de tu proyecto y escribe:
-
 ```
-/jintia guía semana 1
+/jintia-skill planifica la semana 1
 ```
 
-### ChatGPT
-
-En el chat con tu GPT Jíntia, adjunta el sílabo del curso y escribe:
+### Codex / ChatGPT
 
 ```
-Genera la guía didáctica para la semana 1 del curso adjunto.
-Sigue el formato Jíntia con secciones: orientación, teoría, práctica, evaluación.
+$jintia-skill planifica la semana 1
 ```
 
 ### Cursor
 
-En el panel de Cursor abre la paleta de comandos (`Ctrl+Shift+P`) y escribe:
-
-```
-/jintia guía semana 1
-```
+En el panel de Cursor abre la paleta de comandos (`Ctrl+Shift+P`) e invoca
+Jintia igual que en Claude Code (`/jintia-skill planifica la semana 1`).
 
 ---
 
-En todos los casos, Jíntia pedirá el sílabo y las fuentes bibliográficas antes de generar la guía.
+En todos los casos, Jíntia primero lee el sílabo (`README.md`) y presenta un
+plan (resultado descompuesto en `targets`, matriz de alineación, evidencia
+disponible) para tu aprobación explícita **antes** de escribir cualquier
+`guide.json`.

@@ -1,7 +1,10 @@
 # Temas HTML
 
 Jíntia incluye tres temas HTML. Cada tema es un sistema CSS completo con
-design tokens, componentes pedagógicos y control de paginación para impresión A4.
+design tokens, componentes pedagógicos y control de paginación para
+impresión. El tamaño de página es propio de cada tema — declarado en su
+`meta.json` (`pageSize`) — no un estándar único: `jintia-clasico` y
+`jintia-tecnico` son A4; `jintia-cuaderno` es **A5**.
 
 ## Elegir un tema
 

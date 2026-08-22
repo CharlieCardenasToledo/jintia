@@ -1,4 +1,10 @@
-# `/jintia ready`
+# Operación `ready`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia ready` |
 
 El orquestador completo de publicación. Corre, en orden, todo lo
 **determinista** que separa "el AST parece publicable" de "el material

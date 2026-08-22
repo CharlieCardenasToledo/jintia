@@ -5,6 +5,52 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 12.4.2 — 2026-08-22
+
+Release documental: cierra una cuarta revisión externa que encontró que el
+código avanzó más rápido que la documentación pública — `docs/`, el README
+y varias referencias técnicas seguían describiendo la arquitectura anterior
+a 12.4 (Node 18/22.12, MCP hardcodeado, LaTeX/Biber/MiKTeX, `--engine
+pagedjs`, `/jintia` como comando registrado, catálogo de reglas
+desactualizado). No hay cambios de arquitectura pedagógica ni de runtime en
+este release; solo un ajuste puntual de código descubierto en el proceso
+(`usage()` de `bin/jintia.js` no listaba `guide create`/`guide finalize`).
+
+### Corregido
+
+- **README.md / README.en.md**: Node `>=22.13.0` (no 18/22.12), versión de MCP ya no hardcodeada (referencia a `release/release-config.json`), flujo principal reescrito para reflejar plan/targets/alignmentMatrix/evidence/ready.
+- **`docs/cli.md`**: regenerado contra el CLI real — se elimina `--engine pagedjs` (motor inexistente; único motor: Vivliostyle), `preflight` corregido a `guide.html` (no `.pdf`), añadidos `plan`, `evidence`, `guide create/finalize`, `report --final`, `ready`.
+- **`docs/getting-started.md`, `docs/create-first-course.md`, `docs/generate-weekly-guide.md`**: reescritos sobre el flujo real (`init` no crea `JINTIA.md`/`reference.bib`/`institution.json`; `doctor` no es un wizard de NotebookLM; NotebookLM es fuente primaria, no "opcional"). `generate-weekly-guide.md` pasa a ser el documento canónico del flujo semanal completo.
+- **`docs/notebooklm.md`**: reescrito completo — política de 3 intentos, fallbacks, `notebookResolution`, `JIN-EVD-028`.
+- **`docs/rules.md`**: añadidas las familias `JIN-PLN-*`, `JIN-EVD-025..028`, `JIN-SELF-010..015`; corregido el ejemplo `audit guia.tex` (audit valida `README.md`, no guías).
+- **`docs/troubleshooting.md`**: reemplazado por completo — ya no menciona Biber/LaTeX/MiKTeX; cubre `JIN-PLN-*`, autenticación de NotebookLM, `JIN-EVD-028`, `academicProvenance`, `JIN-BIB-*`, Vivliostyle ausente, `PRECHECK_READY` vs `READY`, `preflight`, `guide finalize`, `NEEDS_CHANGES`.
+- **`skill/references/sistema-html.md`**: reescrito como contrato técnico de 12.4 — el nodo `citation` se marca deprecado a favor de `{{cite:clave}}`, Citation.js deja de describirse como opcional/degradable (es dependencia normal y compuerta de publish).
+- **`skill/references/figuras-tikz.md`**: la sección de exportación de figuras ya no enseña un flujo manual WSL + `pdflatex`/`pdftoppm` (con una referencia rota a `compilacion.md`, inexistente); ahora documenta el pipeline automatizado (`jintia visual render`).
+- **`skill/references/bibliografia.md`**: título `NotebookLM MCP 2.0` → `NotebookLM MCP`; el "Flujo manual" ahora aclara que solo aplica sin herramientas MCP disponibles (no es un paso previo obligatorio al fallback); añadida la trazabilidad `notebookResolution`/`JIN-EVD-028`.
+- **`skill/references/checklist.md`**: añadidas `JIN-EVD-025/026/027`, `JIN-PLN-*`, `JIN-SELF-010..015`; aclarado que `jintia ready` puede terminar en `PRECHECK_READY`, no solo `READY`; marcado el nodo `citation` como deprecado.
+- **`skill/SKILL.md`**: ejemplo `plan save` corregido para incluir `--file plan.json`; añadidos `JIN-EVD-025..028` y `JIN-PLN-*` al resumen de reglas.
+- **Terminología `/jintia-skill` en todo `skill/commands/*.md`**: los títulos y ejemplos ya no usan `/jintia <comando>` (no es el comando registrado en Claude Code); cada playbook ahora abre con una tabla Claude Code / Codex / CLI.
+- **`skill/commands/audit.md`**: los ejemplos usaban `guia.tex`/rutas `latex/` — `audit` valida `README.md`, nunca guías ni `.tex`.
+- **`skill/commands/hooks.md`**: los ejemplos pasaban `guia.tex` a los hooks; corregidos a `README.md` (los hooks corren `rules-runner.js`, no validan `guide.json`).
+- **`skill/commands/compile.md`**: Node `>=22.13.0`; añadida distinción entre compilación aislada (`compile`) y cierre completo (`ready`).
+- **`docs/templates.md`**: `jintia-cuaderno` es A5, no A4 como los otros dos temas.
+- **`docs/harnesses.md`**: la versión de MCP en el ejemplo TOML ya no está hardcodeada.
+- **`docs/testing.md` / `docs/releasing.md`**: añadido el paso `npm --prefix skill ci` (el bug de CI real corregido en 12.4.0/12.4.1: `skill/` no es workspace de npm).
+- **`docs/architecture.md`**: ampliado con `plan-state.js`, `evidence-gate.js`, `rule-catalog.js` y `ready.js`; corregidas las opciones inexistentes (`--engine`) de `vivliostyle-adapter.js`.
+- **`bin/jintia.js`**: `usage()` no listaba `guide create`/`guide finalize` (existen y funcionan desde 12.0, pero no aparecían en `jintia` sin argumentos).
+- **`skill/themes/jintia-clasico/meta.json`**: `nodeVersion` desactualizado (`>=22.12.0` → `>=22.13.0`; campo no leído por ningún script, solo metadata).
+
+### Añadido
+
+- **`docs/README.md`**: índice de documentación con mapa de "por dónde empezar" y tabla de autoridad (qué archivo es la fuente canónica de cada aspecto).
+- **`docs/claude-code.md`**: guía breve de instalación/uso en Claude Code, separada de la aplicación Desktop.
+- **`scripts/check-docs.mjs` endurecido**: nuevos patrones obsoletos (Node 18/22.12, `pdflatex`, `latex-linter`, `Biber`, `guia.tex`, `MiKTeX`, `TeX Live`, `--engine pagedjs`); detección estructural de versión de MCP hardcodeada; validación de que todo `JIN-*` mencionado en documentación (para familias que rastrea el catálogo) exista en `rules/catalog.json`; validación de que todo `commands/*.md` referenciado desde `SKILL.md` exista.
+
+### Eliminado
+
+- **`DESIGN.md`**: describía la UI de la aplicación de escritorio (glassmorphic, blobs animados) — no corresponde a este repositorio (skill + motor editorial); Jintia Desktop vive en `jintia-desktop`.
+- **`docs/guia-claude-desktop.md`**: describía instalación con LaTeX/TeX Live/Biber/WSL de la aplicación Desktop — reemplazado por `docs/claude-code.md`, centrado solo en la skill.
+
 ## `jintia-skill` 12.4.1 — 2026-08-22
 
 Cierre de una tercera revisión externa sobre `master` en 12.4.0 (commit

@@ -8,12 +8,19 @@
 
    ```bash
    npm ci
+   npm --prefix skill ci
    npm run docs:check
    npm run skill:check
    npm run release:check
    npm run release:skill
    npm run release:skill:check
    ```
+
+   El paso `npm --prefix skill ci` es obligatorio: `skill/` no es un
+   workspace de npm, así que el `npm ci` de la raíz no instala sus propias
+   dependencias. Los workflows de CI (`.github/workflows/publish-npm.yml`,
+   `release-skill.yml`) ya incluyen este paso — reprodúcelo también en
+   local para no descubrir el problema solo en CI.
 
 4. Publica el tag de la skill:
 

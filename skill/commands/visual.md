@@ -1,4 +1,10 @@
-# `/jintia visual`
+# Operación `visual`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia visual render` / `jintia visual inspect` |
 
 Gestiona figuras con especificación, fuente, renderizado, inspección y
 manifiesto de procedencia.

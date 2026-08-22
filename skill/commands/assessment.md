@@ -1,4 +1,10 @@
-# `/jintia assessment`
+# Operación `assessment`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia validate` (valida el nodo `assessment` como parte de `guide.json`) |
 
 Diseña una evaluación, rúbrica, banco de preguntas o estudio de caso alineado
 con un resultado del sílabo. Conserva código, ponderación y criterios

@@ -72,6 +72,10 @@ Uso:
   — Compuerta de evidencia —
   jintia evidence check <curso> <semana> [--notebook-available] [--json]
 
+  — Guía semanal —
+  jintia guide create   <curso> <semana> --input draft.json [--json]
+  jintia guide finalize <curso> <semana> [--json]
+
   — Motor editorial HTML —
   jintia validate  <guide.json> [--strict] [--json]
   jintia render    <guide.json> [--theme ID] [--output guide.html]

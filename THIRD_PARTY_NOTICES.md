@@ -16,8 +16,10 @@ originales.
 Jintia detecta e invoca `vivliostyle` (AGPL-3.0) como **proceso externo e
 independiente** mediante `spawnSync`. Jintia nunca importa ni enlaza la API
 interna de `@vivliostyle/cli` ni de `@vivliostyle/core`. Esta invocación es
-equivalente al uso de cualquier herramienta del sistema (como `pdflatex` o
-`imagemagick`) y no crea un "programa combinado" bajo AGPL-3.0.
+equivalente al uso de cualquier herramienta externa del sistema invocada
+como proceso independiente (por ejemplo, un compilador de documentos o un
+editor de imágenes por línea de comandos) y no crea un "programa combinado"
+bajo AGPL-3.0.
 
 El usuario que instale Vivliostyle CLI de forma independiente lo hace bajo
 sus propios términos. Jintia no lo empaqueta, redistribuye ni descarga

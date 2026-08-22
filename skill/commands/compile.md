@@ -1,4 +1,10 @@
-# `/jintia compile`
+# Operación `compile`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia compile` |
 
 Renderiza una guía a HTML y genera PDF usando Vivliostyle CLI.
 Vivliostyle se invoca como **proceso externo e independiente** (no importado),
@@ -10,7 +16,7 @@ antes de invocar el motor PDF.
 
 ## Requisitos
 
-- Node.js ≥22.12.0
+- Node.js `>=22.13.0`
 - Vivliostyle CLI instalado: `npm install --global @vivliostyle/cli`
 
 ## Ejemplos
@@ -57,12 +63,20 @@ node "<skill-root>/bin/jintia.js" compile semanas/semana-03/guide.json --publish
   Ningún material académico final debe publicarse con bibliografía
   degradada. Usar `--publish` en el paso final antes de compartir el PDF.
 
-## Flujo completo recomendado
+## Compilación aislada vs. cierre completo
+
+Para una compilación aislada (por ejemplo, regenerar solo el PDF tras un
+ajuste de tema), usa `jintia compile` directamente:
 
 ```bash
 jintia validate  guide.json            # linter pedagógico + validación de esquema
 jintia render    guide.json            # genera guide.html (draft)
 jintia compile   guide.json            # genera guide.pdf en draft (render implícito si se pasa .json)
 jintia preflight guide.html            # verifica paginación sobre el HTML renderizado
-jintia compile   guide.json --publish  # paso final: bloquea si la bibliografía está degradada
+jintia compile   guide.json --publish  # bloquea si la bibliografía está degradada
 ```
+
+Para decidir si una guía está realmente lista para publicarse, no
+reconstruyas esta secuencia a mano: usa
+[`jintia ready`](ready.md), que encadena estos mismos pasos (y además
+`html-lint`) en un solo comando, deteniéndose en el primer bloqueo.

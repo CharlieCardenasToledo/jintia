@@ -1,4 +1,10 @@
-# `/jintia transcript`
+# Operación `transcript`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia transcript export` |
 
 Exporta la traza editorial persistida de una sesión de trabajo con Jintia.
 

@@ -1,4 +1,10 @@
-# `/jintia guide`
+# Operación `guide`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia guide create` / `jintia guide finalize` |
 
 Genera o revisa una guía semanal. Produce exclusivamente `guide.json` como fuente
 canónica; el HTML y el PDF se obtienen después mediante `render` y `compile`.
@@ -36,9 +42,9 @@ semanas/semana-XX/
 
 ```text
 Intenciones que invocan este playbook:
-/jintia guide week 3
-/jintia guide revise week 4
-/jintia guide week 5 --theme jintia-tecnico
+/jintia-skill genera la guía de la semana 3
+/jintia-skill revisa la guía de la semana 4
+/jintia-skill genera la guía de la semana 5 con el tema jintia-tecnico
 $jintia-skill genera la guía de la semana 3
 ```
 

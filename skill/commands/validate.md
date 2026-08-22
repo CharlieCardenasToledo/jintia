@@ -1,4 +1,10 @@
-# `/jintia validate`
+# Operación `validate`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia validate` |
 
 Valida la estructura pedagógica y editorial de un `guide.json` antes de renderizar.
 Ejecuta el linter de contenido (`content-linter.js`) contra el schema canónico.

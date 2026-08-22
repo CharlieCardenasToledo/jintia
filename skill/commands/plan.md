@@ -1,11 +1,17 @@
-# `/jintia plan`
+# Operación `plan`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia plan save` / `jintia plan approve` |
 
 Planifica una semana instruccional antes de escribir cualquier archivo.
 El plan es un paso técnico obligatorio: `guide` no puede ejecutarse sin un plan aprobado.
 
 ## Cuándo usar este playbook
 
-Cuando el usuario escribe `/jintia plan` o `$jintia-skill planifica la semana N`.
+Cuando el usuario pide planificar una semana: `/jintia-skill planifica la semana N` (Claude Code) o `$jintia-skill planifica la semana N` (Codex).
 
 ## Precondiciones
 

@@ -1,4 +1,10 @@
-# `/jintia syllabus`
+# Operación `syllabus`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia syllabus` |
 
 Gestiona el sílabo canónico (`README.md`). Operaciones disponibles:
 

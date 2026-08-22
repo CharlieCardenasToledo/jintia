@@ -101,40 +101,18 @@ Atributo compuesto (arriba): y = +2.3 cm · sub-óvalos: y = +3.6 cm, x ± 0.8 c
 
 ---
 
-## Exportación de Figuras como PNG Standalone
+## Exportación de figuras TikZ como PNG
 
-Para generar imágenes PNG de alta resolución a partir de figuras TikZ:
-
-Crear `latex/figures-png/fig-NOMBRE.tex` con:
-
-```latex
-\documentclass[border=10pt]{standalone}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,fit,shadows,backgrounds,calc}
-\usepackage{xcolor}
-
-% Mismos colores que el documento principal
-\definecolor{weekaccent}{RGB}{0,121,107}
-\definecolor{weekaccentsoft}{RGB}{232,245,243}
-\definecolor{softbg}{RGB}{250,251,253}
-\definecolor{softline}{RGB}{212,220,230}
-\definecolor{slateline}{RGB}{103,119,138}
-
-\begin{document}
-\begin{tikzpicture}[...]
-  % Mismo código que en la sección correspondiente del documento principal
-\end{tikzpicture}
-\end{document}
-```
-
-Compilación y exportación (consulta `compilacion.md`):
+El pipeline visual (`visual-renderer.js`) genera el PNG automáticamente a
+partir de un `spec.json` con el código TikZ — sin pasos manuales de
+compilación ni WSL involucrados:
 
 ```bash
-wsl bash -c "cd '/mnt/d/Ruta/latex/figures-png' && pdflatex -interaction=nonstopmode fig-NOMBRE.tex"
-wsl bash -c "cd '/mnt/d/Ruta/latex/figures-png' && pdftoppm -r 300 -png fig-NOMBRE.pdf fig-NOMBRE"
+node "<skill-root>/bin/jintia.js" visual render figure/specs/fig-NOMBRE.json --template jintia-clasico
 ```
 
-- El sufijo `-1` es automático: `pdftoppm` genera `fig-NOMBRE-1.png` para documentos de una página.
-- Mantener los standalones sincronizados con el documento principal; si se edita una figura, actualizar también su standalone.
+La salida se registra en `figure/manifest.json`, con el `html` listo para
+insertar en el nodo `figure` de `guide.json` (ver
+`skill/references/sistema-html.md` §4). El código TikZ (`tikzpicture`,
+paleta semántica de esta página) va dentro del campo correspondiente del
+`spec.json`, no en un archivo `.tex` independiente para compilar a mano.

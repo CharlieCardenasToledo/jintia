@@ -1,10 +1,16 @@
-# `/jintia init`
+# Operación `init`
+
+| Entorno | Invocación |
+|---|---|
+| Claude Code | `/jintia-skill` |
+| Codex / OpenAI | `$jintia-skill` |
+| CLI directa | `jintia init` |
 
 Prepara la estructura de carpetas de un curso nuevo. No crea planificación académica.
 
 ## Cuándo usar este playbook
 
-Cuando el usuario escribe `/jintia init` o `$jintia-skill inicializa este curso` (Codex).
+Cuando el usuario pide inicializar un curso: `/jintia-skill inicializa este curso` (Claude Code) o `$jintia-skill inicializa este curso` (Codex).
 
 ## Lo que hace `init`
 
@@ -53,7 +59,7 @@ node "<skill-root>/bin/jintia.js" init ./mi-curso \
 ✓ bibliografia/ creada
 ✓ config/ creada
 
-Siguiente operación: proporciona el sílabo oficial con '/jintia syllabus'.
+Siguiente operación: proporciona el sílabo oficial con la operación `syllabus` (`/jintia-skill` en Claude Code, `$jintia-skill` en Codex, o `jintia syllabus` en CLI).
 ```
 
 ## Siguiente paso obligatorio

@@ -16,6 +16,7 @@ const os     = require("node:os");
 const path   = require("node:path");
 
 const { runReady } = require("../scripts/ready");
+const { isCitationJsAvailable } = require("../scripts/bibliography-manager");
 
 function buildCompleteGuideDir() {
   const dir     = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-ready-test-"));
@@ -71,6 +72,12 @@ test("READY — se detiene en el primer paso bloqueante sin renderizar (sin meta
 });
 
 test("READY — una guía completa pasa toda la cadena determinista (--skip-pdf)", async () => {
+  if (!isCitationJsAvailable()) {
+    // Sin Citation.js, assertPublishReady() bloquea por diseño (JIN-BIB-001)
+    // — ese comportamiento ya está cubierto en bibliography.test.js. Aquí
+    // solo se puede probar la cadena completa cuando Citation.js sí está.
+    return;
+  }
   const { dir, guidePath } = buildCompleteGuideDir();
   try {
     const report = await runReady(guidePath, { skipPdf: true });

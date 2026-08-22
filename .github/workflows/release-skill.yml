@@ -29,6 +29,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: npm ci
+      - name: Instalar dependencias (skill)
+        working-directory: skill
+        run: npm ci
       - run: npm run skill:check
       - run: npm run package:check
       - name: Build release artifacts

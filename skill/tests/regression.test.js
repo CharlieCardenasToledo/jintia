@@ -406,23 +406,45 @@ test("R06c — plan aprobado permite guide", () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test("R06d — plan en estado blocked no puede aprobarse", () => {
+test("R06d — ai-fallback (missingEvidence) ya no bloquea el plan por sí solo", () => {
   const dir = makeTempDir();
   makeCourse(dir, { readme: MINIMAL_README });
 
-  // Guardar plan con evidencia faltante → blocked
+  // Sin fuentes verificadas y con evidencia faltante: evidence-gate.js
+  // garantiza ai-fallback como último recurso, así que el plan debe quedar
+  // en "pending" (aprobable), no "blocked".
   savePlan(dir, 1, {
     course:          "TEST",
     topic:           "Tema",
     missingEvidence: ["Material ASU IFT-200 Module 1"],
+    provenance:      "ai-fallback",
   });
 
   const record = getPlan(dir, 1);
-  assert.equal(record.status, "blocked", "Plan con missingEvidence debe quedar en blocked");
+  assert.equal(record.status, "pending", "ai-fallback no debe bloquear el plan por falta de fuentes externas");
+  assert.equal(record.provenance, "ai-fallback");
 
   const approval = approvePlan(dir, 1);
-  assert.equal(approval.ok, false, "No se puede aprobar un plan bloqueado");
-  assert.match(approval.message, /bloqueado|faltante/i);
+  assert.ok(approval.ok, `Un plan con ai-fallback debe poder aprobarse: ${approval.message}`);
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("R06e — blocked queda reservado para contrato curricular irresoluble (semana inexistente)", () => {
+  const dir = makeTempDir();
+  makeCourse(dir, { readme: MINIMAL_README });
+
+  // MINIMAL_README solo declara las semanas 1 y 2; pedir aprobación de la
+  // semana 9 debe bloquear en approvePlan() por semana inexistente, no por
+  // evidencia.
+  savePlan(dir, 9, {
+    course: "TEST",
+    topic:  "Tema inexistente",
+  });
+
+  const approval = approvePlan(dir, 9);
+  assert.equal(approval.ok, false, "No se puede aprobar un plan para una semana que no existe en el sílabo");
+  assert.match(approval.message, /no existe en el sílabo/i);
 
   fs.rmSync(dir, { recursive: true, force: true });
 });

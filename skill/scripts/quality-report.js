@@ -23,6 +23,7 @@
 const fs   = require("node:fs");
 const path = require("node:path");
 const { lintGuide } = require("./content-linter");
+const { assertPublishReady } = require("./bibliography-manager");
 
 function hasRule(issues, rule) {
   return issues.some(i => i.rule === rule);
@@ -97,11 +98,19 @@ function computeBibliography(guide, issues) {
 
 /**
  * @param {string} guidePath
+ * @param {{ final?: boolean }} [options]
+ *   final: modo estricto. Corre content-linter en mode "publish" (exige
+ *   targets/horas/evidence.json) y además assertPublishReady() (Citation.js,
+ *   .bib, claves, estilo APA) — el mismo gate que usaría `jintia compile
+ *   --publish`, sin necesidad de renderizar. No sustituye la revisión de
+ *   agentes (jintia-selfstudy-reviewer, jintia-finish-reviewer): esos son
+ *   contratos en lenguaje natural, no scripts deterministas invocables aquí.
  * @returns {object} Reporte estructurado (ver printReport para el formato de texto).
  */
-function buildReport(guidePath) {
+function buildReport(guidePath, options = {}) {
+  const final    = Boolean(options.final);
   const absolute = path.resolve(guidePath);
-  const lint      = lintGuide(absolute);
+  const lint      = lintGuide(absolute, { mode: final ? "publish" : "draft" });
   const guide     = JSON.parse(fs.readFileSync(absolute, "utf8"));
 
   const alignment       = computeAlignment(guide, lint.issues);
@@ -110,18 +119,35 @@ function buildReport(guidePath) {
   const bibliography    = computeBibliography(guide, lint.issues);
   const provenance      = lint.provenanceSummary;
 
-  const decision = lint.summary.errors > 0 ? "BLOCKED"
-    : lint.summary.warnings > 0 ? "NEEDS_CHANGES"
+  let publishGate = null;
+  const allIssues = [...lint.issues];
+  if (final) {
+    publishGate = assertPublishReady(guide, absolute);
+    for (const err of publishGate.errors) {
+      allIssues.push({ rule: err.code, category: "bibliography", severity: "error", message: err.message, file: absolute });
+    }
+    if (!publishGate.ready) bibliography.status = "FAIL";
+  }
+
+  const errorCount   = allIssues.filter(i => i.severity === "error").length;
+  const warningCount = allIssues.filter(i => i.severity === "warning").length;
+
+  const decision = errorCount > 0 ? "BLOCKED"
+    : warningCount > 0 ? "NEEDS_CHANGES"
     : "READY";
 
   return {
     tool: "jintia quality-report",
     target: absolute,
+    final,
     metadata: { course: guide.metadata?.course, week: guide.metadata?.week },
     alignment, selfInstruction, workload, provenance, bibliography,
-    lintSummary: lint.summary,
-    issues: lint.issues,
+    lintSummary: { errors: errorCount, warnings: warningCount, passed: errorCount === 0 },
+    issues: allIssues,
     decision,
+    notes: final
+      ? ["Modo --final: no reemplaza la revisión de jintia-selfstudy-reviewer ni jintia-finish-reviewer (contratos de agente, no deterministas)."]
+      : [],
   };
 }
 
@@ -190,7 +216,7 @@ function printReport(report, asJson) {
   console.log(`${pad("Estado")}${report.bibliography.status}`);
   console.log("");
 
-  console.log(`DECISIÓN FINAL: ${report.decision}`);
+  console.log(`DECISIÓN FINAL: ${report.decision}${report.final ? " (modo --final)" : ""}`);
 
   if (report.issues.length > 0) {
     console.log("");
@@ -199,20 +225,26 @@ function printReport(report, asJson) {
       console.log(`  ${issue.severity === "error" ? "✗" : "⚠"} ${issue.rule} · ${issue.message}`);
     }
   }
+
+  if (report.notes && report.notes.length > 0) {
+    console.log("");
+    for (const note of report.notes) console.log(`ℹ ${note}`);
+  }
 }
 
 if (require.main === module) {
   const args   = process.argv.slice(2);
   const target = args.find(a => !a.startsWith("--"));
   const asJson = args.includes("--json");
+  const final  = args.includes("--final");
 
   if (!target) {
-    console.error("Uso: node scripts/quality-report.js guide.json [--json]");
+    console.error("Uso: node scripts/quality-report.js guide.json [--json] [--final]");
     process.exit(2);
   }
 
   try {
-    const report = buildReport(target);
+    const report = buildReport(target, { final });
     printReport(report, asJson);
     if (report.decision === "BLOCKED") process.exitCode = 1;
   } catch (err) {

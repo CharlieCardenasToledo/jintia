@@ -107,50 +107,51 @@ test("E2E-03 — guide create sin plan aprobado devuelve error", () => {
   }
 });
 
-test("E2E-04 — plan save sin evidencia verificada queda en blocked", () => {
+test("E2E-04 — plan save sin evidencia verificada queda pending (ai-fallback ya no bloquea)", () => {
   const dir = makeTempDir();
   try {
     fs.mkdirSync(path.join(dir, "semanas"), { recursive: true });
     fs.mkdirSync(path.join(dir, "bibliografia"), { recursive: true });
     fs.writeFileSync(path.join(dir, "README.md"), E2E_README);
 
-    const planFile = path.join(dir, "plan-blocked.json");
+    const planFile = path.join(dir, "plan-ai-fallback.json");
     fs.writeFileSync(planFile, JSON.stringify({
       course: "TEST",
       topic: "Tema de prueba",
       evidence: [],
       missingEvidence: ["Beynon-Davies cap. 1"],
+      provenance: "ai-fallback",
     }));
 
     const result = run(["plan", "save", dir, "01", "--file", planFile, "--json"]);
-    assert.equal(result.status, 0, `plan save debe guardar el plan aunque quede blocked: ${result.stderr}`);
+    assert.equal(result.status, 0, `plan save debe guardar el plan: ${result.stderr}`);
     const data = JSON.parse(result.stdout);
-    assert.equal(data.state, "blocked", "Plan sin evidencia verificada debe quedar en blocked");
+    assert.equal(data.state, "pending", "ai-fallback no debe bloquear el plan por falta de fuentes externas");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("E2E-05 — plan approve falla si plan está blocked", () => {
+test("E2E-05 — plan approve falla si la semana no existe en el sílabo (blocked curricular)", () => {
   const dir = makeTempDir();
   try {
     fs.mkdirSync(path.join(dir, "semanas"), { recursive: true });
     fs.mkdirSync(path.join(dir, "bibliografia"), { recursive: true });
     fs.writeFileSync(path.join(dir, "README.md"), E2E_README);
 
-    const planFile = path.join(dir, "plan-blocked.json");
+    const planFile = path.join(dir, "plan-inexistente.json");
     fs.writeFileSync(planFile, JSON.stringify({
       course: "TEST",
-      topic: "Tema",
-      evidence: [],
-      missingEvidence: ["Beynon-Davies"],
+      topic: "Tema inexistente",
     }));
 
-    run(["plan", "save", dir, "01", "--file", planFile]);
-    const result = run(["plan", "approve", dir, "01", "--json"]);
-    assert.notEqual(result.status, 0, "plan approve en blocked debe fallar");
+    // E2E_README solo declara la semana 01; la semana 09 no existe.
+    run(["plan", "save", dir, "09", "--file", planFile]);
+    const result = run(["plan", "approve", dir, "09", "--json"]);
+    assert.notEqual(result.status, 0, "plan approve para una semana inexistente debe fallar");
     const data = JSON.parse(result.stdout);
     assert.equal(data.status, "error");
+    assert.match(data.message, /no existe en el sílabo/i);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

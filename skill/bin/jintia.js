@@ -76,7 +76,7 @@ Uso:
   jintia validate  <guide.json> [--strict] [--json]
   jintia render    <guide.json> [--theme ID] [--output guide.html]
   jintia compile   <guide.json> [--output guide.pdf] [--publish]
-  jintia report    <guide.json> [--json]
+  jintia report    <guide.json> [--json] [--final]
   jintia preview   <guide.json>
   jintia preflight <guide.html>
 
@@ -512,6 +512,7 @@ function main(argv) {
     if (inputFile && /\.json$/i.test(inputFile)) {
       if (publish) {
         const { assertPublishReady } = require(path.join(SCRIPTS, "bibliography-manager.js"));
+        const { lintGuide } = require(path.join(SCRIPTS, "content-linter.js"));
         const guideAbsolute = path.resolve(inputFile);
         let guide;
         try {
@@ -521,6 +522,20 @@ function main(argv) {
           process.exitCode = 1;
           return;
         }
+
+        // Gate pedagógico: targets, horas, evidencia estructurada y todo lo
+        // demás que valide content-linter.js, en modo publish (más estricto
+        // que jintia validate por defecto).
+        const lintReport = lintGuide(guideAbsolute, { mode: "publish" });
+        const lintErrors = lintReport.issues.filter(i => i.severity === "error");
+        if (lintErrors.length > 0) {
+          console.error("jintia compile --publish: bloqueado por incidencias pedagógicas/estructurales.");
+          for (const err of lintErrors) console.error(`✗ ${err.rule} · ${err.message}`);
+          process.exitCode = 1;
+          return;
+        }
+
+        // Gate bibliográfico específico (Citation.js, .bib, claves, estilo).
         const { ready, errors } = assertPublishReady(guide, guideAbsolute);
         if (!ready) {
           console.error("jintia compile --publish: bloqueado por bibliografía sin resolver.");

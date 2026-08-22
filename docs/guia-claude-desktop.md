@@ -134,14 +134,15 @@ describe el modelo de ejecución vigente.
 ## Configurar NotebookLM MCP
 
 La aplicación preserva otros servidores MCP y agrega `notebooklm` con la
-versión que este proyecto ha verificado:
+versión que este proyecto ha verificado (debe coincidir con `mcp.version`
+en `release/release-config.json`, la fuente canónica):
 
 ```json
 {
   "mcpServers": {
     "notebooklm": {
       "command": "npx",
-      "args": ["-y", "@charlie.act7/gemini-notebook-mcp@2.3.3"]
+      "args": ["-y", "@charlie.act7/gemini-notebook-mcp@2.3.10"]
     }
   }
 }

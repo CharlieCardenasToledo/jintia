@@ -353,6 +353,42 @@ function validateWeek(markdown, weekNumber) {
   return { found: true, valid: errors.length === 0, week: n, fields, errors };
 }
 
+/**
+ * Extrae código y puntaje de las actividades calificadas declaradas en el
+ * bloque de una semana (formato `- CÓDIGO — Nombre — N puntos`, ver
+ * references/esquema-silabo.md). Best-effort: solo para cruzar contra
+ * guide.json (JIN-ASM-013/016) cuando el sílabo sí declara esa información
+ * en el formato canónico.
+ *
+ * @param {string} weekRaw  Bloque markdown de la semana (week.raw de parseSyllabus)
+ * @returns {{code: string, points: number}[]|null}
+ *   Array de actividades, [] si el sílabo declara "Ninguna" explícitamente,
+ *   o null si el bloque no es parseable (no forzar el cruce en ese caso).
+ */
+function parseGradedActivities(weekRaw) {
+  const match = /\*\*Actividades calificadas:\*\*([\s\S]*?)(?=\n\*\*|\n---|$)/i.exec(weekRaw);
+  if (!match) return null;
+  const block = match[1];
+  if (/^\s*[-*]?\s*Ninguna\b/im.test(block)) return [];
+
+  const activities = [];
+
+  // Formato canónico: "- AC-01 — Nombre — 10 puntos" / "- PE-1.1 — Informe — 2.25 pts"
+  const dashRe = /^[ \t]*[-*][ \t]*([A-Za-z]{1,4}-[\d.]+)\b[^\n]*?([\d]+(?:\.\d+)?)\s*(?:puntos?|pts?|%)/gim;
+  let m;
+  while ((m = dashRe.exec(block)) !== null) {
+    activities.push({ code: m[1], points: parseFloat(m[2]) });
+  }
+  if (activities.length > 0) return activities;
+
+  // Formato alterno: "[P1] Ejercicio relacional (20%)"
+  const bracketRe = /\[([A-Za-z]{1,2}\d+)\][^\n(]*\(\s*([\d]+(?:\.\d+)?)\s*%\s*\)/gim;
+  while ((m = bracketRe.exec(block)) !== null) {
+    activities.push({ code: m[1], points: parseFloat(m[2]) });
+  }
+  return activities.length > 0 ? activities : null;
+}
+
 module.exports = {
   createBackup,
   restoreBackup,
@@ -362,6 +398,7 @@ module.exports = {
   updateCourseMetadata,
   validateSyllabus,
   validateWeek,
+  parseGradedActivities,
   safeUpdate,
   REQUIRED_FIELDS,
   WEEK_FIELD_PATTERNS,

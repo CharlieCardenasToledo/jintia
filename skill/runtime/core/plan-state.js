@@ -9,7 +9,12 @@
  *
  * Estados del plan:
  *   pending    Plan calculado, pendiente de aprobación del usuario
- *   blocked    Faltan fuentes o información material (evidence-gate falló)
+ *   blocked    Contrato curricular irresoluble (semana/RA inexistente,
+ *              sílabo inconsistente — verificado en approvePlan()). NUNCA
+ *              por ausencia de fuentes externas: evidence-gate.js garantiza
+ *              que siempre hay un fallback (ai-fallback como último
+ *              recurso), así que la falta de evidencia verificada no bloquea
+ *              el plan por sí sola — solo se registra para trazabilidad.
  *   approved   El usuario aprobó explícitamente el plan
  *   generated  guide.json fue creado con éxito
  */
@@ -48,7 +53,9 @@ function planPath(courseRoot, weekNumber) {
 // ─── API pública ──────────────────────────────────────────────────────────────
 
 /**
- * Guarda un plan en estado pending (o blocked si evidence gate falló).
+ * Guarda un plan en estado pending. Ya no bloquea por falta de fuentes
+ * verificadas: ai-fallback (evidence-gate.js) garantiza que siempre hay un
+ * camino hacia adelante. missingEvidence se conserva para trazabilidad.
  *
  * @param {string} courseRoot  Ruta absoluta del curso
  * @param {number} weekNumber  Número de semana
@@ -68,14 +75,17 @@ function savePlan(courseRoot, weekNumber, planData) {
     );
   }
 
-  const evidence       = Array.isArray(planData.evidence) ? planData.evidence : [];
+  const evidence        = Array.isArray(planData.evidence) ? planData.evidence : [];
   const missingEvidence = planData.missingEvidence || [];
-  const verifiedSources = evidence.filter(e => e && e.status === "verified");
+  const provenance       = planData.provenance || null; // "notebook-primary" | "local-fallback" | "ai-fallback"
 
-  // Sin fuentes verificadas o con evidencia faltante → blocked
-  const status = (verifiedSources.length === 0 || missingEvidence.length > 0)
-    ? "blocked"
-    : "pending";
+  // El plan ya NO se bloquea por falta de fuentes externas verificadas:
+  // evidence-gate.js garantiza que siempre existe un fallback (ai-fallback
+  // como último recurso), así que la ausencia de fuentes se registra en
+  // missingEvidence para trazabilidad pero no fuerza "blocked". "blocked"
+  // queda reservado para contrato curricular irresoluble, verificado
+  // aparte en approvePlan() (semana/RA inexistente, sílabo inconsistente).
+  const status = "pending";
 
   // Hash del sílabo en el momento de guardar el plan
   let syllabusHash = null;
@@ -92,6 +102,7 @@ function savePlan(courseRoot, weekNumber, planData) {
     outcomes:       planData.outcomes || {},
     evidence,
     missingEvidence,
+    provenance,
     syllabusHash,
     plannedFiles:   planData.plannedFiles || [
       `semanas/semana-${weekPadded(weekNumber)}/guide.json`,

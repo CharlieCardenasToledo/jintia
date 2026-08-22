@@ -70,7 +70,7 @@ de `institution.json` como compatibilidad con proyectos antiguos.
 }
 ```
 
-Los ids pertenecen a la biblioteca del servidor `@charlie.act7/gemini-notebook-mcp@2.3.3`. Si un id deja de existir, buscar por nombre. Antes de registrar una URL con `add_notebook`, pedir confirmación.
+Los ids pertenecen a la biblioteca del servidor `@charlie.act7/gemini-notebook-mcp` en la versión fijada en `release/release-config.json` (fuente canónica; no repetir el número aquí). Si un id deja de existir, buscar por nombre. Antes de registrar una URL con `add_notebook`, pedir confirmación.
 
 ## Tema HTML activo
 

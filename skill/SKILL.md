@@ -160,9 +160,21 @@ intencional). No llamar `re_auth` únicamente porque `authenticated !== true`
 `setup_auth` (primera instalación, abre el navegador) es distinto de
 `re_auth` (sesión guardada inválida); no confundirlos.
 
-Si los 3 intentos fallan, registrar NotebookLM como **temporalmente no
-disponible** para esta consulta y continuar al paso 2. Antes de `add_notebook`,
-solicitar siempre confirmación explícita al usuario.
+Si los 3 intentos fallan **por indisponibilidad técnica** (no responde,
+sesión rota, fallo de autenticación real), registrar NotebookLM como
+**temporalmente no disponible** para esta consulta y continuar al paso 2.
+Antes de `add_notebook`, solicitar siempre confirmación explícita al
+usuario.
+
+**Distinción obligatoria — no confundir estas dos situaciones:**
+
+| Situación | Acción |
+|---|---|
+| NotebookLM **no disponible**: falla técnica confirmada tras los 3 intentos | Pasar al paso 2 (fuentes locales) |
+| NotebookLM **disponible pero la respuesta no resuelve la afirmación** | **No** pasar al paso 2. Seguir investigando en el mismo notebook: reformular la pregunta, dividirla en preguntas más concretas, pedir contraste, buscar otra fuente dentro del notebook. Solo registrar un `gap` (afirmación sin respaldo) si NotebookLM, ya explorado a fondo, no contiene la información — eso no activa `local-fallback` ni `ai-fallback` automáticamente; requiere la misma jerarquía completa para esa afirmación puntual. |
+
+Una respuesta incompleta de un NotebookLM que sí funciona **nunca** es
+equivalente a "NotebookLM no disponible".
 
 Al consultar, usar `source_format: "json"` (no `"footnotes"`): el MCP
 devuelve `source_id`, nombre, tipo, URL, ubicación, extracto y
@@ -171,7 +183,9 @@ fuente operativa primaria, pero la bibliografía **nunca cita "NotebookLM"
 como autor**: se cita la fuente subyacente que NotebookLM identifica en cada
 respuesta, registrada en `reference.bib` con su propia clave.
 
-**Paso 2 — Fuentes locales** (solo si NotebookLM no resolvió la consulta):
+**Paso 2 — Fuentes locales** (solo si NotebookLM permanece técnicamente no
+disponible después de los 3 intentos — nunca solo porque una primera
+respuesta fue incompleta):
 
 1. Recortes en `bibliografia/recortes_por_semana/semana-XX/`.
 2. Fuentes locales verificables en `bibliografia/`.
@@ -300,10 +314,13 @@ ninguna práctica quede sin forma de autocorregirse (`selfCheck`/`feedback`)
 ni sin ruta de recuperación (`remediation`), y que exista una comprobación
 final que cubra todos los targets. Esto se activa junto con `metadata.targets`.
 
-**Estructurar la evaluación**: el nodo `assessment` admite `code`, `product`
-(producto observable, obligatorio), `criteria` (lista de `{ description,
-weight }`, obligatoria), `score` y `checklist`. Sin `criteria` ni `product`
-declarados, `JIN-ASM-010`/`JIN-ASM-011` bloquean.
+**Estructurar la evaluación**: el nodo `assessment` admite `code`,
+`instructions`, `product` (producto observable, obligatorio), `criteria`
+(lista de `{ description, weight }`, obligatoria), `points` y
+`submissionChecklist`. Sin `criteria` ni `product` declarados,
+`JIN-ASM-010`/`JIN-ASM-011` bloquean. Si `code` coincide con una actividad
+del sílabo, `points` debe coincidir con el puntaje declarado allí
+(`JIN-ASM-013`).
 
 **Declarar `estimatedMinutes`** en cada nodo relevante para que Jintia pueda
 comprobar la carga horaria real contra `metadata.hours` (`JIN-WRK-001`

@@ -57,8 +57,10 @@ agrégalo a mano una vez:
 ```toml
 [mcp_servers.notebooklm]
 command = "npx"
-args = ["-y", "@charlie.act7/gemini-notebook-mcp@2.3.3"]
+args = ["-y", "@charlie.act7/gemini-notebook-mcp@2.3.10"]
 ```
+
+Esta versión debe coincidir con `mcp.version` en `release/release-config.json`, la fuente canónica.
 
 `openai-plugin/.mcp.json` es un archivo distinto: alimenta el plugin/conector
 de la app de ChatGPT (`~/.codex/plugins/jintia/.mcp.json` +

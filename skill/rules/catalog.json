@@ -1,6 +1,9 @@
 {
-  "version": "2.3.0",
+  "version": "2.4.0",
   "rules": [
+    { "id": "JIN-SCH-001", "category": "schema", "severity": "error", "description": "guide.json no cumple el esquema canónico (guide.schema.json)." },
+    { "id": "JIN-SCH-002", "category": "schema", "severity": "error", "description": "metadata.targets es obligatorio para publicar (modo publish)." },
+    { "id": "JIN-SCH-003", "category": "schema", "severity": "error", "description": "metadata.hours es obligatorio para publicar (modo publish)." },
     { "id": "JIN-SYL-001", "category": "syllabus", "severity": "error",  "description": "El sílabo debe declarar un resultado de aprendizaje." },
     { "id": "JIN-SYL-002", "category": "syllabus", "severity": "error",  "description": "El sílabo debe contener al menos una semana canónica." },
     { "id": "JIN-SYL-004", "category": "syllabus", "severity": "error",  "description": "Cada sílabo debe declarar bibliografía y actividades calificadas." },
@@ -31,6 +34,10 @@
     { "id": "JIN-EVD-014", "category": "evidence", "severity": "error", "description": "Un keyClaim con sourceMode 'ai-fallback' declara bibliographyKey: no se puede fabricar bibliografía en ese modo." },
     { "id": "JIN-EVD-015", "category": "evidence", "severity": "warning", "description": "Academic provenance de la semana = DEGRADED." },
     { "id": "JIN-EVD-016", "category": "evidence", "severity": "error", "description": "Academic provenance de la semana = BLOCKED (referencias inventadas, bibliografía rota o keyClaims centrales sin procedencia)." },
+    { "id": "JIN-EVD-017", "category": "evidence", "severity": "error", "description": "Un keyClaim con sourceMode 'notebook-primary' no declara evidencia estructurada (sourceId/sourceName/extractionStatus)." },
+    { "id": "JIN-EVD-018", "category": "evidence", "severity": "error", "description": "Un keyClaim con sourceMode 'local-fallback' no identifica la fuente local (sourceId/sourceName)." },
+    { "id": "JIN-EVD-019", "category": "evidence", "severity": "error", "description": "evidence.json declara un week distinto al de guide.json." },
+    { "id": "JIN-EVD-020", "category": "evidence", "severity": "error", "description": "evidence.json es requerido para publicar cuando metadata.targets está declarado, y no existe (modo publish)." },
     { "id": "JIN-BIB-001", "category": "bibliography", "severity": "error", "description": "Citation.js no está disponible; no se puede publicar bibliografía formateada (modo publish)." },
     { "id": "JIN-BIB-002", "category": "bibliography", "severity": "error", "description": "reference.bib es requerido (hay citas) y está ausente (modo publish)." },
     { "id": "JIN-BIB-003", "category": "bibliography", "severity": "error", "description": "Una clave citada no existe en reference.bib (modo publish)." },
@@ -45,16 +52,17 @@
     { "id": "JIN-ALN-014", "category": "alignment", "severity": "error", "description": "Un nodo 'assessment' evalúa un target que ninguna sección de enseñanza cubre." },
     { "id": "JIN-ALN-015", "category": "bibliography", "severity": "warning", "description": "Las secciones de enseñanza de un target no citan ninguna fuente bibliográfica." },
     { "id": "JIN-ALN-016", "category": "alignment", "severity": "warning", "description": "Contenido extenso de theory/concept sin relación explícita con un target (targetIds vacío)." },
+    { "id": "JIN-ALN-017", "category": "alignment", "severity": "error", "description": "Un nodo 'assessment' evalúa un target antes de que termine su enseñanza o práctica (orden real de la secuencia)." },
     { "id": "JIN-WRK-001", "category": "workload", "severity": "warning", "description": "La carga instruccional planificada (estimatedMinutes) se aleja de metadata.hours (70-89% o 111-130%)." },
     { "id": "JIN-WRK-002", "category": "workload", "severity": "error", "description": "La carga instruccional planificada (estimatedMinutes) no corresponde a metadata.hours (<70% o >130%)." },
     { "id": "JIN-WRK-003", "category": "workload", "severity": "warning", "description": "Un bloque académico relevante (theory/concept/practice/scenario/assessment) no declara estimatedMinutes." },
     { "id": "JIN-WRK-004", "category": "workload", "severity": "warning", "description": "La carga planificada está excesivamente concentrada en enseñanza (theory/concept) frente a práctica y evaluación." },
     { "id": "JIN-WRK-005", "category": "workload", "severity": "warning", "description": "El tiempo evaluativo planificado supera al de práctica formativa." },
-    { "id": "JIN-SELF-001", "category": "self-instruction", "severity": "error", "description": "Ninguna sección declara estimatedMinutes: no hay ruta de aprendizaje con tiempo estimado." },
+    { "id": "JIN-SELF-001", "category": "self-instruction", "severity": "error", "description": "El nodo 'orientation' no declara 'route' (ruta de aprendizaje) no vacía." },
     { "id": "JIN-SELF-002", "category": "self-instruction", "severity": "error", "description": "Una práctica guiada (mode='guided') no declara workedExample." },
     { "id": "JIN-SELF-003", "category": "self-instruction", "severity": "error", "description": "Un nodo 'practice' no declara successCriteria." },
     { "id": "JIN-SELF-004", "category": "self-instruction", "severity": "error", "description": "Una práctica no declara selfCheck ni feedback: el estudiante no puede autocorregirse." },
-    { "id": "JIN-SELF-005", "category": "self-instruction", "severity": "error", "description": "Ninguna práctica de la guía declara remediation." },
+    { "id": "JIN-SELF-005", "category": "self-instruction", "severity": "error", "description": "Una práctica 'guided' o 'independent' no declara remediation." },
     { "id": "JIN-SELF-006", "category": "self-instruction", "severity": "warning", "description": "Ninguna práctica de la guía usa mode='retrieval' (recuperación)." },
     { "id": "JIN-SELF-007", "category": "self-instruction", "severity": "error", "description": "Ningún conjunto de nodos 'assessment' cubre, en total, todos los targets declarados." },
     { "id": "JIN-SELF-008", "category": "self-instruction", "severity": "warning", "description": "Ninguna práctica de la guía declara selfCheck: no hay monitorización explícita de progreso." },
@@ -62,8 +70,9 @@
     { "id": "JIN-ASM-010", "category": "assessment", "severity": "error", "description": "Un nodo 'assessment' no declara criteria." },
     { "id": "JIN-ASM-011", "category": "assessment", "severity": "error", "description": "Un nodo 'assessment' no declara product (producto observable)." },
     { "id": "JIN-ASM-012", "category": "assessment", "severity": "error", "description": "Un nodo 'assessment' no declara targetIds válidos entre metadata.targets." },
-    { "id": "JIN-ASM-013", "category": "assessment", "severity": "warning", "description": "La suma de points entre todos los nodos 'assessment' supera 100." },
+    { "id": "JIN-ASM-013", "category": "assessment", "severity": "error", "description": "El 'points' de un nodo 'assessment' difiere del puntaje declarado en el sílabo para ese código." },
     { "id": "JIN-ASM-014", "category": "assessment", "severity": "warning", "description": "Una actividad calificable o extensa no declara submissionChecklist." },
-    { "id": "JIN-ASM-015", "category": "assessment", "severity": "warning", "description": "Una actividad extensa no declara ponderación por criterio (rúbrica)." }
+    { "id": "JIN-ASM-015", "category": "assessment", "severity": "warning", "description": "Una actividad extensa no declara ponderación por criterio (rúbrica)." },
+    { "id": "JIN-ASM-016", "category": "assessment", "severity": "warning", "description": "La suma de 'points' de actividades con código conocido no coincide con la suma declarada en el sílabo." }
   ]
 }

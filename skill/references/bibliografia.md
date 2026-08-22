@@ -27,10 +27,14 @@ tipo, ubicación), registrada en `reference.bib` con su propia clave. Ver
 
 ## NotebookLM MCP 2.0
 
-La aplicación y esta skill usan la versión verificada:
+La versión canónica es la fijada en `release/release-config.json`
+(`mcp.version`, con su `npmIntegrity` SRI) — esa es la única fuente de
+verdad, no un número de versión repetido en varios documentos. No usar
+`@latest` ni un rango flotante (`^`/`~`): la CI de Jintia rechaza esos specs
+explícitamente. Para invocarlo manualmente:
 
 ```text
-npx -y @charlie.act7/gemini-notebook-mcp@2.3.3
+npx -y @charlie.act7/gemini-notebook-mcp@<versión de release-config.json>
 ```
 
 Flujo (ver también `SKILL.md` §2 para los 3 intentos estructurados):

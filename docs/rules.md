@@ -24,6 +24,13 @@ guías que aún no lo usan. Ver `skill/tests/fixtures/golden-flawed-guide.json`
 para un ejemplo de guía que pasa validación estructural pero falla estas
 reglas.
 
+En **modo publish** (`jintia compile --publish` o `jintia validate`/`jintia
+report` con `{ mode: "publish" }` / `--final`) ese carácter opcional se
+endurece: `metadata.targets` y `metadata.hours` pasan a ser obligatorios
+(`JIN-SCH-002`/`003`), y `evidence.json` es obligatorio si hay targets
+declarados (`JIN-EVD-020`). Fuera de publish (draft, `jintia validate` por
+defecto) nada de esto bloquea guías que aún no adoptaron el contrato.
+
 Uso:
 
 ```bash

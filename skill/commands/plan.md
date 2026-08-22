@@ -67,8 +67,8 @@ Si alguna precondición falla, informar claramente y detener.
 
 | Estado | Significado |
 |---|---|
-| `pending`   | Plan calculado, esperando aprobación del usuario |
-| `blocked`   | Evidencia insuficiente; resolver fuentes primero |
+| `pending`   | Plan calculado, esperando aprobación del usuario. Incluye planes con procedencia `ai-fallback`: la ausencia de fuentes externas ya no bloquea por sí sola. |
+| `blocked`   | Contrato curricular irresoluble: semana o resultado de aprendizaje inexistente en el sílabo, o sílabo inconsistente (verificado en `plan approve`). **No** se usa por falta de evidencia externa. |
 | `approved`  | Usuario aprobó el plan; se puede generar guide.json |
 | `generated` | guide.json fue creado con éxito |
 
@@ -76,6 +76,18 @@ Si alguna precondición falla, informar claramente y detener.
 
 Jerarquía única (fuente de verdad: `SKILL.md` §2): NotebookLM (3 intentos) →
 fuentes locales → conocimiento del modelo (`ai-fallback`, ya no bloquea).
+
+**Distinción obligatoria, no confundir:**
+
+- **NotebookLM técnicamente no disponible** (no responde, sesión rota, fallo
+  de autenticación real): dispara la cadena de 3 intentos de abajo. Solo
+  cuando los 3 intentos se agotan se pasa a fuentes locales.
+- **NotebookLM responde pero la respuesta no resuelve la pregunta**: esto
+  **no** es indisponibilidad y **no** activa el fallback local. El
+  investigador debe seguir preguntando dentro del mismo notebook —
+  reformular, dividir la consulta, pedir contraste, buscar otra fuente
+  dentro del notebook — antes de considerar la afirmación sin respaldo. Ver
+  `agents/jintia-researcher.md` para el procedimiento de reformulación.
 
 ```
 intento 1: resolver notebook + ask_question

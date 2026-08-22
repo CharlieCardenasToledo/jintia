@@ -5,6 +5,54 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 12.3.0 — 2026-08-22
+
+Cierra los huecos identificados en una revisión externa del repositorio en
+`master` tras 12.0-12.2: bypasses reales en `plan-state.js`, ambigüedad en
+la política NotebookLM, contratos opt-in que dejaban `metadata.targets`/
+`evidence.json` fuera del gate de publicación, y un bug de código real
+(`JIN-WRK-003/004/005` nunca registradas en `RULES`, provocando una
+excepción no capturada si llegaban a dispararse).
+
+### Corregido
+
+- **Bug real**: `JIN-WRK-003`/`004`/`005` se emitían desde `content-linter.js`
+  sin existir en su diccionario `RULES` local — cualquier guía con targets
+  declarados y un nodo sin `estimatedMinutes`, o con carga desbalanceada,
+  lanzaba una excepción no capturada en vez de reportar la advertencia.
+  Ningún test anterior ejercitaba esa ruta.
+- `plan-state.js` (`savePlan()`) ya no pone el plan en `blocked` solo por
+  falta de fuentes verificadas: `ai-fallback` es una vía válida garantizada
+  por `evidence-gate.js`, así que el plan queda en `pending` (aprobable).
+  `blocked` queda reservado para contrato curricular irresoluble (semana o
+  RA inexistente en el sílabo, sílabo inconsistente), verificado en
+  `approvePlan()`.
+- Ambigüedad NotebookLM corregida en `SKILL.md`, `commands/plan.md` y
+  `agents/jintia-researcher.md`: una respuesta de NotebookLM que no resuelve
+  la afirmación (pero que sí funciona técnicamente) ya no se trata como
+  "NotebookLM no disponible" — el investigador debe reformular, dividir la
+  consulta o pedir contraste dentro del mismo notebook antes de considerar
+  el fallback local.
+
+### Añadido
+
+- **`metadata.targets`, `metadata.hours` y `evidence.json` obligatorios en modo publish**: `jintia compile --publish` y `jintia validate`/`content-linter.lintGuide(path, { mode: "publish" })` ahora exigen ambos campos de metadata (`JIN-SCH-002`/`003`) y `evidence.json` cuando hay targets declarados (`JIN-EVD-020`). Siguen siendo opt-in en draft/validate normal — no se penalizan retroactivamente guías que no adoptaron el contrato.
+- **Evidencia estructurada real**: un keyClaim `notebook-primary` sin `evidence.sourceId`/`sourceName`/`extractionStatus`, o un `local-fallback` sin identificar la fuente local, ya no puede fabricar un `academicProvenance: STRONG` — `JIN-EVD-017`/`018` fuerzan `BLOCKED`. `JIN-EVD-019` valida que `evidence.json.week` coincida con `metadata.week`.
+- **`JIN-ALN-017`**: un `assessment` no puede evaluar un target antes de que termine su enseñanza o práctica inicial (orden real de `sections`, no solo presencia — `JIN-ALN-014` ya cubría esto último). La práctica `retrieval`/`transfer` queda excluida a propósito: es válido colocarla después de la evaluación.
+- **`JIN-SELF-001`/`005` con semántica real**: `JIN-SELF-001` ahora exige `orientation.route` no vacío (antes era un proxy de `estimatedMinutes`, ya cubierto por `JIN-WRK-*`). `JIN-SELF-005` exige remediación por cada práctica `guided`/`independent`, no que exista en alguna práctica cualquiera de la guía.
+- **Cotejo de `assessment` contra el sílabo**: `syllabus-manager.js` añade `parseGradedActivities()` (soporta el formato `- CÓDIGO — Nombre — N puntos` y el formato `[CÓDIGO] Nombre (N%)`). `JIN-ASM-013` pasa de "suma > 100" (warning) a "código/puntaje difiere del sílabo" (error); `JIN-ASM-016` (warning, nuevo) cubre la suma incoherente. Solo se activa cuando la estructura `courseRoot/semanas/semana-XX/guide.json` y el formato del sílabo son detectables — nunca fuerza falsos positivos.
+- **`rules/catalog.json` como fuente única real**: nuevo `runtime/core/rule-catalog.js`; `content-linter.js` consulta severity/category desde ahí (con el `RULES` local solo como fallback defensivo). Nuevo test de regresión: todo código que emite `content-linter.js`/`evidence-gate.js` existe en `catalog.json` con la misma severidad. Sube a `2.4.0` (incluye `JIN-SCH-001`, que nunca se había registrado).
+- **`jintia-selfstudy-reviewer` integrado al pipeline** (`agent-plan.js`): ahora participa en `guide` y `audit`, no solo existe como contrato suelto.
+- **Contrato de `jintia-instructional-reviewer.md` reescrito**: salida `targetCoverage`/`assessmentAlignment`/`workload`/`selfInstruction`, alineada con lo que `content-linter.js`/`quality-report.js` ya calculan — el reviewer añade juicio pedagógico, no reimplementa las reglas.
+- **`jintia report --final`**: modo estricto que corre `content-linter` en `mode: "publish"` más `bibliography-manager.assertPublishReady()` (el mismo gate que `compile --publish`, sin renderizar). Documenta explícitamente que no sustituye la revisión de agentes (`jintia-selfstudy-reviewer`, `jintia-finish-reviewer`).
+- **Behaviors semánticos**: `BHV-SEM-001` reescrito (`stops-when-no-evidence` → `notebook-first-fallback`, ya no contradice la política de `ai-fallback`). Siete specs nuevos: `BHV-SEM-006` (tres intentos NotebookLM estructurados), `007` (no confundir insuficiente con no disponible), `008` (ai-fallback siempre declarado, nunca con bibliografía fabricada), `009` (orden enseñanza→práctica→evaluación), `010` (práctica guiada con andamiaje real), `011` (carga horaria plausible, no solo ajustada), `012` (APA íntegro antes de publicar).
+
+### Documentación
+
+- Corregidas menciones obsoletas de `score`/`checklist` en `SKILL.md` (ya renombrados a `points`/`submissionChecklist` desde 12.2.0).
+- La versión del MCP de NotebookLM deja de repetirse hardcodeada en `references/bibliografia.md`, `references/configuracion.md`, `docs/guia-claude-desktop.md` y `docs/harnesses.md`: todas remiten a `release/release-config.json` como fuente canónica (y se actualizó el número mostrado de `2.3.3` a `2.3.10`, la versión realmente fijada).
+- `checklist.md` y `docs/rules.md` documentan todas las reglas nuevas y el endurecimiento en modo publish.
+
 ## `jintia-skill` 12.2.0 — 2026-08-21
 
 ### Cambiado (reconciliación con la especificación canónica del plan)

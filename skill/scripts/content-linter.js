@@ -19,6 +19,7 @@ const fs   = require("node:fs");
 const path = require("node:path");
 const { validate: validateSchema } = require("./schema-validator");
 const { collectCitationKeys, collectFromContent } = require("./citation-keys");
+const { getRule: getCatalogRule } = require("../runtime/core/rule-catalog");
 
 const ROOT             = path.resolve(__dirname, "..");
 const SCHEMA_PATH      = path.join(ROOT, "schemas", "guide.schema.json");
@@ -111,6 +112,10 @@ const RULES = {
     id: "JIN-ALN-015", category: "bibliography", severity: "warning",
     description: "Las secciones de enseñanza de un target no citan ninguna fuente bibliográfica.",
   },
+  "JIN-ALN-017": {
+    id: "JIN-ALN-017", category: "alignment", severity: "error",
+    description: "Un nodo 'assessment' evalúa un target antes de que termine su enseñanza o práctica (orden real de la secuencia).",
+  },
   "JIN-WRK-001": {
     id: "JIN-WRK-001", category: "workload", severity: "warning",
     description: "La carga instruccional planificada (estimatedMinutes) se aleja de metadata.hours (70-89% o 111-130%).",
@@ -119,9 +124,21 @@ const RULES = {
     id: "JIN-WRK-002", category: "workload", severity: "error",
     description: "La carga instruccional planificada (estimatedMinutes) no corresponde a metadata.hours (<70% o >130%).",
   },
+  "JIN-WRK-003": {
+    id: "JIN-WRK-003", category: "workload", severity: "warning",
+    description: "Un bloque académico relevante (theory/concept/practice/scenario/assessment) no declara estimatedMinutes.",
+  },
+  "JIN-WRK-004": {
+    id: "JIN-WRK-004", category: "workload", severity: "warning",
+    description: "La carga planificada está excesivamente concentrada en enseñanza (theory/concept) frente a práctica y evaluación.",
+  },
+  "JIN-WRK-005": {
+    id: "JIN-WRK-005", category: "workload", severity: "warning",
+    description: "El tiempo evaluativo planificado supera al de práctica formativa.",
+  },
   "JIN-SELF-001": {
     id: "JIN-SELF-001", category: "self-instruction", severity: "error",
-    description: "Ninguna sección declara estimatedMinutes: no hay ruta de aprendizaje con tiempo estimado.",
+    description: "El nodo 'orientation' no declara 'route' (ruta de aprendizaje) no vacía.",
   },
   "JIN-SELF-002": {
     id: "JIN-SELF-002", category: "self-instruction", severity: "error",
@@ -137,7 +154,7 @@ const RULES = {
   },
   "JIN-SELF-005": {
     id: "JIN-SELF-005", category: "self-instruction", severity: "error",
-    description: "Ninguna práctica de la guía declara remediation.",
+    description: "Una práctica 'guided' o 'independent' no declara remediation.",
   },
   "JIN-SELF-006": {
     id: "JIN-SELF-006", category: "self-instruction", severity: "warning",
@@ -168,8 +185,12 @@ const RULES = {
     description: "Un nodo 'assessment' no declara targetIds válidos entre metadata.targets.",
   },
   "JIN-ASM-013": {
-    id: "JIN-ASM-013", category: "assessment", severity: "warning",
-    description: "La suma de 'points' entre todos los nodos 'assessment' supera 100.",
+    id: "JIN-ASM-013", category: "assessment", severity: "error",
+    description: "El 'points' de un nodo 'assessment' difiere del puntaje declarado en el sílabo para ese código.",
+  },
+  "JIN-ASM-016": {
+    id: "JIN-ASM-016", category: "assessment", severity: "warning",
+    description: "La suma de 'points' de actividades con código conocido no coincide con la suma declarada en el sílabo.",
   },
   "JIN-ASM-014": {
     id: "JIN-ASM-014", category: "assessment", severity: "warning",
@@ -215,6 +236,30 @@ const RULES = {
     id: "JIN-EVD-016", category: "evidence", severity: "error",
     description: "Academic provenance de la semana = BLOCKED (referencias inventadas, bibliografía rota o keyClaims centrales sin procedencia).",
   },
+  "JIN-EVD-017": {
+    id: "JIN-EVD-017", category: "evidence", severity: "error",
+    description: "Un keyClaim con sourceMode 'notebook-primary' no declara evidencia estructurada (sourceId/sourceName/extractionStatus).",
+  },
+  "JIN-EVD-018": {
+    id: "JIN-EVD-018", category: "evidence", severity: "error",
+    description: "Un keyClaim con sourceMode 'local-fallback' no identifica la fuente local (sourceId/sourceName).",
+  },
+  "JIN-EVD-019": {
+    id: "JIN-EVD-019", category: "evidence", severity: "error",
+    description: "evidence.json declara un week distinto al de guide.json.",
+  },
+  "JIN-EVD-020": {
+    id: "JIN-EVD-020", category: "evidence", severity: "error",
+    description: "evidence.json es requerido para publicar cuando metadata.targets está declarado, y no existe (modo publish).",
+  },
+  "JIN-SCH-002": {
+    id: "JIN-SCH-002", category: "schema", severity: "error",
+    description: "metadata.targets es obligatorio para publicar (modo publish).",
+  },
+  "JIN-SCH-003": {
+    id: "JIN-SCH-003", category: "schema", severity: "error",
+    description: "metadata.hours es obligatorio para publicar (modo publish).",
+  },
 };
 
 const VALID_TYPES = new Set([
@@ -242,12 +287,16 @@ function extractBibKeys(bibPath) {
 
 // ─── Runner principal ─────────────────────────────────────────────────────────
 
-function lintGuide(guidePath) {
+function lintGuide(guidePath, options = {}) {
   const absolute = path.resolve(guidePath);
+  const publish  = options.mode === "publish";
   const issues   = [];
 
   function issue(ruleId, message, extra = {}) {
-    const rule = RULES[ruleId];
+    // rules/catalog.json es la fuente única de verdad para severity/category;
+    // RULES (local, con description larga para --help/CLI) es solo fallback
+    // defensivo si un código aún no se sincronizó al catálogo.
+    const rule = getCatalogRule(ruleId) || RULES[ruleId];
     issues.push({ rule: ruleId, category: rule.category, severity: rule.severity, message, file: absolute, ...extra });
   }
 
@@ -275,14 +324,29 @@ function lintGuide(guidePath) {
   }
   const schemaErrors = validateSchema(guide, schema, "$", schema);
   for (const msg of schemaErrors) {
+    const schRule = getCatalogRule("JIN-SCH-001");
     issues.push({
-      rule: "JIN-SCH-001", category: "schema", severity: "error",
+      rule: "JIN-SCH-001", category: schRule.category, severity: schRule.severity,
       message: msg, file: absolute,
     });
   }
 
   const metadata = guide.metadata || {};
   const sections = guide.sections || [];
+
+  // ── Modo publish: targets y horas dejan de ser opcionales ──
+  // En draft/validate normal, metadata.targets y metadata.hours son opt-in
+  // (adopción progresiva). En publish, una guía académica final debe
+  // declarar ambos: sin ellos no hay matriz de alineación ni presupuesto de
+  // horas verificable.
+  if (publish) {
+    if (!Array.isArray(metadata.targets) || metadata.targets.length === 0) {
+      issue("JIN-SCH-002", "metadata.targets es obligatorio para publicar: descompón el resultado de aprendizaje en targets antes de compilar en modo publish.");
+    }
+    if (typeof metadata.hours !== "number") {
+      issue("JIN-SCH-003", "metadata.hours es obligatorio para publicar: declara la carga horaria del sílabo antes de compilar en modo publish.");
+    }
+  }
 
   // ── JIN-CNT-005: outcome obligatorio ──
   if (!metadata.outcome || metadata.outcome.trim() === "") {
@@ -312,8 +376,9 @@ function lintGuide(guidePath) {
     const bibPath = path.resolve(path.dirname(absolute), metadata.bibliography);
     bibKeys = extractBibKeys(bibPath);
     if (bibKeys === null) {
+      const cntRule = getCatalogRule("JIN-CNT-004");
       issues.push({
-        rule: "JIN-CNT-004", category: "bibliography", severity: "warning",
+        rule: "JIN-CNT-004", category: cntRule.category, severity: cntRule.severity,
         message: `El archivo bibliography declarado no existe: ${bibPath}`,
         file: absolute,
       });
@@ -425,8 +490,9 @@ function lintGuide(guidePath) {
   if (bibKeys && allCitedKeys.length > 0) {
     for (const key of allCitedKeys) {
       if (!bibKeys.has(key)) {
+        const cntRule = getCatalogRule("JIN-CNT-004");
         issues.push({
-          rule: "JIN-CNT-004", category: "bibliography", severity: "warning",
+          rule: "JIN-CNT-004", category: cntRule.category, severity: cntRule.severity,
           message: `Clave citada "${key}" (inline o nodo citation) no existe en ${metadata.bibliography}.`,
           file: absolute,
         });
@@ -542,12 +608,40 @@ function lintGuide(guidePath) {
       }
     });
 
-    // JIN-SELF-001: ruta de aprendizaje con tiempo estimado
-    if (!anyEstimated) {
-      issue("JIN-SELF-001", "Ninguna sección declara 'estimatedMinutes': no hay ruta de aprendizaje con tiempo estimado.");
+    // JIN-ALN-017: orden real — un assessment no puede preceder a la última
+    // sección de enseñanza o práctica INICIAL (guided/independent) del mismo
+    // target (ALN-014 solo comprueba que exista en algún lugar de la guía,
+    // no el orden). La práctica 'retrieval'/'transfer' queda excluida a
+    // propósito: es un patrón instruccional válido colocarla después de la
+    // evaluación (recuperación espaciada, transferencia posterior).
+    assessmentNodes.forEach(node => {
+      const idx = sections.indexOf(node);
+      for (const tid of (node.targetIds || [])) {
+        const priorIndices = sections
+          .map((s, i) => ({ s, i }))
+          .filter(({ s }) => {
+            if (!Array.isArray(s.targetIds) || !s.targetIds.includes(tid)) return false;
+            if (s.type === "theory" || s.type === "concept") return true;
+            if (s.type === "practice" || s.type === "scenario") {
+              const mode = s.mode || "guided";
+              return mode !== "retrieval" && mode !== "transfer";
+            }
+            return false;
+          })
+          .map(({ i }) => i);
+        if (priorIndices.length > 0 && idx < Math.max(...priorIndices)) {
+          issue("JIN-ALN-017", `Nodo ${idx + 1} (assessment): evalúa ${tid} antes de que termine su enseñanza/práctica (nodo ${Math.max(...priorIndices) + 1}).`, { nodeIndex: idx });
+        }
+      }
+    });
+
+    // JIN-SELF-001: ruta de aprendizaje real (orientation.route), no un proxy de tiempo
+    const orientationNode = sections.find(s => s.type === "orientation");
+    if (!orientationNode || !hasContent(orientationNode.route)) {
+      issue("JIN-SELF-001", "El nodo 'orientation' no declara 'route' (ruta de aprendizaje) no vacía.");
     }
 
-    // JIN-SELF-002 .. JIN-SELF-004: por nodo practice
+    // JIN-SELF-002 .. JIN-SELF-005: por nodo practice
     practiceNodes.forEach(node => {
       const idx  = sections.indexOf(node);
       const mode = node.mode || "guided";
@@ -560,11 +654,13 @@ function lintGuide(guidePath) {
       if (!hasContent(node.selfCheck) && !hasContent(node.feedback)) {
         issue("JIN-SELF-004", `Nodo ${idx + 1} (practice): no declara 'selfCheck' ni 'feedback'; el estudiante no puede autocorregirse.`, { nodeIndex: idx });
       }
+      // JIN-SELF-005: la remediación se exige por práctica crítica (guided/independent),
+      // no basta con que exista en alguna práctica cualquiera de la guía.
+      if ((mode === "guided" || mode === "independent") && !hasContent(node.remediation)) {
+        issue("JIN-SELF-005", `Nodo ${idx + 1} (practice, mode='${mode}'): no declara 'remediation'.`, { nodeIndex: idx });
+      }
     });
-    // JIN-SELF-005 .. JIN-SELF-009: contratos a nivel de guía completa
-    if (!practiceNodes.some(s => hasContent(s.remediation))) {
-      issue("JIN-SELF-005", "Ninguna práctica de la guía declara 'remediation'.");
-    }
+    // JIN-SELF-006 .. JIN-SELF-009: contratos a nivel de guía completa
     if (!practiceNodes.some(s => s.mode === "retrieval")) {
       issue("JIN-SELF-006", "Ninguna práctica de la guía usa mode='retrieval' (recuperación).");
     }
@@ -604,9 +700,41 @@ function lintGuide(guidePath) {
         issue("JIN-ASM-015", `Nodo ${idx + 1} (assessment): actividad extensa sin ponderación por criterio (rúbrica).`, { nodeIndex: idx });
       }
     });
-    const totalPoints = assessmentNodes.reduce((sum, s) => sum + (typeof s.points === "number" ? s.points : 0), 0);
-    if (totalPoints > 100) {
-      issue("JIN-ASM-013", `La suma de 'points' entre nodos 'assessment' es ${totalPoints}, supera 100.`);
+    // JIN-ASM-013 / JIN-ASM-016: cotejar code/points contra el sílabo, cuando
+    // la estructura del curso (courseRoot/semanas/semana-XX/guide.json) y el
+    // formato de "Actividades calificadas" del README son detectables. Si no
+    // lo son, no se fuerza el cruce (evita falsos positivos por formatos
+    // institucionales distintos).
+    const weekDir     = path.dirname(absolute);
+    const semanasDir  = path.dirname(weekDir);
+    const courseRoot  = path.dirname(semanasDir);
+    const readmePath  = path.join(courseRoot, "README.md");
+    if (path.basename(semanasDir) === "semanas" && fs.existsSync(readmePath) && typeof metadata.week === "number") {
+      try {
+        const { parseSyllabus, parseGradedActivities } = require("../runtime/core/syllabus-manager");
+        const model = parseSyllabus(fs.readFileSync(readmePath, "utf8"));
+        const week  = model.weeks.find(w => w.number === metadata.week);
+        const syllabusActivities = week ? parseGradedActivities(week.raw) : null;
+        if (Array.isArray(syllabusActivities) && syllabusActivities.length > 0) {
+          const syllabusByCode = new Map(syllabusActivities.map(a => [a.code, a.points]));
+          for (const node of assessmentNodes) {
+            const idx = sections.indexOf(node);
+            if (node.code && syllabusByCode.has(node.code) && typeof node.points === "number") {
+              const declared = syllabusByCode.get(node.code);
+              if (Math.abs(declared - node.points) > 0.01) {
+                issue("JIN-ASM-013", `Nodo ${idx + 1} (assessment ${node.code}): points=${node.points} difiere del sílabo (${declared}).`, { nodeIndex: idx });
+              }
+            }
+          }
+          const guidePointsWithCode = assessmentNodes
+            .filter(s => s.code && syllabusByCode.has(s.code) && typeof s.points === "number")
+            .reduce((sum, s) => sum + s.points, 0);
+          const syllabusTotal = syllabusActivities.reduce((sum, a) => sum + a.points, 0);
+          if (guidePointsWithCode > 0 && Math.abs(guidePointsWithCode - syllabusTotal) > 0.01) {
+            issue("JIN-ASM-016", `La suma de 'points' de actividades con código conocido (${guidePointsWithCode}) no coincide con la suma declarada en el sílabo para esta semana (${syllabusTotal}).`);
+          }
+        }
+      } catch { /* sílabo no parseable en este formato: no forzar el cruce */ }
     }
   }
 
@@ -614,13 +742,20 @@ function lintGuide(guidePath) {
   // Artefacto hermano de guide.json. Si no existe, no se valida nada (opt-in).
   let provenanceSummary = null;
   const evidencePath = path.join(path.dirname(absolute), "evidence.json");
+  const targetsDeclared = Array.isArray(metadata.targets) && metadata.targets.length > 0;
+
+  if (publish && targetsDeclared && !fs.existsSync(evidencePath)) {
+    issue("JIN-EVD-020", "evidence.json es requerido para publicar cuando metadata.targets está declarado: registra la procedencia de cada keyClaim antes de compilar en modo publish.");
+  }
+
   if (fs.existsSync(evidencePath)) {
     let evidenceDoc = null;
     try {
       evidenceDoc = JSON.parse(fs.readFileSync(evidencePath, "utf8"));
     } catch (err) {
+      const evdRule = getCatalogRule("JIN-EVD-005");
       issues.push({
-        rule: "JIN-EVD-005", category: "evidence", severity: "error",
+        rule: "JIN-EVD-005", category: evdRule.category, severity: evdRule.severity,
         message: `evidence.json no es JSON válido: ${err.message}`, file: evidencePath,
       });
     }
@@ -655,6 +790,29 @@ function lintGuide(guidePath) {
         if (claim.evidence && claim.evidence.extractionStatus === "partial") {
           issue("JIN-EVD-011", `Claim "${claim.id}": NotebookLM devolvió extracción parcial (extractionStatus='partial').`);
         }
+        // JIN-EVD-017 / JIN-EVD-018: no basta con declarar sourceMode — se exige
+        // evidencia estructurada real. Sin esto, un claim "notebook-primary" sin
+        // fuente identificable podría fabricar un academicProvenance STRONG falso.
+        if (claim.sourceMode === "notebook-primary") {
+          const ev = claim.evidence || {};
+          if (!ev.sourceId || !ev.sourceName || !ev.extractionStatus) {
+            issue("JIN-EVD-017", `Claim "${claim.id}": sourceMode 'notebook-primary' sin evidencia estructurada (requiere evidence.sourceId, sourceName y extractionStatus).`);
+            blocked = true;
+          }
+        }
+        if (claim.sourceMode === "local-fallback") {
+          const ev = claim.evidence || {};
+          if (!ev.sourceId && !ev.sourceName) {
+            issue("JIN-EVD-018", `Claim "${claim.id}": sourceMode 'local-fallback' sin identificar la fuente local (evidence.sourceId o sourceName).`);
+            blocked = true;
+          }
+        }
+      }
+
+      // JIN-EVD-019: evidence.json debe corresponder a la misma semana que guide.json
+      if (typeof evidenceDoc.week === "number" && typeof metadata.week === "number" && evidenceDoc.week !== metadata.week) {
+        issue("JIN-EVD-019", `evidence.json declara week=${evidenceDoc.week}, pero guide.json es metadata.week=${metadata.week}.`);
+        blocked = true;
       }
 
       // ── provenanceSummary / academicProvenance (calculado sobre los keyClaims) ──

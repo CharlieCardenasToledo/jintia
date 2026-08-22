@@ -13,7 +13,30 @@ salida para lectura humana rápida, no reimplementa sus reglas.
 ```bash
 node "<skill-root>/bin/jintia.js" report semanas/semana-03/guide.json
 node "<skill-root>/bin/jintia.js" report semanas/semana-03/guide.json --json
+node "<skill-root>/bin/jintia.js" report semanas/semana-03/guide.json --final
 ```
+
+## Modo `--final`
+
+Sin `--final`, `report` es una lectura rápida en modo draft: no exige
+`metadata.targets`, `metadata.hours` ni `evidence.json`, y no corre el gate
+bibliográfico de publicación. Es posible (y esperado) que `report` diga
+`READY` y `jintia compile --publish` bloquee después — son preguntas
+distintas.
+
+Con `--final`, `report` corre el mismo gate que `jintia compile --publish`
+sin necesidad de renderizar: exige `metadata.targets`/`metadata.hours`
+(`JIN-SCH-002`/`003`), `evidence.json` cuando hay targets declarados
+(`JIN-EVD-020`), y el gate bibliográfico completo (`assertPublishReady()`:
+Citation.js, `.bib`, claves, estilo APA). `FINAL DECISION: READY` en modo
+`--final` sí implica que `jintia compile --publish` no debería bloquear por
+ninguna de esas causas.
+
+`--final` **no** sustituye la revisión de `agents/jintia-selfstudy-reviewer.md`
+ni `agents/jintia-finish-reviewer.md`: esos son contratos en lenguaje
+natural para un agente, no scripts deterministas que este comando pueda
+invocar. `READY` en `--final` es una condición necesaria, no suficiente,
+para declarar la guía lista para publicación.
 
 ## Secciones del reporte
 

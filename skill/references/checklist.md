@@ -79,19 +79,28 @@ Referencia de `jintia-skill`. Ejecutar esta verificación completa antes de entr
 
 **Targets, práctica y evaluación estructurada (si `metadata.targets` está declarado)**
 - [ ] Cada target tiene al menos una sección de enseñanza, una práctica formativa y una evaluación (`JIN-ALN-010/011/013`).
-- [ ] Ningún nodo `assessment` evalúa un target sin sección de enseñanza previa (`JIN-ALN-014`).
+- [ ] Ningún nodo `assessment` evalúa un target sin sección de enseñanza previa (`JIN-ALN-014`), **y el orden real respeta enseñanza/práctica antes de la evaluación** (`JIN-ALN-017`).
+- [ ] El nodo `orientation` declara `route` (ruta de aprendizaje) no vacía (`JIN-SELF-001`).
 - [ ] Toda práctica con `mode: "guided"` (o sin `mode`) declara `workedExample` (`JIN-SELF-002`).
 - [ ] Toda práctica declara `successCriteria` y (`selfCheck` o `feedback`) (`JIN-SELF-003/004`).
-- [ ] Existe al menos una práctica `retrieval` y una `transfer`, y al menos una declara `remediation` y `selfCheck` (`JIN-SELF-005/006/008/009`).
+- [ ] Toda práctica `guided`/`independent` declara `remediation` (`JIN-SELF-005`, por práctica, no basta con una sola en toda la guía).
+- [ ] Existe al menos una práctica `retrieval` y una `transfer`, y al menos una declara `selfCheck` a nivel de guía (`JIN-SELF-006/008/009`, advertencia).
 - [ ] El conjunto de nodos `assessment` cubre, entre todos, cada target declarado (`JIN-SELF-007`).
 - [ ] Todo nodo `assessment` declara `product` y `criteria` con targetIds válidos (`JIN-ASM-010/011/012`).
+- [ ] Si `code` coincide con una actividad del sílabo, `points` coincide con el puntaje declarado allí (`JIN-ASM-013`), y la suma de puntos con código conocido coincide con la suma del sílabo (`JIN-ASM-016`).
 - [ ] Actividades calificables o extensas declaran `submissionChecklist`, y las extensas con criterios declaran ponderación por criterio (`JIN-ASM-014/015`).
 - [ ] La carga horaria planificada (`estimatedMinutes`) cae entre 90-110% de `metadata.hours` (`JIN-WRK-001/002`); cada bloque relevante declara `estimatedMinutes` (`JIN-WRK-003`); la carga no está concentrada en enseñanza ni la evaluación desproporciona la práctica (`JIN-WRK-004/005`).
 - [ ] Ninguna sección extensa de teoría/concepto queda sin `targetIds` (`JIN-ALN-016`).
 
+**Modo publish (`jintia compile --publish` / `jintia report --final`)**
+- [ ] `metadata.targets` y `metadata.hours` están declarados (`JIN-SCH-002/003`).
+- [ ] `evidence.json` existe cuando hay targets declarados (`JIN-EVD-020`).
+
 **`evidence.json` (si existe)**
 - [ ] Todo `claimId` referenciado desde `guide.json` existe en `evidence.json` (`JIN-EVD-005`).
 - [ ] Todo keyClaim declara `sourceMode` (`JIN-EVD-010`).
+- [ ] Todo keyClaim `notebook-primary` declara `evidence.sourceId`/`sourceName`/`extractionStatus` reales (`JIN-EVD-017`); todo `local-fallback` identifica la fuente local (`JIN-EVD-018`).
+- [ ] `evidence.json` declara el mismo `week` que `guide.json`, si lo declara (`JIN-EVD-019`).
 - [ ] Toda `bibliographyKey` declarada existe en `reference.bib` (`JIN-EVD-012`).
 - [ ] Ninguna afirmación con `sourceMode: "ai-fallback"` declara `bibliographyKey` (`JIN-EVD-014`).
 - [ ] El `academicProvenance` calculado no es `BLOCKED` (`JIN-EVD-016`); si es `DEGRADED` (`JIN-EVD-015`), se revisó conscientemente.
@@ -100,6 +109,7 @@ Referencia de `jintia-skill`. Ejecutar esta verificación completa antes de entr
 - [ ] `jintia validate guide.json` terminó sin errores (JIN-SCH-*, JIN-CNT-*, JIN-BIB-*, y JIN-ALN-*/JIN-WRK-*/JIN-SELF-*/JIN-ASM-* cuando aplican).
 - [ ] `node "<skill-root>/scripts/html-linter.js" guide.html` terminó sin errores cuando la guía contiene figuras.
 - [ ] `jintia preflight guide.html` terminó sin errores críticos de paginación.
-- [ ] `jintia compile guide.json --publish` no reporta degradación bibliográfica (`JIN-BIB-001..006`) antes de compartir el PDF final.
+- [ ] `jintia report guide.json --final` termina en `READY` (equivalente a `compile --publish` sin renderizar).
+- [ ] `jintia compile guide.json --publish` no reporta degradación bibliográfica (`JIN-BIB-001..007`) antes de compartir el PDF final.
 - [ ] Se aplicó la prueba "estudiante sin profesor" (`agents/jintia-selfstudy-reviewer.md`) y su decisión es `PASS`.
 - [ ] Las reglas editoriales, pedagógicas y de evidencia no cubiertas por los scripts se revisaron manualmente.

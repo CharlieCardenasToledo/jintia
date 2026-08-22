@@ -60,6 +60,8 @@ test("GOLDEN — corregir targetIds, campos de práctica estructurada y horas ha
   fixed.metadata.citationStyle = "apa";
   fixed.metadata.hours = 2; // 110 min planificados ≈ 91.7% de 120 min → dentro de 90-110%... ajustar abajo
 
+  fixed.sections[0].route = ["Teoría del modelo relacional", "Diagnóstico de redundancia", "Evaluación de evolución histórica"];
+
   // Enseñanza para T3 y práctica/evaluación completas para los tres targets.
   fixed.sections[1].targetIds = ["T1", "T2", "T3"];
   fixed.sections[1].estimatedMinutes = 70;
@@ -89,5 +91,123 @@ test("GOLDEN — corregir targetIds, campos de práctica estructurada y horas ha
     assert.equal(errors.length, 0, `No deberían quedar errores; quedaron: ${errors.map(e => `${e.rule}: ${e.message}`).join(" | ")}`);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("GOLDEN — JIN-ALN-017 dispara cuando un assessment precede a su propia enseñanza/práctica", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const guide = {
+    metadata: {
+      course: "Test", week: 1, topic: "T", outcome: "O", hours: 1,
+      targets: [{ id: "T1", verb: "x", description: "x" }],
+    },
+    sections: [
+      { type: "orientation", id: "o", route: ["paso 1"] },
+      { type: "assessment", id: "eval", targetIds: ["T1"], product: "p", criteria: [{ description: "c" }], estimatedMinutes: 10 },
+      { type: "theory", id: "t", targetIds: ["T1"], content: "x {{cite:date2004}}", estimatedMinutes: 10 },
+      { type: "practice", id: "p", targetIds: ["T1"], workedExample: "e", successCriteria: ["c"], selfCheck: "s", remediation: "r", estimatedMinutes: 10 },
+    ],
+  };
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-order-"));
+  const tmpPath = path.join(tmpDir, "guide.json");
+  fs.writeFileSync(tmpPath, JSON.stringify(guide));
+  try {
+    const report = lintGuide(tmpPath);
+    assert.ok(report.issues.some(i => i.rule === "JIN-ALN-017"), `Se esperaba JIN-ALN-017: ${report.issues.map(i => i.rule).join(", ")}`);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("GOLDEN — modo publish exige targets, horas y evidence.json (JIN-SCH-002/003, JIN-EVD-020)", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+
+  const noTargets = { metadata: { course: "T", week: 1, topic: "T", outcome: "O" }, sections: [{ type: "orientation", id: "o" }] };
+  const tmpDir1 = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-publish-notargets-"));
+  const tmpPath1 = path.join(tmpDir1, "guide.json");
+  fs.writeFileSync(tmpPath1, JSON.stringify(noTargets));
+  try {
+    const report = lintGuide(tmpPath1, { mode: "publish" });
+    assert.ok(report.issues.some(i => i.rule === "JIN-SCH-002"), "Sin metadata.targets, publish debe exigir JIN-SCH-002");
+    assert.ok(report.issues.some(i => i.rule === "JIN-SCH-003"), "Sin metadata.hours, publish debe exigir JIN-SCH-003");
+  } finally {
+    fs.rmSync(tmpDir1, { recursive: true, force: true });
+  }
+
+  const noEvidence = {
+    metadata: { course: "T", week: 1, topic: "T", outcome: "O", hours: 1, targets: [{ id: "T1", verb: "x", description: "x" }] },
+    sections: [{ type: "orientation", id: "o", route: ["p"] }],
+  };
+  const tmpDir2 = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-publish-noevidence-"));
+  const tmpPath2 = path.join(tmpDir2, "guide.json");
+  fs.writeFileSync(tmpPath2, JSON.stringify(noEvidence));
+  try {
+    const report = lintGuide(tmpPath2, { mode: "publish" });
+    assert.ok(report.issues.some(i => i.rule === "JIN-EVD-020"), "Con targets pero sin evidence.json, publish debe exigir JIN-EVD-020");
+  } finally {
+    fs.rmSync(tmpDir2, { recursive: true, force: true });
+  }
+});
+
+test("GOLDEN — evidencia sin estructura real fuerza BLOCKED (JIN-EVD-017/018/019)", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const guide = {
+    metadata: { course: "T", week: 1, topic: "T", outcome: "O" },
+    sections: [{ type: "theory", id: "t", claimIds: ["CLM-001", "CLM-002"] }],
+  };
+  const evidence = {
+    week: 2, // mismatch deliberado con metadata.week=1 → JIN-EVD-019
+    claims: [
+      { id: "CLM-001", claim: "x", sourceMode: "notebook-primary" }, // sin evidence estructurada → JIN-EVD-017
+      { id: "CLM-002", claim: "y", sourceMode: "local-fallback" },   // sin sourceId/sourceName → JIN-EVD-018
+    ],
+  };
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-evd-structured-"));
+  const tmpPath = path.join(tmpDir, "guide.json");
+  fs.writeFileSync(tmpPath, JSON.stringify(guide));
+  fs.writeFileSync(path.join(tmpDir, "evidence.json"), JSON.stringify(evidence));
+  try {
+    const report = lintGuide(tmpPath);
+    const codes = report.issues.map(i => i.rule);
+    assert.ok(codes.includes("JIN-EVD-017"), `Se esperaba JIN-EVD-017: ${codes.join(", ")}`);
+    assert.ok(codes.includes("JIN-EVD-018"), `Se esperaba JIN-EVD-018: ${codes.join(", ")}`);
+    assert.ok(codes.includes("JIN-EVD-019"), `Se esperaba JIN-EVD-019: ${codes.join(", ")}`);
+    assert.equal(report.provenanceSummary.academicProvenance, "BLOCKED", "Sin evidencia estructurada real, no debe poder alcanzar STRONG/GOOD");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("GOLDEN — el puntaje de assessment que difiere del sílabo dispara JIN-ASM-013", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-syllabus-cross-"));
+  fs.writeFileSync(path.join(dir, "README.md"), [
+    "# Curso", "",
+    "**Asignatura:** X", "**Periodo académico ordinario:** 2026-A", "",
+    "### Semana 01 — Tema", "",
+    "**Unidad:** 1", "**Tema / contenido semanal:** Tema", "**Resultado de aprendizaje:** RA",
+    "**Herramienta de aprendizaje:** Autor (2020)", "**Horas:** 4",
+    "**Actividades calificadas:**", "- PE-1.1 — Informe — 2.25 puntos", "",
+  ].join("\n"));
+  const weekDir = path.join(dir, "semanas", "semana-01");
+  require("node:fs").mkdirSync(weekDir, { recursive: true });
+  const guide = {
+    metadata: { course: "X", week: 1, topic: "T", outcome: "O", targets: [{ id: "T1", verb: "x", description: "x" }] },
+    sections: [
+      { type: "orientation", id: "o" },
+      { type: "assessment", id: "e", code: "PE-1.1", targetIds: ["T1"], points: 4.0, product: "p", criteria: [{ description: "c" }] },
+    ],
+  };
+  fs.writeFileSync(path.join(weekDir, "guide.json"), JSON.stringify(guide));
+  try {
+    const report = lintGuide(path.join(weekDir, "guide.json"));
+    assert.ok(report.issues.some(i => i.rule === "JIN-ASM-013"), `Se esperaba JIN-ASM-013: ${report.issues.map(i => i.rule).join(", ")}`);
+    assert.ok(report.issues.some(i => i.rule === "JIN-ASM-016"), `Se esperaba JIN-ASM-016: ${report.issues.map(i => i.rule).join(", ")}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });

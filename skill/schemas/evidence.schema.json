@@ -2,44 +2,55 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://jintia.dev/schemas/evidence.schema.json",
   "title": "Jintia Evidence",
-  "description": "Registro de procedencia por afirmación disciplinar: qué claim proviene de NotebookLM, de una fuente local o de conocimiento del modelo (ai-knowledge). Artefacto opcional junto a guide.json y reference.bib; ver SKILL.md §2 y references/bibliografia.md.",
+  "description": "Registro de procedencia por afirmación disciplinar (keyClaim): de dónde proviene cada afirmación central — NotebookLM (fuente primaria), fuente local (fallback) o conocimiento del modelo (ai-fallback, último recurso) — y el resumen de procedencia académica de la semana. Artefacto opcional junto a guide.json y reference.bib; ver SKILL.md §2 y references/bibliografia.md.",
   "type": "object",
   "required": ["claims"],
   "additionalProperties": false,
   "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "default": "1.0.0",
+      "description": "Versión del esquema de evidence.json."
+    },
+    "week": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Número de semana (debe coincidir con metadata.week de guide.json)."
+    },
     "claims": {
       "type": "array",
-      "description": "Una entrada por afirmación disciplinar central. El 'id' se referencia desde guide.json en el campo claimIds de cada nodo.",
+      "description": "Una entrada por keyClaim: afirmación disciplinar central (definiciones, modelos, clasificaciones, relaciones causales, cifras, normas, teorías). No incluye frases triviales o puramente instruccionales. El 'id' se referencia desde guide.json en el campo claimIds de cada nodo.",
       "items": { "$ref": "#/definitions/claim" }
-    }
+    },
+    "provenanceSummary": { "$ref": "#/definitions/provenanceSummary" }
   },
   "definitions": {
     "claim": {
       "type": "object",
-      "required": ["id", "claim", "sourceMode", "status"],
+      "required": ["id", "claim", "sourceMode"],
       "additionalProperties": false,
       "properties": {
         "id": {
           "type": "string",
-          "description": "Identificador único de la afirmación (ej. 'CLM-003'). Referenciado desde guide.json vía claimIds."
+          "description": "Identificador único del keyClaim (ej. 'CLM-001'). Referenciado desde guide.json vía claimIds."
+        },
+        "targetId": {
+          "type": "string",
+          "pattern": "^T[0-9]+$",
+          "description": "Target de metadata.targets que esta afirmación sustenta."
         },
         "claim": {
           "type": "string",
           "description": "La afirmación disciplinar redactada."
         },
-        "targetIds": {
-          "type": "array",
-          "items": { "type": "string", "pattern": "^T[0-9]+$" },
-          "description": "Targets de metadata.targets que esta afirmación sustenta."
-        },
         "sourceMode": {
           "type": "string",
-          "enum": ["notebooklm", "local", "ai-knowledge"],
-          "description": "Procedencia declarada: NotebookLM, fuente local verificable, o conocimiento del modelo."
+          "enum": ["notebook-primary", "local-fallback", "ai-fallback"],
+          "description": "Procedencia declarada: NotebookLM (fuente primaria), fuente local verificable (fallback), o conocimiento del modelo (último fallback)."
         },
         "bibliographyKey": {
           "type": "string",
-          "description": "Clave en reference.bib que respalda esta afirmación. Prohibido cuando sourceMode='ai-knowledge' (JIN-EVD-007): no se fabrica bibliografía en ese modo."
+          "description": "Clave en reference.bib que respalda esta afirmación. Prohibido cuando sourceMode='ai-fallback' (JIN-EVD-014): no se fabrica bibliografía en ese modo."
         },
         "evidence": {
           "type": "object",
@@ -48,16 +59,28 @@
             "sourceId": { "type": "string" },
             "sourceName": { "type": "string" },
             "sourceType": { "type": "string" },
-            "url": { "type": "string" },
+            "sourceUrl": { "type": ["string", "null"] },
             "excerpt": { "type": "string" },
             "location": { "type": "object" },
-            "extractionStatus": { "type": "string" }
+            "extractionStatus": {
+              "type": "string",
+              "enum": ["complete", "partial", "unavailable"]
+            }
           }
-        },
-        "status": {
+        }
+      }
+    },
+    "provenanceSummary": {
+      "type": "object",
+      "description": "Resumen de procedencia académica de la semana, calculado sobre los keyClaims. Ver SKILL.md §2 y docs/rules.md para los umbrales de clasificación.",
+      "additionalProperties": false,
+      "properties": {
+        "notebookPrimary": { "type": "number", "minimum": 0, "maximum": 100 },
+        "localFallback": { "type": "number", "minimum": 0, "maximum": 100 },
+        "aiFallback": { "type": "number", "minimum": 0, "maximum": 100 },
+        "academicProvenance": {
           "type": "string",
-          "enum": ["notebook-grounded", "local-verified", "ai-knowledge", "partial", "conflict"],
-          "description": "Estado de verificación de la afirmación."
+          "enum": ["STRONG", "GOOD", "DEGRADED", "WEAK", "BLOCKED"]
         }
       }
     }

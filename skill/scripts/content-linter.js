@@ -83,8 +83,8 @@ const RULES = {
     id: "JIN-CNT-013", category: "accessibility", severity: "error",
     description: "Todo nodo 'figure' debe declarar 'src' o 'visualSpec' (no ambos, no ninguno).",
   },
-  "JIN-BIB-001": {
-    id: "JIN-BIB-001", category: "bibliography", severity: "error",
+  "JIN-BIB-007": {
+    id: "JIN-BIB-007", category: "bibliography", severity: "error",
     description: "metadata.citationStyle debe ser 'apa'; Jintia no admite otro estilo bibliográfico en esta versión.",
   },
   "JIN-ALN-010": {
@@ -140,7 +140,7 @@ const RULES = {
     description: "Ninguna práctica de la guía declara remediation.",
   },
   "JIN-SELF-006": {
-    id: "JIN-SELF-006", category: "self-instruction", severity: "error",
+    id: "JIN-SELF-006", category: "self-instruction", severity: "warning",
     description: "Ninguna práctica de la guía usa mode='retrieval' (recuperación).",
   },
   "JIN-SELF-007": {
@@ -148,11 +148,11 @@ const RULES = {
     description: "Ningún conjunto de nodos 'assessment' cubre, en total, todos los targets declarados.",
   },
   "JIN-SELF-008": {
-    id: "JIN-SELF-008", category: "self-instruction", severity: "error",
+    id: "JIN-SELF-008", category: "self-instruction", severity: "warning",
     description: "Ninguna práctica de la guía declara selfCheck: no hay monitorización explícita de progreso.",
   },
   "JIN-SELF-009": {
-    id: "JIN-SELF-009", category: "self-instruction", severity: "error",
+    id: "JIN-SELF-009", category: "self-instruction", severity: "warning",
     description: "Ninguna práctica de la guía usa mode='transfer' ni declara el campo transfer.",
   },
   "JIN-ASM-010": {
@@ -169,7 +169,15 @@ const RULES = {
   },
   "JIN-ASM-013": {
     id: "JIN-ASM-013", category: "assessment", severity: "warning",
-    description: "La suma de 'score' entre todos los nodos 'assessment' supera 100.",
+    description: "La suma de 'points' entre todos los nodos 'assessment' supera 100.",
+  },
+  "JIN-ASM-014": {
+    id: "JIN-ASM-014", category: "assessment", severity: "warning",
+    description: "Una actividad calificable (points > 0) o extensa (estimatedMinutes > 60) no declara submissionChecklist.",
+  },
+  "JIN-ASM-015": {
+    id: "JIN-ASM-015", category: "assessment", severity: "warning",
+    description: "Una actividad extensa (estimatedMinutes > 60) no declara ponderación por criterio (rúbrica).",
   },
   "JIN-EVD-005": {
     id: "JIN-EVD-005", category: "evidence", severity: "error",
@@ -177,11 +185,35 @@ const RULES = {
   },
   "JIN-EVD-006": {
     id: "JIN-EVD-006", category: "evidence", severity: "warning",
-    description: "Una afirmación con sourceMode 'notebooklm' o 'local' en evidence.json no declara bibliographyKey.",
+    description: "Una afirmación con sourceMode 'notebook-primary' o 'local-fallback' en evidence.json no declara bibliographyKey.",
   },
-  "JIN-EVD-007": {
-    id: "JIN-EVD-007", category: "evidence", severity: "error",
-    description: "Una afirmación con sourceMode 'ai-knowledge' declara bibliographyKey: no se puede fabricar bibliografía en ese modo.",
+  "JIN-EVD-010": {
+    id: "JIN-EVD-010", category: "evidence", severity: "error",
+    description: "Un keyClaim de evidence.json no declara sourceMode.",
+  },
+  "JIN-EVD-011": {
+    id: "JIN-EVD-011", category: "evidence", severity: "warning",
+    description: "NotebookLM devolvió extracción parcial (evidence.extractionStatus='partial') para un keyClaim.",
+  },
+  "JIN-EVD-012": {
+    id: "JIN-EVD-012", category: "evidence", severity: "error",
+    description: "Se atribuye a un keyClaim una bibliographyKey que no existe en reference.bib.",
+  },
+  "JIN-EVD-013": {
+    id: "JIN-EVD-013", category: "evidence", severity: "warning",
+    description: "Se utilizó ai-fallback (conocimiento del modelo) en al menos un keyClaim.",
+  },
+  "JIN-EVD-014": {
+    id: "JIN-EVD-014", category: "evidence", severity: "error",
+    description: "Un keyClaim con sourceMode 'ai-fallback' declara bibliographyKey: no se puede fabricar bibliografía en ese modo.",
+  },
+  "JIN-EVD-015": {
+    id: "JIN-EVD-015", category: "evidence", severity: "warning",
+    description: "Academic provenance de la semana = DEGRADED.",
+  },
+  "JIN-EVD-016": {
+    id: "JIN-EVD-016", category: "evidence", severity: "error",
+    description: "Academic provenance de la semana = BLOCKED (referencias inventadas, bibliografía rota o keyClaims centrales sin procedencia).",
   },
 };
 
@@ -257,9 +289,9 @@ function lintGuide(guidePath) {
     issue("JIN-CNT-005", "El campo 'outcome' en metadata está ausente o vacío.");
   }
 
-  // ── JIN-BIB-001: citationStyle debe ser 'apa' ──
+  // ── JIN-BIB-007: citationStyle debe ser 'apa' ──
   if (metadata.citationStyle && metadata.citationStyle !== "apa") {
-    issue("JIN-BIB-001", `citationStyle "${metadata.citationStyle}" no está permitido; Jintia exige "apa" en esta versión.`);
+    issue("JIN-BIB-007", `citationStyle "${metadata.citationStyle}" no está permitido; Jintia exige "apa" en esta versión.`);
   }
 
   // ── JIN-CNT-001: al menos un nodo orientation ──
@@ -419,6 +451,24 @@ function lintGuide(guidePath) {
     }
   }
 
+  // ── JIN-WRK-004 / JIN-WRK-005: distribución de la carga planificada ──
+  if (anyEstimated) {
+    const minutesByType = type => sections
+      .filter(s => s.type === type && typeof s.estimatedMinutes === "number")
+      .reduce((sum, s) => sum + s.estimatedMinutes, 0);
+    const teachingMinutes   = minutesByType("theory") + minutesByType("concept");
+    const practiceMinutes   = minutesByType("practice") + minutesByType("scenario");
+    const assessmentMinutes = minutesByType("assessment");
+    const totalMinutes      = sections.reduce((sum, s) => sum + (typeof s.estimatedMinutes === "number" ? s.estimatedMinutes : 0), 0);
+
+    if (totalMinutes > 0 && teachingMinutes / totalMinutes > 0.6) {
+      issue("JIN-WRK-004", `La enseñanza (theory/concept) concentra ${((teachingMinutes / totalMinutes) * 100).toFixed(1)}% de la carga planificada; revisar el balance con práctica y evaluación.`);
+    }
+    if (practiceMinutes > 0 && assessmentMinutes > practiceMinutes) {
+      issue("JIN-WRK-005", `El tiempo evaluativo planificado (${assessmentMinutes} min) supera el de práctica formativa (${practiceMinutes} min).`);
+    }
+  }
+
   // ── Contrato de targets: JIN-ALN-01x, JIN-SELF-*, JIN-ASM-01x ──
   // Se activa solo cuando metadata.targets está declarado; las guías que aún
   // no adoptaron el contrato de targets no se penalizan retroactivamente.
@@ -455,6 +505,27 @@ function lintGuide(guidePath) {
         }
       }
     }
+
+    // JIN-ALN-016: contenido extenso de teoría/concepto sin targetIds declarado
+    const contentLength = value => {
+      if (typeof value === "string") return value.length;
+      if (Array.isArray(value)) return value.reduce((sum, v) => sum + contentLength(v), 0);
+      return 0;
+    };
+    sections.forEach((node, idx) => {
+      if ((node.type !== "theory" && node.type !== "concept") || hasContent(node.targetIds)) return;
+      if (contentLength(node.content) > 400) {
+        issue("JIN-ALN-016", `Nodo ${idx + 1} (${node.type}): contenido extenso (${contentLength(node.content)} caracteres) sin relación explícita con un target (targetIds vacío).`, { nodeIndex: idx });
+      }
+    });
+
+    // JIN-WRK-003: bloque académico relevante sin estimatedMinutes
+    sections.forEach((node, idx) => {
+      if (!["theory", "concept", "practice", "scenario", "assessment"].includes(node.type)) return;
+      if (typeof node.estimatedMinutes !== "number") {
+        issue("JIN-WRK-003", `Nodo ${idx + 1} (${node.type}): no declara 'estimatedMinutes'.`, { nodeIndex: idx });
+      }
+    });
 
     // JIN-ALN-014: assessment evalúa un target sin enseñanza en toda la guía
     const teachingTargetIds = new Set(
@@ -523,15 +594,25 @@ function lintGuide(guidePath) {
       if (nodeTargetIds.length === 0 || invalidTargets.length > 0) {
         issue("JIN-ASM-012", `Nodo ${idx + 1} (assessment): targetIds ausente o inválido (${invalidTargets.join(", ") || "vacío"}).`, { nodeIndex: idx });
       }
+      const isComplex = (typeof node.points === "number" && node.points > 0) || (typeof node.estimatedMinutes === "number" && node.estimatedMinutes > 60);
+      if (isComplex && !hasContent(node.submissionChecklist)) {
+        issue("JIN-ASM-014", `Nodo ${idx + 1} (assessment): actividad calificable o extensa sin 'submissionChecklist'.`, { nodeIndex: idx });
+      }
+      const isExtensive = typeof node.estimatedMinutes === "number" && node.estimatedMinutes > 60;
+      const hasRubric    = Array.isArray(node.criteria) && node.criteria.some(c => typeof c.weight === "number");
+      if (isExtensive && Array.isArray(node.criteria) && node.criteria.length > 0 && !hasRubric) {
+        issue("JIN-ASM-015", `Nodo ${idx + 1} (assessment): actividad extensa sin ponderación por criterio (rúbrica).`, { nodeIndex: idx });
+      }
     });
-    const totalScore = assessmentNodes.reduce((sum, s) => sum + (typeof s.score === "number" ? s.score : 0), 0);
-    if (totalScore > 100) {
-      issue("JIN-ASM-013", `La suma de 'score' entre nodos 'assessment' es ${totalScore}, supera 100.`);
+    const totalPoints = assessmentNodes.reduce((sum, s) => sum + (typeof s.points === "number" ? s.points : 0), 0);
+    if (totalPoints > 100) {
+      issue("JIN-ASM-013", `La suma de 'points' entre nodos 'assessment' es ${totalPoints}, supera 100.`);
     }
   }
 
   // ── evidence.json (opcional): procedencia por afirmación ──
   // Artefacto hermano de guide.json. Si no existe, no se valida nada (opt-in).
+  let provenanceSummary = null;
   const evidencePath = path.join(path.dirname(absolute), "evidence.json");
   if (fs.existsSync(evidencePath)) {
     let evidenceDoc = null;
@@ -553,12 +634,62 @@ function lintGuide(guidePath) {
           issue("JIN-EVD-005", `guide.json referencia claimIds "${claimId}" que no existe en evidence.json.`);
         }
       }
+
+      let blocked = false;
       for (const claim of claims) {
-        if (claim.sourceMode === "ai-knowledge" && claim.bibliographyKey) {
-          issue("JIN-EVD-007", `Claim "${claim.id}": procedencia 'ai-knowledge' con bibliographyKey "${claim.bibliographyKey}" declarado — no se puede fabricar bibliografía en ese modo.`);
-        } else if ((claim.sourceMode === "notebooklm" || claim.sourceMode === "local") && !claim.bibliographyKey) {
+        if (!claim.sourceMode) {
+          issue("JIN-EVD-010", `Claim "${claim.id}": no declara 'sourceMode'.`);
+          blocked = true;
+          continue;
+        }
+        if (claim.sourceMode === "ai-fallback" && claim.bibliographyKey) {
+          issue("JIN-EVD-014", `Claim "${claim.id}": procedencia 'ai-fallback' con bibliographyKey "${claim.bibliographyKey}" declarado — no se puede fabricar bibliografía en ese modo.`);
+          blocked = true;
+        } else if ((claim.sourceMode === "notebook-primary" || claim.sourceMode === "local-fallback") && !claim.bibliographyKey) {
           issue("JIN-EVD-006", `Claim "${claim.id}" (sourceMode='${claim.sourceMode}'): no declara bibliographyKey.`);
         }
+        if (claim.bibliographyKey && bibKeys && !bibKeys.has(claim.bibliographyKey)) {
+          issue("JIN-EVD-012", `Claim "${claim.id}": bibliographyKey "${claim.bibliographyKey}" no existe en ${metadata.bibliography}.`);
+          blocked = true;
+        }
+        if (claim.evidence && claim.evidence.extractionStatus === "partial") {
+          issue("JIN-EVD-011", `Claim "${claim.id}": NotebookLM devolvió extracción parcial (extractionStatus='partial').`);
+        }
+      }
+
+      // ── provenanceSummary / academicProvenance (calculado sobre los keyClaims) ──
+      if (claims.length > 0) {
+        const pct = mode => (claims.filter(c => c.sourceMode === mode).length / claims.length) * 100;
+        const notebookPrimary = pct("notebook-primary");
+        const localFallback   = pct("local-fallback");
+        const aiFallback      = pct("ai-fallback");
+        const hasGap          = [...referenced].some(id => !claimIds.has(id));
+
+        if (aiFallback > 0) {
+          issue("JIN-EVD-013", `Se utilizó ai-fallback en ${claims.filter(c => c.sourceMode === "ai-fallback").length} de ${claims.length} keyClaim(s).`);
+        }
+
+        let academicProvenance;
+        if (blocked) {
+          academicProvenance = "BLOCKED";
+          issue("JIN-EVD-016", "Academic provenance = BLOCKED: hay keyClaims sin sourceMode, con bibliographyKey inexistente, o con bibliografía fabricada en modo ai-fallback.");
+        } else if (aiFallback > 30 || hasGap) {
+          academicProvenance = "WEAK";
+        } else if (aiFallback > 10 || claims.some(c => c.evidence && c.evidence.extractionStatus === "partial")) {
+          academicProvenance = "DEGRADED";
+          issue("JIN-EVD-015", `Academic provenance = DEGRADED (ai-fallback: ${aiFallback.toFixed(1)}%).`);
+        } else if (aiFallback === 0 && notebookPrimary >= 80) {
+          academicProvenance = "STRONG";
+        } else {
+          academicProvenance = "GOOD";
+        }
+
+        provenanceSummary = {
+          notebookPrimary: Math.round(notebookPrimary * 10) / 10,
+          localFallback:   Math.round(localFallback * 10) / 10,
+          aiFallback:      Math.round(aiFallback * 10) / 10,
+          academicProvenance,
+        };
       }
     }
   }
@@ -568,6 +699,7 @@ function lintGuide(guidePath) {
     version: "1.0.0",
     target: absolute,
     issues,
+    provenanceSummary,
     summary: {
       errors:   issues.filter(i => i.severity === "error").length,
       warnings: issues.filter(i => i.severity === "warning").length,

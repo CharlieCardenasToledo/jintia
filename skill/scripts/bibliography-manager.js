@@ -118,8 +118,8 @@ function renderCitation(keys, mode, bib, style = "apa") {
     // Modo degradado — claves escapadas
     const formatted = escHtml(keys.join("; "));
     return mode === "narrative"
-      ? `<cite class="jintia-citation" data-keys="${safeKeys}">${formatted}</cite>`
-      : `<cite class="jintia-citation" data-keys="${safeKeys}">(${formatted})</cite>`;
+      ? `<cite class="jintia-citation jintia-degraded" data-keys="${safeKeys}">${formatted}</cite>`
+      : `<cite class="jintia-citation jintia-degraded" data-keys="${safeKeys}">(${formatted})</cite>`;
   }
 
   try {
@@ -148,7 +148,7 @@ function renderCitation(keys, mode, bib, style = "apa") {
     return `<cite class="jintia-citation" data-keys="${safeKeys}">${text}</cite>`;
   } catch (err) {
     console.warn(`[bibliography-manager] Error al formatear cita ${keys}: ${err.message}`);
-    return `<cite class="jintia-citation" data-keys="${safeKeys}">[${escHtml(keys.join("; "))}]</cite>`;
+    return `<cite class="jintia-citation jintia-degraded" data-keys="${safeKeys}">[${escHtml(keys.join("; "))}]</cite>`;
   }
 }
 
@@ -163,7 +163,7 @@ function renderBibliographyEntries(keys, bib, style = "apa") {
   if (!citationJs || !bib.available) {
     // Modo degradado (solo draft): listar claves sin formatear
     const allKeys = keys || bib.keys || [];
-    return allKeys.map(k => `<span class="bib-key">[${k}]</span> [referencia no formateada]`);
+    return allKeys.map(k => `<span class="bib-key jintia-degraded">[${k}]</span> [referencia no formateada]`);
   }
 
   try {
@@ -211,7 +211,7 @@ function assertPublishReady(guide, guidePath) {
 
   if (style !== "apa") {
     errors.push({
-      code: "JIN-BIB-001",
+      code: "JIN-BIB-007",
       message: `citationStyle "${style}" no está permitido; Jintia exige "apa" en esta versión.`,
     });
   }
@@ -221,7 +221,7 @@ function assertPublishReady(guide, guidePath) {
 
   if (!citationJs) {
     errors.push({
-      code: "JIN-BIB-002",
+      code: "JIN-BIB-001",
       message: "Citation.js no está disponible; no se puede publicar bibliografía formateada. Instala @citation-js/core, @citation-js/plugin-bibtex y @citation-js/plugin-csl.",
     });
     return { ready: false, errors };
@@ -229,7 +229,7 @@ function assertPublishReady(guide, guidePath) {
 
   if (!metadata.bibliography) {
     errors.push({
-      code: "JIN-BIB-003",
+      code: "JIN-BIB-002",
       message: "Hay citas pero metadata.bibliography no está declarado.",
     });
     return { ready: false, errors };
@@ -239,7 +239,7 @@ function assertPublishReady(guide, guidePath) {
   const bib     = loadBibliography(bibPath);
 
   if (bib.notFound) {
-    errors.push({ code: "JIN-BIB-003", message: `El archivo declarado en metadata.bibliography no existe: ${bibPath}` });
+    errors.push({ code: "JIN-BIB-002", message: `El archivo declarado en metadata.bibliography no existe: ${bibPath}` });
     return { ready: false, errors };
   }
 
@@ -256,8 +256,37 @@ function assertPublishReady(guide, guidePath) {
   const missing = citedKeys.filter(key => !keyExists(key, bib));
   if (missing.length > 0) {
     errors.push({
-      code: "JIN-BIB-005",
+      code: "JIN-BIB-003",
       message: `Clave(s) citada(s) sin entrada en ${metadata.bibliography}: ${missing.join(", ")}.`,
+    });
+  }
+
+  return { ready: errors.length === 0, errors };
+}
+
+/**
+ * Comprueba el HTML ya renderizado en busca de degradación bibliográfica
+ * residual. Defensa en profundidad: `assertPublishReady()` ya bloquea antes
+ * de renderizar ante las condiciones conocidas; esto detecta cualquier
+ * marcador de degradación que hubiera sobrevivido al render.
+ *
+ * @param {string} html - HTML final ya renderizado
+ * @returns {{ ready: boolean, errors: {code: string, message: string}[] }}
+ */
+function assertRenderedPublishReady(html) {
+  const errors = [];
+
+  if (typeof html === "string" && html.includes("{{cite:")) {
+    errors.push({
+      code: "JIN-BIB-005",
+      message: "Queda al menos una clave de cita sin resolver ({{cite:...}}) en el HTML final.",
+    });
+  }
+
+  if (typeof html === "string" && html.includes("jintia-degraded")) {
+    errors.push({
+      code: "JIN-BIB-006",
+      message: "El HTML final contiene bibliografía o citas degradadas (clase 'jintia-degraded').",
     });
   }
 
@@ -305,5 +334,6 @@ module.exports = {
   renderCitation,
   renderBibliographyEntries,
   assertPublishReady,
+  assertRenderedPublishReady,
   isCitationJsAvailable: () => citationJs,
 };

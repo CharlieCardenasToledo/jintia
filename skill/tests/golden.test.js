@@ -26,7 +26,7 @@ test("GOLDEN — la guía visualmente completa pero pedagógicamente inválida n
 
   const codes = report.issues.map(i => i.rule);
   const expectedErrors = [
-    "JIN-BIB-001", // citationStyle distinto de apa
+    "JIN-BIB-007", // citationStyle distinto de apa
     "JIN-WRK-002", // carga horaria real muy por debajo de metadata.hours
     "JIN-ALN-010", // T3 se evalúa pero no se enseña
     "JIN-ALN-011", // T1 y T3 sin práctica formativa

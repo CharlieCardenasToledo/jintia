@@ -194,27 +194,58 @@ function renderCover(metadata) {
 </header>`;
 }
 
-function renderBlock(node, typeClass, label, bib = null, style = "apa") {
+/**
+ * @param {string} [tag="aside"] - "aside" para advertencias/notas complementarias;
+ *   "section" para contenido pedagógico principal (teoría, concepto, práctica).
+ *   Ambos comparten las mismas clases CSS — el tag no afecta el estilo visual.
+ */
+function renderBlock(node, typeClass, label, bib = null, style = "apa", tag = "aside") {
   const pagination = node.pagination || "atomic";
   const titleHtml  = node.title
     ? `<h2 class="jintia-block__title">${escapeHtml(node.title)}</h2>`
     : "";
-  const idAttr = node.id ? ` id="${escapeHtml(node.id)}"` : "";
+  const idAttr    = node.id ? ` id="${escapeHtml(node.id)}"` : "";
+  const roleAttr  = tag === "aside" ? ` role="note"` : "";
+  const timeHtml  = typeof node.estimatedMinutes === "number"
+    ? `<p class="jintia-block__estimated-minutes">Tiempo estimado: ${escapeHtml(String(node.estimatedMinutes))} min</p>`
+    : "";
   return `
-<aside class="jintia-block ${typeClass}"
-       data-pagination="${escapeHtml(pagination)}"
-       role="note"${idAttr}>
+<${tag} class="jintia-block ${typeClass}"
+       data-pagination="${escapeHtml(pagination)}"${roleAttr}${idAttr}>
   <span class="jintia-block__label" aria-hidden="true">${escapeHtml(label)}</span>
   ${titleHtml}
+  ${timeHtml}
   <div class="jintia-block__content">
 ${renderContent(node.content, bib, style)}
   </div>
-</aside>`;
+</${tag}>`;
 }
 
-function renderOrientation(node, bib, style)   { return renderBlock(node, "jintia-orientation",   "Orientación", bib, style); }
-function renderTheory(node, bib, style)         { return renderBlock(node, "jintia-theory",         "Teoría",       bib, style); }
-function renderConcept(node, bib, style)        { return renderBlock(node, "jintia-concept",        "Concepto",     bib, style); }
+/**
+ * Orientation: además del content libre, renderiza los campos estructurados
+ * opcionales (purpose, priorKnowledge, materials, route, successCriteria).
+ */
+function renderOrientation(node, bib, style) {
+  const base = renderBlock(node, "jintia-orientation", "Orientación", bib, style);
+
+  const listBlock = (className, heading, value) => {
+    if (!Array.isArray(value) || value.length === 0) return "";
+    const items = value.map(item => `<li>${processInlineMarkup(String(item), bib, style)}</li>`).join("\n");
+    return `<div class="${className}"><h3>${escapeHtml(heading)}</h3><ul>${items}</ul></div>`;
+  };
+
+  const extraHtml = [
+    node.purpose ? `<div class="jintia-orientation__purpose">${renderContent(node.purpose, bib, style)}</div>` : "",
+    listBlock("jintia-orientation__before-start", "Antes de empezar", [...(node.priorKnowledge || []), ...(node.materials || [])]),
+    listBlock("jintia-orientation__route", "Ruta de esta semana", node.route),
+    listBlock("jintia-orientation__success-criteria", "Criterios de éxito", node.successCriteria),
+  ].filter(Boolean).join("\n  ");
+
+  if (!extraHtml) return base;
+  return base.replace(/<\/aside>$/, `  ${extraHtml}\n</aside>`);
+}
+function renderTheory(node, bib, style)         { return renderBlock(node, "jintia-theory",         "Teoría",       bib, style, "section"); }
+function renderConcept(node, bib, style)        { return renderBlock(node, "jintia-concept",        "Concepto",     bib, style, "section"); }
 
 const PRACTICE_MODE_LABELS = {
   guided:      "Práctica guiada",
@@ -236,6 +267,9 @@ function renderPractice(node, bib, style) {
   const pagination = node.pagination || "atomic";
   const idAttr     = node.id ? ` id="${escapeHtml(node.id)}"` : "";
   const titleHtml  = node.title ? `<h2 class="jintia-block__title">${escapeHtml(node.title)}</h2>` : "";
+  const timeHtml   = typeof node.estimatedMinutes === "number"
+    ? `<p class="jintia-block__estimated-minutes">Tiempo estimado: ${escapeHtml(String(node.estimatedMinutes))} min</p>`
+    : "";
 
   const extraBlock = (className, heading, value, asList = false) => {
     if (asList) {
@@ -260,16 +294,16 @@ function renderPractice(node, bib, style) {
   ].filter(Boolean).join("\n  ");
 
   return `
-<aside class="jintia-block jintia-practice"
-       data-pagination="${escapeHtml(pagination)}"
-       role="note"${idAttr}>
+<section class="jintia-block jintia-practice"
+       data-pagination="${escapeHtml(pagination)}"${idAttr}>
   <span class="jintia-block__label" aria-hidden="true">${escapeHtml(label)}</span>
   ${titleHtml}
+  ${timeHtml}
   <div class="jintia-block__content">
 ${renderContent(node.content, bib, style)}
   </div>
   ${extraHtml}
-</aside>`;
+</section>`;
 }
 
 function renderWarning(node, bib, style)        { return renderBlock(node, "jintia-warning",        "Advertencia",  bib, style); }
@@ -338,23 +372,36 @@ function renderAssessment(node, bib, style) {
     ? `<ol class="jintia-assessment__list">${items.map(item => `<li class="jintia-assessment__item">${renderContent(item, bib, style)}</li>`).join("\n")}</ol>`
     : renderContent(node.content, bib, style);
 
+  const instructionsHtml = node.instructions
+    ? `<div class="jintia-assessment__instructions">${renderContent(node.instructions, bib, style)}</div>`
+    : "";
+
   const productHtml = node.product
     ? `<div class="jintia-assessment__product"><h3>Producto esperado</h3>${renderContent(node.product, bib, style)}</div>`
     : "";
 
   const criteria    = Array.isArray(node.criteria) ? node.criteria : [];
+  const hasRubric   = criteria.some(c => typeof c.weight === "number");
   const criteriaHtml = criteria.length
-    ? `<div class="jintia-assessment__criteria"><h3>Criterios</h3><ul>${criteria.map(c => {
+    ? `<div class="jintia-assessment__criteria"><h3>${hasRubric ? "Rúbrica" : "Criterios"}</h3><ul>${criteria.map(c => {
         const weight = typeof c.weight === "number" ? ` (${escapeHtml(String(c.weight))}%)` : "";
         return `<li>${escapeHtml(c.description || "")}${weight}</li>`;
       }).join("")}</ul></div>`
     : "";
 
-  const scoreHtml = typeof node.score === "number"
-    ? `<p class="jintia-assessment__score">Ponderación: ${escapeHtml(String(node.score))}%</p>`
+  const pointsHtml = typeof node.points === "number"
+    ? `<p class="jintia-assessment__points">Puntaje: ${escapeHtml(String(node.points))}</p>`
     : "";
 
-  const checklist    = Array.isArray(node.checklist) ? node.checklist : [];
+  const checkpointBadge = Array.isArray(node.targetIds) && node.targetIds.length > 1
+    ? `<span class="jintia-assessment__checkpoint-badge">Checkpoint</span>`
+    : "";
+
+  const timeHtml = typeof node.estimatedMinutes === "number"
+    ? `<p class="jintia-block__estimated-minutes">Tiempo estimado: ${escapeHtml(String(node.estimatedMinutes))} min</p>`
+    : "";
+
+  const checklist    = Array.isArray(node.submissionChecklist) ? node.submissionChecklist : [];
   const checklistHtml = checklist.length
     ? `<div class="jintia-assessment__checklist"><h3>Checklist de entrega</h3><ul>${checklist.map(c => `<li>${processInlineMarkup(String(c), bib, style)}</li>`).join("")}</ul></div>`
     : "";
@@ -362,13 +409,16 @@ function renderAssessment(node, bib, style) {
   return `
 <section class="jintia-block jintia-assessment" data-pagination="${escapeHtml(pagination)}"${idAttr}>
   <span class="jintia-block__label" aria-hidden="true">Actividad evaluativa</span>
+  ${checkpointBadge}
   ${titleHtml}
+  ${timeHtml}
   <div class="jintia-block__content">
     ${itemsHtml}
   </div>
+  ${instructionsHtml}
   ${productHtml}
   ${criteriaHtml}
-  ${scoreHtml}
+  ${pointsHtml}
   ${checklistHtml}
 </section>`;
 }

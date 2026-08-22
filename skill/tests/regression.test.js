@@ -232,7 +232,7 @@ test("R03c — validateSyllabus detecta Ninguna coexistiendo con actividades en 
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Escenario 4: NotebookLM falla → fallback a ai-knowledge (JIN-EVD-001 / JIN-EVD-003)
+// Escenario 4: NotebookLM falla → fallback a ai-fallback (JIN-EVD-001 / JIN-EVD-003)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // README vacío de fuentes para probar bloqueo estricto de evidencia
@@ -251,7 +251,7 @@ const README_NO_SOURCES = `# Curso sin fuentes
 **Actividades calificadas:** Ninguna
 `;
 
-test("R04 — evidence-gate continúa con ai-knowledge (JIN-EVD-003) cuando NotebookLM falla y no hay fuentes locales", () => {
+test("R04 — evidence-gate continúa con ai-fallback (JIN-EVD-003) cuando NotebookLM falla y no hay fuentes locales", () => {
   const dir = makeTempDir();
   // README sin fuentes declaradas y sin archivos en bibliografía/semanas
   makeCourse(dir, { readme: README_NO_SOURCES });
@@ -263,14 +263,14 @@ test("R04 — evidence-gate continúa con ai-knowledge (JIN-EVD-003) cuando Note
     notebookLM:  { configured: true, available: false, reason: "BROWSER_CRASHED" },
   });
 
-  assert.equal(result.allowed, true, "Ya no debe bloquear: debe continuar con procedencia ai-knowledge");
-  assert.equal(result.provenance, "ai-knowledge", `Procedencia esperada ai-knowledge, recibida: ${result.provenance}`);
+  assert.equal(result.allowed, true, "Ya no debe bloquear: debe continuar con procedencia ai-fallback");
+  assert.equal(result.provenance, "ai-fallback", `Procedencia esperada ai-fallback, recibida: ${result.provenance}`);
   assert.equal(result.code, "JIN-EVD-003", `Código esperado JIN-EVD-003, recibido: ${result.code}`);
 
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test("R04b — evidence-gate continúa con ai-knowledge (JIN-EVD-001) cuando no hay ninguna fuente", () => {
+test("R04b — evidence-gate continúa con ai-fallback (JIN-EVD-001) cuando no hay ninguna fuente", () => {
   const dir = makeTempDir();
   // README sin fuentes declaradas y sin archivos en bibliografía/semanas
   makeCourse(dir, { readme: README_NO_SOURCES });
@@ -281,8 +281,8 @@ test("R04b — evidence-gate continúa con ai-knowledge (JIN-EVD-001) cuando no 
     notebookLM:  { configured: false, available: false },
   });
 
-  assert.equal(result.allowed, true, "Ya no debe bloquear: debe continuar con procedencia ai-knowledge");
-  assert.equal(result.provenance, "ai-knowledge", `Procedencia esperada ai-knowledge, recibida: ${result.provenance}`);
+  assert.equal(result.allowed, true, "Ya no debe bloquear: debe continuar con procedencia ai-fallback");
+  assert.equal(result.provenance, "ai-fallback", `Procedencia esperada ai-fallback, recibida: ${result.provenance}`);
   assert.equal(result.code, "JIN-EVD-001", `Código esperado JIN-EVD-001, recibido: ${result.code}`);
 
   fs.rmSync(dir, { recursive: true, force: true });

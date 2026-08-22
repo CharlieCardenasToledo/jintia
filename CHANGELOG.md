@@ -5,6 +5,33 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 12.2.0 — 2026-08-21
+
+### Cambiado (reconciliación con la especificación canónica del plan)
+
+- **`sourceMode` renombrado**: `notebooklm`/`local`/`ai-knowledge` → `notebook-primary`/`local-fallback`/`ai-fallback` en `evidence-gate.js`, `evidence.schema.json`, `content-linter.js` y toda la documentación. `evidence-gate.check()` ahora devuelve estos valores en `provenance`.
+- **`assessment` renombrado**: `score` → `points`, `checklist` → `submissionChecklist`; nuevo campo `instructions`.
+- **`JIN-BIB-*` renumerado** para que `001` sea siempre "Citation.js no disponible" (antes era `citationStyle`): `001` Citation.js, `002` `.bib` ausente, `003` clave inexistente, `004` BibTeX no parseable, `005` clave cruda en el HTML final (nuevo, post-render), `006` bibliografía degradada en el HTML final (nuevo, post-render), `007` `citationStyle` ≠ apa (antes `001`). `jintia compile --publish` ahora también escanea el HTML ya renderizado (`assertRenderedPublishReady()`) como defensa en profundidad, buscando el marcador `jintia-degraded` y `{{cite:` sin resolver.
+- **Severidad bajada a warning** en `JIN-SELF-006` (sin práctica de recuperación), `JIN-SELF-008` (sin monitorización) y `JIN-SELF-009` (sin transferencia) — antes bloqueaban; las advertencias siguen visibles pero ya no impiden `jintia validate`.
+
+### Añadido
+
+- `evidence.json`: cálculo de `provenanceSummary` (porcentaje por `sourceMode`) y clasificación `academicProvenance` (`STRONG`/`GOOD`/`DEGRADED`/`WEAK`/`BLOCKED`) sobre los keyClaims declarados. Nuevas reglas `JIN-EVD-010` (keyClaim sin sourceMode), `011` (extracción parcial), `012` (bibliographyKey atribuida que no existe en reference.bib), `013` (uso de ai-fallback), `014` (ai-fallback con bibliografía fabricada, sustituye a la antigua `007`), `015` (provenance DEGRADED) y `016` (provenance BLOCKED).
+- `JIN-ALN-016` (warning): contenido extenso de teoría/concepto sin `targetIds` declarado.
+- `JIN-WRK-003` (warning): bloque académico relevante sin `estimatedMinutes`. `JIN-WRK-004`/`005` (warning): carga concentrada en enseñanza o tiempo evaluativo desproporcionado frente a la práctica formativa.
+- `JIN-ASM-014`/`015` (warning): actividad calificable/extensa sin `submissionChecklist`, o extensa sin ponderación por criterio (rúbrica).
+- Nodo `orientation` estructurado: `purpose`, `priorKnowledge`, `materials`, `route`, `successCriteria`, `estimatedMinutes`, renderizados como "Antes de empezar" y "Ruta de esta semana".
+- Semántica HTML: `theory`, `concept` y `practice` pasan de `<aside role="note">` a `<section>` (el CSS y `html-linter.js` son puramente por clase, sin cambio visual). Nuevos indicadores "Tiempo estimado" y badge "Checkpoint" (assessment con más de un target); "Criterios" pasa a "Rúbrica" cuando declara ponderación por criterio.
+- Nuevo comando `jintia report <guide.json>` (`scripts/quality-report.js`, `commands/report.md`): el "JINTIA QUALITY REPORT" que agrega alineación, autoinstruccionalidad, carga académica, procedencia de evidencia y bibliografía en una sola decisión `READY`/`NEEDS_CHANGES`/`BLOCKED`, reutilizando `content-linter.js` como única fuente de verdad.
+- `rules/catalog.json` sube a `2.3.0`.
+
+### Notas
+
+Este release reconcilia nombres y numeración introducidos en 12.0.0/12.1.0
+con la especificación "Plan final de mejora de Jintia" que el usuario marcó
+como definitiva. No hay usuarios externos del esquema previo, por lo que el
+renombrado se hizo directamente en vez de mantener alias de compatibilidad.
+
 ## `jintia-skill` 12.1.0 — 2026-08-21
 
 ### Añadido

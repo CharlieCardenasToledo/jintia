@@ -5,7 +5,7 @@ Leer cuando una tarea redacte contenido académico, resuelva fuentes o construya
 ## Política vinculante
 
 - Verificar toda afirmación teórica central según la jerarquía de fuentes.
-- No inventar citas, autores, años, páginas, claves o referencias — en ningún modo, incluido `ai-knowledge`.
+- No inventar citas, autores, años, páginas, claves o referencias — en ningún modo, incluido `ai-fallback`.
 - No entregar marcadores como `[Pendiente de Verificación]`.
 - Distinguir una elaboración propia de una afirmación respaldada.
 - Conservar recortes de las páginas citadas cuando las fuentes estén en PDF.
@@ -14,14 +14,16 @@ Leer cuando una tarea redacte contenido académico, resuelva fuentes o construya
 
 1. **NotebookLM**, hasta 3 intentos estructurados (resolver+consultar → recrear sesión y reconsultar → `re_auth` solo ante fallo de login confirmado y reconsultar).
 2. **Fuentes locales**: `bibliografia/recortes_por_semana/semana-XX/`, luego `bibliografia/`, luego el `README.md` del curso.
-3. **Conocimiento del modelo (`ai-knowledge`)**, como último recurso: nunca fabrica bibliografía; se declara explícitamente y el audit lo advierte (`JIN-EVD-001`/`JIN-EVD-003`).
+3. **Conocimiento del modelo (`sourceMode: "ai-fallback"`)**, como último recurso: nunca fabrica bibliografía; se declara explícitamente y el audit lo advierte (`JIN-EVD-001`/`JIN-EVD-003`).
+
+Los tres modos de procedencia (`sourceMode`) son: `notebook-primary`, `local-fallback` y `ai-fallback`.
 
 NotebookLM es la fuente operativa primaria — no un contraste posterior. Aun
 así, la bibliografía nunca cita "NotebookLM" como autor: se cita la fuente
 subyacente que NotebookLM identifica en cada respuesta (`source_id`, nombre,
 tipo, ubicación), registrada en `reference.bib` con su propia clave. Ver
 `SKILL.md` §2 para el detalle completo de los 3 intentos y las reglas de
-`ai-knowledge`.
+`ai-fallback`.
 
 ## NotebookLM MCP 2.0
 
@@ -49,24 +51,47 @@ Flujo (ver también `SKILL.md` §2 para los 3 intentos estructurados):
 
 `add_source` admite URLs y texto. No asumir que puede subir archivos locales. La indexación puede tardar varios segundos.
 
-## Conocimiento del modelo (`ai-knowledge`)
+## Conocimiento del modelo (`ai-fallback`)
 
 Cuando NotebookLM (tras sus 3 intentos) y las fuentes locales no resuelven
 una afirmación, la generación continúa — ya no se detiene por completo —
 pero bajo reglas estrictas:
 
-- Declarar la procedencia como `ai-knowledge` en vez de presentarla como
+- Declarar la procedencia como `ai-fallback` en vez de presentarla como
   evidencia verificada.
 - Nunca fabricar autor, obra, año, página o DOI para respaldar esa
   afirmación.
 - El audit advierte estos fragmentos mediante `JIN-EVD-001`/`JIN-EVD-003`
-  (advertencia, no bloqueo). Presentar contenido `ai-knowledge` sin declarar
+  (advertencia, no bloqueo). Presentar contenido `ai-fallback` sin declarar
   su procedencia dispara `JIN-EVD-002` y sí bloquea, porque oculta en vez de
   declarar.
-- El seguimiento formal por afirmación (`evidence.json`, cobertura
-  Notebook/local/ai-knowledge en `audit`) llega en una versión posterior;
-  por ahora la declaración de procedencia es responsabilidad del redactor y
-  de `agents/jintia-researcher.md`.
+## Informe de procedencia académica (`evidence.json`)
+
+Cuando existe `semanas/semana-XX/evidence.json` (ver
+`schemas/evidence.schema.json`), `jintia validate` calcula sobre los
+`keyClaims` declarados el porcentaje por `sourceMode` y una clasificación
+`academicProvenance`:
+
+```text
+Evidence provenance
+NotebookLM primary .... 84 %
+Local fallback ........ 16 %
+AI fallback ............ 0 %
+
+Academic provenance: STRONG
+```
+
+Clasificación:
+
+| Nivel | Condición |
+|---|---|
+| `STRONG` | `aiFallback = 0 %` y `notebookPrimary >= 80 %` |
+| `GOOD` | `aiFallback <= 10 %` y sin keyClaims sin procedencia |
+| `DEGRADED` | `aiFallback > 10 %`, o hay keyClaims con `extractionStatus: "partial"` (`JIN-EVD-015`) |
+| `WEAK` | `aiFallback > 30 %`, o hay `claimIds` de guide.json sin entrada en evidence.json |
+| `BLOCKED` | hay keyClaims sin `sourceMode`, con `bibliographyKey` inexistente, o con bibliografía fabricada en modo `ai-fallback` (`JIN-EVD-016`) |
+
+Los umbrales son un punto de partida y pueden recalibrarse con casos reales.
 
 ## Flujo manual
 
@@ -139,11 +164,13 @@ condiciones:
 
 | Código | Condición |
 |---|---|
-| `JIN-BIB-001` | `citationStyle` distinto de `"apa"` |
-| `JIN-BIB-002` | Citation.js no instalado |
-| `JIN-BIB-003` | `metadata.bibliography` ausente o el `.bib` declarado no existe |
+| `JIN-BIB-001` | Citation.js no instalado |
+| `JIN-BIB-002` | `metadata.bibliography` ausente o el `.bib` declarado no existe |
+| `JIN-BIB-003` | Clave citada sin entrada en `reference.bib` |
 | `JIN-BIB-004` | `reference.bib` no parsea como BibTeX válido |
-| `JIN-BIB-005` | Clave citada sin entrada en `reference.bib` |
+| `JIN-BIB-005` | Queda una clave cruda (`{{cite:...}}`) sin resolver en el HTML final |
+| `JIN-BIB-006` | Aparece bibliografía o cita degradada (marcador `jintia-degraded`) en el HTML final |
+| `JIN-BIB-007` | `citationStyle` distinto de `"apa"` |
 
 Ningún material académico final se publica con bibliografía degradada.
 

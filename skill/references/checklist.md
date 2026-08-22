@@ -85,16 +85,21 @@ Referencia de `jintia-skill`. Ejecutar esta verificación completa antes de entr
 - [ ] Existe al menos una práctica `retrieval` y una `transfer`, y al menos una declara `remediation` y `selfCheck` (`JIN-SELF-005/006/008/009`).
 - [ ] El conjunto de nodos `assessment` cubre, entre todos, cada target declarado (`JIN-SELF-007`).
 - [ ] Todo nodo `assessment` declara `product` y `criteria` con targetIds válidos (`JIN-ASM-010/011/012`).
-- [ ] La carga horaria planificada (`estimatedMinutes`) cae entre 90-110% de `metadata.hours` (`JIN-WRK-001/002`).
+- [ ] Actividades calificables o extensas declaran `submissionChecklist`, y las extensas con criterios declaran ponderación por criterio (`JIN-ASM-014/015`).
+- [ ] La carga horaria planificada (`estimatedMinutes`) cae entre 90-110% de `metadata.hours` (`JIN-WRK-001/002`); cada bloque relevante declara `estimatedMinutes` (`JIN-WRK-003`); la carga no está concentrada en enseñanza ni la evaluación desproporciona la práctica (`JIN-WRK-004/005`).
+- [ ] Ninguna sección extensa de teoría/concepto queda sin `targetIds` (`JIN-ALN-016`).
 
 **`evidence.json` (si existe)**
 - [ ] Todo `claimId` referenciado desde `guide.json` existe en `evidence.json` (`JIN-EVD-005`).
-- [ ] Ninguna afirmación con `sourceMode: "ai-knowledge"` declara `bibliographyKey` (`JIN-EVD-007`).
+- [ ] Todo keyClaim declara `sourceMode` (`JIN-EVD-010`).
+- [ ] Toda `bibliographyKey` declarada existe en `reference.bib` (`JIN-EVD-012`).
+- [ ] Ninguna afirmación con `sourceMode: "ai-fallback"` declara `bibliographyKey` (`JIN-EVD-014`).
+- [ ] El `academicProvenance` calculado no es `BLOCKED` (`JIN-EVD-016`); si es `DEGRADED` (`JIN-EVD-015`), se revisó conscientemente.
 
 **Validación automática**
 - [ ] `jintia validate guide.json` terminó sin errores (JIN-SCH-*, JIN-CNT-*, JIN-BIB-*, y JIN-ALN-*/JIN-WRK-*/JIN-SELF-*/JIN-ASM-* cuando aplican).
 - [ ] `node "<skill-root>/scripts/html-linter.js" guide.html` terminó sin errores cuando la guía contiene figuras.
 - [ ] `jintia preflight guide.html` terminó sin errores críticos de paginación.
-- [ ] `jintia compile guide.json --publish` no reporta degradación bibliográfica (`JIN-BIB-002..005`) antes de compartir el PDF final.
+- [ ] `jintia compile guide.json --publish` no reporta degradación bibliográfica (`JIN-BIB-001..006`) antes de compartir el PDF final.
 - [ ] Se aplicó la prueba "estudiante sin profesor" (`agents/jintia-selfstudy-reviewer.md`) y su decisión es `PASS`.
 - [ ] Las reglas editoriales, pedagógicas y de evidencia no cubiertas por los scripts se revisaron manualmente.

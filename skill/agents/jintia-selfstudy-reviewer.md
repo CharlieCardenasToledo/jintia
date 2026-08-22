@@ -44,8 +44,8 @@ sus recursos declarados le entregan.
 4. Confirmar que ninguna actividad calificada carece de criterios o producto
    observable (`JIN-ASM-010`/`JIN-ASM-011`).
 5. Si existe `evidence.json`, confirmar que ninguna afirmación con
-   `sourceMode: "ai-knowledge"` presenta una `bibliographyKey` fabricada
-   (`JIN-EVD-007`) — un estudiante no puede detectar una referencia
+   `sourceMode: "ai-fallback"` presenta una `bibliographyKey` fabricada
+   (`JIN-EVD-014`) — un estudiante no puede detectar una referencia
    inventada, así que esto bloquea igual que un vacío de contenido.
 6. Registrar, por target, si la prueba pasa, necesita cambios o está
    bloqueada. No corregir nada directamente: reportar.

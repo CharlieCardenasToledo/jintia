@@ -32,6 +32,7 @@ petición al playbook mínimo.
 | Diseñar una evaluación | `assessment` | `commands/assessment.md` |
 | Gestionar figuras | `visual` | `commands/visual.md` |
 | Validar guide.json | `validate` | `commands/validate.md` |
+| Reporte de calidad ("Jintia Ready") | `report` | `commands/report.md` |
 | Verificar contratos de comportamiento | `behavior` | `commands/behavior.md` |
 | Generar HTML desde guide.json | `render` | `commands/compile.md` |
 | Compilar HTML a PDF (Vivliostyle) | `compile` | `commands/compile.md` |
@@ -138,7 +139,7 @@ No solicitar información que el sílabo o la configuración ya proporcionan.
 ### 2. Verificar evidencia
 
 Jerarquía única de fuentes, en este orden estricto: **NotebookLM → fuentes
-locales → conocimiento del modelo (`ai-knowledge`)**. Esta es la única
+locales → conocimiento del modelo (`ai-fallback`)**. Esta es la única
 versión de la política; `references/bibliografia.md`, `agents/jintia-researcher.md`
 y `commands/plan.md` deben leerse como aplicaciones de esta misma jerarquía,
 no como órdenes alternativos.
@@ -177,18 +178,18 @@ respuesta, registrada en `reference.bib` con su propia clave.
 3. `README.md` del curso (autoridad para tema, resultado, horas y
    actividades; no se trata como fuente disciplinar suficiente por sí sola).
 
-**Paso 3 — Conocimiento del modelo (`ai-knowledge`)**, solo si NotebookLM y
+**Paso 3 — Conocimiento del modelo (`ai-fallback`)**, solo si NotebookLM y
 las fuentes locales no resolvieron la afirmación. La generación **ya no se
 detiene** por falta total de evidencia externa: continúa, pero con reglas
 estrictas:
 
-- Declarar explícitamente que ese fragmento tiene procedencia `ai-knowledge`
+- Declarar explícitamente que ese fragmento tiene procedencia `ai-fallback`
   (JIN-EVD-001 o JIN-EVD-003 según el caso, ambos advertencia, no bloqueo).
 - **Nunca fabricar bibliografía**: prohibido inventar autor, obra, año,
-  página o DOI para una afirmación en modo `ai-knowledge`. Puede explicarse
+  página o DOI para una afirmación en modo `ai-fallback`. Puede explicarse
   el concepto; no puede atribuírsele una fuente que no se verificó.
 - Presentar ese contenido como conocimiento general sin declarar su
-  procedencia (en vez de marcarlo `ai-knowledge`) dispara JIN-EVD-002 y
+  procedencia (en vez de marcarlo `ai-fallback`) dispara JIN-EVD-002 y
   bloquea, porque oculta en vez de declarar.
 
 Si durante la redacción surge una afirmación puntual sin respaldo en ninguna
@@ -368,7 +369,7 @@ esté disponible.
 
 Usar `reference.bib` como única fuente bibliográfica local. **APA es el
 estilo obligatorio**: `metadata.citationStyle` debe ser `"apa"`; cualquier
-otro valor dispara `JIN-BIB-001` en `jintia validate`. No es solo el valor
+otro valor dispara `JIN-BIB-007` en `jintia validate`. No es solo el valor
 por defecto — es el estándar exigido en esta versión, salvo que una futura
 configuración institucional explícita habilite otro estilo.
 
@@ -391,7 +392,7 @@ sin él no se puede publicar bibliografía formateada. `jintia render`/`jintia
 compile` sin `--publish` (modo draft) toleran citas sin resolver mostrando
 marcadores (`[cita pendiente]`, `[referencia no formateada]`) para no
 bloquear el trabajo en curso. `jintia compile --publish` bloquea en cambio
-ante cualquier degradación bibliográfica (`JIN-BIB-001`…`JIN-BIB-005`, ver
+ante cualquier degradación bibliográfica (`JIN-BIB-001`…`JIN-BIB-007`, ver
 `commands/compile.md`). Ningún material académico final se publica con
 bibliografía degradada.
 
@@ -399,16 +400,20 @@ bibliografía degradada.
 
 Junto a `guide.json` y `reference.bib`, una semana puede declarar
 `semanas/semana-XX/evidence.json` (ver `schemas/evidence.schema.json`): un
-registro por afirmación disciplinar central con `sourceMode`
-(`notebooklm`/`local`/`ai-knowledge`), la `evidence` devuelta por la consulta
-y, si aplica, `bibliographyKey`. Cada nodo de `guide.json` que redacte una de
-esas afirmaciones declara su `claimId` en `claimIds`. Si existe
-`evidence.json`, `jintia validate` verifica: que todo `claimId` referenciado
-desde `guide.json` exista en `evidence.json` (`JIN-EVD-005`), y que ninguna
-afirmación con `sourceMode: "ai-knowledge"` declare `bibliographyKey`
-(`JIN-EVD-007`) — la comprobación automática de que nunca se fabrica
-bibliografía en ese modo. Es un artefacto opt-in: sin él, no se valida nada
-adicional.
+registro por afirmación disciplinar central (keyClaim) con `sourceMode`
+(`notebook-primary`/`local-fallback`/`ai-fallback`), la `evidence` devuelta
+por la consulta y, si aplica, `bibliographyKey`. Cada nodo de `guide.json`
+que redacte una de esas afirmaciones declara su `claimId` en `claimIds`. Si
+existe `evidence.json`, `jintia validate` verifica, entre otras cosas: que
+todo `claimId` referenciado desde `guide.json` exista en `evidence.json`
+(`JIN-EVD-005`), que todo keyClaim declare `sourceMode` (`JIN-EVD-010`), que
+toda `bibliographyKey` exista en `reference.bib` (`JIN-EVD-012`), y que
+ninguna afirmación con `sourceMode: "ai-fallback"` declare `bibliographyKey`
+(`JIN-EVD-014`) — la comprobación automática de que nunca se fabrica
+bibliografía en ese modo. También calcula el resumen de procedencia
+(`provenanceSummary`: porcentaje por `sourceMode` y una clasificación
+`STRONG`/`GOOD`/`DEGRADED`/`WEAK`/`BLOCKED`, ver `references/bibliografia.md`).
+Es un artefacto opt-in: sin él, no se valida nada adicional.
 
 ## Integraciones opcionales
 
@@ -424,7 +429,8 @@ Tratar logos, socios, módulos internacionales y ecosistemas institucionales com
 4. Compilar a PDF con `jintia compile <guide.json>` y comprobar `jintia preflight <guide.html>`. Antes de compartir el material final, ejecutar `jintia compile <guide.json> --publish` para confirmar que la bibliografía no quedó degradada.
 5. Verificar `reference.bib`, recortes, figuras y referencias cruzadas.
 6. Ejecutar `references/checklist.md` punto por punto.
-7. Informar archivos creados, validaciones ejecutadas y limitaciones reales.
+7. Si `metadata.targets` está declarado, ejecutar `jintia report <guide.json>` y confirmar que la decisión final sea `READY` (o `NEEDS_CHANGES` con las advertencias explícitamente aceptadas) antes de publicar.
+8. Informar archivos creados, validaciones ejecutadas y limitaciones reales.
 # Motor visual editorial
 
 Las representaciones genéricas pequeñas pueden usar `editorial-svg`, el motor SVG interno y determinista de Jintia. La selección evalúa primero la notación formal y la función cognitiva; química, electrónica, señales, UML/C4 y gráficos cuantitativos conservan sus motores especializados. `diagram-design` es únicamente procedencia de diseño documentada, no una Skill invocada durante runtime.

@@ -76,6 +76,7 @@ Uso:
   jintia validate  <guide.json> [--strict] [--json]
   jintia render    <guide.json> [--theme ID] [--output guide.html]
   jintia compile   <guide.json> [--output guide.pdf] [--publish]
+  jintia report    <guide.json> [--json]
   jintia preview   <guide.json>
   jintia preflight <guide.html>
 
@@ -492,6 +493,7 @@ function main(argv) {
 
   // ─── Motor editorial HTML ───────────────────────────────────────────────────
   if (command === "validate") return runScript("content-linter.js", argv.slice(1), "validate");
+  if (command === "report")   return runScript("quality-report.js", argv.slice(1), "report");
   if (command === "render") {
     const renderArgs = argv.slice(1);
     const inputFile  = renderArgs.find(a => !a.startsWith("-"));
@@ -538,6 +540,19 @@ function main(argv) {
       });
       if (renderResult.error) throw renderResult.error;
       if (renderResult.status !== 0) { process.exitCode = renderResult.status; return; }
+
+      if (publish) {
+        const { assertRenderedPublishReady } = require(path.join(SCRIPTS, "bibliography-manager.js"));
+        const renderedHtml = fs.readFileSync(htmlPath, "utf8");
+        const { ready, errors } = assertRenderedPublishReady(renderedHtml);
+        if (!ready) {
+          console.error("jintia compile --publish: bloqueado por degradación bibliográfica en el HTML renderizado.");
+          for (const err of errors) console.error(`✗ ${err.code} · ${err.message}`);
+          process.exitCode = 1;
+          return;
+        }
+      }
+
       const compileArgs = [htmlPath];
       if (outputArg) compileArgs.push("--output", outputArg);
       return runScript("vivliostyle-adapter.js", compileArgs, "compile");

@@ -38,17 +38,21 @@ node "<skill-root>/bin/jintia.js" compile semanas/semana-03/guide.json --publish
   pendiente]`, `[referencia no formateada]`) para poder revisar el resto del
   documento sin bloquear el trabajo en curso.
 - **publish** (`--publish`): antes de generar el PDF, corre
-  `bibliography-manager.assertPublishReady()` sobre `guide.json`. Bloquea la
-  compilación (código de salida 1) si encuentra cualquiera de estas
-  condiciones y reporta el código `JIN-BIB-*` correspondiente:
+  `bibliography-manager.assertPublishReady()` sobre `guide.json`; después de
+  renderizar, corre `assertRenderedPublishReady()` sobre el HTML final como
+  defensa en profundidad. Bloquea la compilación (código de salida 1) si
+  encuentra cualquiera de estas condiciones y reporta el código `JIN-BIB-*`
+  correspondiente:
 
-  | Código | Condición |
-  |---|---|
-  | `JIN-BIB-001` | `metadata.citationStyle` distinto de `"apa"` |
-  | `JIN-BIB-002` | Citation.js no está instalado |
-  | `JIN-BIB-003` | `metadata.bibliography` ausente o el archivo `.bib` declarado no existe |
-  | `JIN-BIB-004` | `reference.bib` no pudo parsearse como BibTeX válido |
-  | `JIN-BIB-005` | Una o más claves citadas no tienen entrada en `reference.bib` |
+  | Código | Condición | Cuándo se verifica |
+  |---|---|---|
+  | `JIN-BIB-001` | Citation.js no está instalado | antes de renderizar |
+  | `JIN-BIB-002` | `metadata.bibliography` ausente o el archivo `.bib` declarado no existe | antes de renderizar |
+  | `JIN-BIB-003` | Una o más claves citadas no tienen entrada en `reference.bib` | antes de renderizar |
+  | `JIN-BIB-004` | `reference.bib` no pudo parsearse como BibTeX válido | antes de renderizar |
+  | `JIN-BIB-005` | Queda una clave cruda (`{{cite:...}}`) sin resolver en el HTML final | después de renderizar |
+  | `JIN-BIB-006` | Aparece bibliografía o cita degradada (marcador `jintia-degraded`) en el HTML final | después de renderizar |
+  | `JIN-BIB-007` | `metadata.citationStyle` distinto de `"apa"` | antes de renderizar |
 
   Ningún material académico final debe publicarse con bibliografía
   degradada. Usar `--publish` en el paso final antes de compartir el PDF.

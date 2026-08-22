@@ -29,9 +29,9 @@ con un orden distinto):
    `bibliografia/recortes_por_semana/semana-XX/`, luego `bibliografia/`,
    luego el `README.md` canónico.
 3. Si ninguna de las dos vías anteriores respalda la afirmación, continuar
-   con conocimiento del modelo (`ai-knowledge`) en vez de detener la
+   con conocimiento del modelo (`ai-fallback`) en vez de detener la
    investigación — pero sin fabricar autor, obra, año, página o DOI. Marcar
-   esa afirmación como `sourceMode: "ai-knowledge"` explícitamente.
+   esa afirmación como `sourceMode: "ai-fallback"` explícitamente.
 4. Separar evidencia encontrada, evidencia insuficiente y preguntas abiertas.
 5. No inventar autores, años, páginas, citas ni resultados, en ningún modo.
 
@@ -39,9 +39,11 @@ con un orden distinto):
 
 Entregar JSON o Markdown con:
 
-- `claims`: afirmación, evidencia, fuente, ubicación y `sourceMode`
-  (`"notebooklm"` | `"local"` | `"ai-knowledge"`);
-- `gaps`: afirmaciones sin respaldo suficiente (aun después del fallback a `ai-knowledge`);
+- `claims`: afirmación, targetId, evidencia, fuente, ubicación y `sourceMode`
+  (`"notebook-primary"` | `"local-fallback"` | `"ai-fallback"`) — con esta
+  forma cada `claim` puede copiarse directamente a una entrada de
+  `evidence.json` (ver `schemas/evidence.schema.json`);
+- `gaps`: afirmaciones sin respaldo suficiente (aun después del fallback a `ai-fallback`);
 - `recommendations`: consultas o fuentes que deben resolverse;
 - `provenance`: procedencia devuelta por cada consulta (incluye el número de
   intento NotebookLM en el que se resolvió, si aplica).
@@ -50,4 +52,4 @@ Entregar JSON o Markdown con:
 
 No editar archivos del curso, no crear referencias bibliográficas sin fuente,
 no presentar una inferencia como evidencia directa, y no presentar contenido
-`ai-knowledge` sin declarar esa procedencia (dispara `JIN-EVD-002`).
+`ai-fallback` sin declarar esa procedencia (dispara `JIN-EVD-002`).

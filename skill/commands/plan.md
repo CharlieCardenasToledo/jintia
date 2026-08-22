@@ -78,11 +78,29 @@ Si alguna precondición falla, informar claramente y detener.
 `targets`/`alignmentMatrix`/`workloadBudget`/`assessmentContract` son el
 contrato pedagógico previo a la redacción: **antes de escribir contenido**,
 descomponer el RA en targets y completar, por cada uno, las cinco columnas
-de la matriz (enseñanza, práctica, feedback, evaluación, evidencia). Si se
-declaran `targets`, `jintia plan approve` bloquea cuando la matriz está
-incompleta — no basta con planear escribirla "después"; debe demostrarse
-antes de aprobar. Sin `targets` (planes que aún no adoptaron el contrato),
-`plan approve` no exige la matriz — opt-in, igual que en `guide.json`.
+de la matriz (enseñanza, práctica, feedback, evaluación, evidencia).
+
+Este contrato es **obligatorio** para todo plan nuevo. `jintia plan approve`
+bloquea si falta cualquiera de estas piezas:
+
+```text
+JIN-PLN-001  targets ausentes o vacíos
+JIN-PLN-002  alignmentMatrix incompleta (falta alguna de las 5 dimensiones)
+JIN-PLN-003  workloadBudget ausente o fuera del rango 70-130% (declaredMinutes vs. plannedMinutes)
+JIN-PLN-004  assessmentContract no cubre las actividades calificadas del sílabo, o sus 'points' no coinciden
+```
+
+`JIN-PLN-004` solo se evalúa cuando el sílabo declara actividades calificadas
+en un formato reconocible (ver `parseGradedActivities` en
+`runtime/core/syllabus-manager.js`); si el sílabo usa un formato distinto, no
+se fuerza el cruce.
+
+**Excepción explícita — `legacy: true`.** Un plan que declara `"legacy":
+true` en su JSON queda exento de `JIN-PLN-001..004`: solo se usa para planes
+que deliberadamente no adoptan este contrato todavía. No es un opt-in
+silencioso por ausencia de `targets` — debe declararse a propósito. Si un
+plan `legacy: true` igualmente incluye `targets`, la matriz de alineación
+sigue exigiéndose completa para esos targets.
 
 ## Estados del plan
 
@@ -129,6 +147,13 @@ nunca fabricar autor, obra, año, página o DOI en este modo
 
 Código JIN-EVD-002 (bloquea) si el agente presenta conocimiento genérico como
 evidencia verificada sin declarar la procedencia `ai-fallback`.
+
+**Trazabilidad de los 3 intentos (opcional, recomendado).** `evidence-gate.js
+check()` acepta `notebookLM.attempts` (`[{ attempt, result, reAuth? }]`) y
+`notebookLM.fallbackReason`; si se declaran, el resultado incluye
+`notebookResolution` y `jintia plan save` lo persiste en el plan. Sin esto,
+`local-fallback` con NotebookLM configurado emite `JIN-EVD-028` (advertencia):
+la política de 3 intentos queda declarada pero no demostrada.
 
 ## Uso determinista (CLI)
 

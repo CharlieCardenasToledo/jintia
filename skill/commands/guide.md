@@ -143,8 +143,8 @@ node "<skill-root>/bin/jintia.js" preflight semanas/semana-XX/guide.html
 # 5. Compilar PDF (si Vivliostyle disponible)
 node "<skill-root>/bin/jintia.js" compile semanas/semana-XX/guide.json
 
-# 6. Actualizar estado
-node "<skill-root>/bin/jintia.js" plan approve <curso> <semana>
+# 6. Actualizar estado (marca el plan como 'generated')
+node "<skill-root>/bin/jintia.js" guide finalize <curso> <semana>
 ```
 
 ## Después de generar guide.json

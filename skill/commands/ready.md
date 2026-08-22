@@ -22,12 +22,29 @@ node "<skill-root>/bin/jintia.js" ready semanas/semana-03/guide.json --skip-pdf
 ```
 
 Se detiene en el primer paso bloqueante en vez de seguir corriendo pasos
-posteriores sobre una guía que ya se sabe inválida (si `validate --publish`
-o la bibliografía pre-render fallan, no llega a renderizar).
+posteriores sobre una guía que ya se sabe inválida: si `validate --publish`,
+la bibliografía pre-render, `html-lint`, la bibliografía post-render o
+`preflight` fallan, no continúa a los pasos siguientes.
 
 `--skip-pdf` omite el paso de `compile`; útil en entornos sin Vivliostyle
 CLI instalado (`npm install --global @vivliostyle/cli`) — todos los demás
-pasos deterministas igual se ejecutan.
+pasos deterministas igual se ejecutan, pero la decisión final queda como
+`PRECHECK_READY` (no `READY`): omitir el PDF a propósito no es lo mismo que
+cerrar la publicación por completo.
+
+Sin `--skip-pdf`, si Vivliostyle CLI no está instalado, el paso `compile
+(PDF)` se registra como error y la decisión final es `BLOCKED`: se pidió
+explícitamente el cierre completo y no se pudo alcanzar. Usa `--skip-pdf`
+si solo quieres un precheck sin PDF.
+
+### Decisiones posibles
+
+| Decisión | Significado |
+|---|---|
+| `READY` | Todos los pasos, incluido `compile (PDF)`, terminaron en `ok`. |
+| `PRECHECK_READY` | Todo lo demás en `ok`; `compile (PDF)` quedó `skipped` por `--skip-pdf`. |
+| `NEEDS_CHANGES` | Sin errores bloqueantes, pero hay advertencias pendientes. |
+| `BLOCKED` | Algún paso terminó en `error` (incluye Vivliostyle ausente sin `--skip-pdf`). |
 
 ## Lo que NO hace
 

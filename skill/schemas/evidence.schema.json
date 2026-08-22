@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://jintia.dev/schemas/evidence.schema.json",
   "title": "Jintia Evidence",
-  "description": "Registro de procedencia por afirmación disciplinar (keyClaim): de dónde proviene cada afirmación central — NotebookLM (fuente primaria), fuente local (fallback) o conocimiento del modelo (ai-fallback, último recurso) — y el resumen de procedencia académica de la semana. Artefacto opcional junto a guide.json y reference.bib; ver SKILL.md §2 y references/bibliografia.md.",
+  "description": "Registro de procedencia por afirmación disciplinar (keyClaim): de dónde proviene cada afirmación central — NotebookLM (fuente primaria), fuente local (fallback) o conocimiento del modelo (ai-fallback, último recurso) — y el resumen de procedencia académica de la semana. Opcional en draft junto a guide.json y reference.bib; obligatorio en modo publish cuando metadata.targets está declarado (JIN-EVD-020). Ver SKILL.md §2 y references/bibliografia.md.",
   "type": "object",
   "required": ["claims"],
   "additionalProperties": false,
@@ -37,7 +37,7 @@
         "targetId": {
           "type": "string",
           "pattern": "^T[0-9]+$",
-          "description": "Target de metadata.targets que esta afirmación sustenta."
+          "description": "Target de metadata.targets que esta afirmación sustenta. Opcional a nivel de esquema, pero obligatorio en modo publish para todo keyClaim usado cuando metadata.targets está declarado (JIN-EVD-026) — cierra el grafo target → claim → evidencia; ver también JIN-EVD-027 (target sin evidencia usada)."
         },
         "claim": {
           "type": "string",

@@ -179,6 +179,7 @@ test("E2E-06 — flujo completo: init → plan save → plan approve → guide c
       outcomes: { cognitive: "Diferenciar el enfoque de BD del de archivos" },
       evidence: [{ source: "Beynon-Davies (2018)", status: "verified", location: "bibliografia/beynon-davies.pdf" }],
       missingEvidence: [],
+      legacy: true, // este E2E ejercita la CLI, no el contrato de targets (ver regression.test.js R06f-i)
     }));
 
     const saveResult = run(["plan", "save", dir, "01", "--file", planFile, "--json"]);

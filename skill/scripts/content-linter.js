@@ -172,6 +172,30 @@ const RULES = {
     id: "JIN-SELF-009", category: "self-instruction", severity: "warning",
     description: "Ninguna práctica de la guía usa mode='transfer' ni declara el campo transfer.",
   },
+  "JIN-SELF-010": {
+    id: "JIN-SELF-010", category: "self-instruction", severity: "error",
+    description: "El nodo 'orientation' no declara 'purpose'; obligatorio en modo publish.",
+  },
+  "JIN-SELF-011": {
+    id: "JIN-SELF-011", category: "self-instruction", severity: "error",
+    description: "El nodo 'orientation' no declara 'materials'; obligatorio en modo publish.",
+  },
+  "JIN-SELF-012": {
+    id: "JIN-SELF-012", category: "self-instruction", severity: "error",
+    description: "El nodo 'orientation' no declara 'successCriteria'; obligatorio en modo publish.",
+  },
+  "JIN-SELF-013": {
+    id: "JIN-SELF-013", category: "self-instruction", severity: "error",
+    description: "El nodo 'orientation' no declara 'estimatedMinutes'; obligatorio en modo publish.",
+  },
+  "JIN-SELF-014": {
+    id: "JIN-SELF-014", category: "self-instruction", severity: "error",
+    description: "Una práctica guiada (mode='guided') no declara 'prompt'; obligatorio en modo publish.",
+  },
+  "JIN-SELF-015": {
+    id: "JIN-SELF-015", category: "self-instruction", severity: "error",
+    description: "Una práctica guiada (mode='guided') no declara 'steps'; obligatorio en modo publish.",
+  },
   "JIN-ASM-010": {
     id: "JIN-ASM-010", category: "assessment", severity: "error",
     description: "Un nodo 'assessment' no declara criteria.",
@@ -268,6 +292,18 @@ const RULES = {
     id: "JIN-EVD-024", category: "evidence", severity: "error",
     description: "evidence.json declara keyClaims pero ninguno está referenciado desde guide.json: la procedencia académica no es calculable.",
   },
+  "JIN-EVD-025": {
+    id: "JIN-EVD-025", category: "evidence", severity: "error",
+    description: "evidence.json declara dos o más claims con el mismo id: rompe la identidad única del grafo de evidencia.",
+  },
+  "JIN-EVD-026": {
+    id: "JIN-EVD-026", category: "evidence", severity: "error",
+    description: "Un keyClaim usado no declara 'targetId' válido (debe existir en metadata.targets); obligatorio en modo publish.",
+  },
+  "JIN-EVD-027": {
+    id: "JIN-EVD-027", category: "evidence", severity: "error",
+    description: "Un target de metadata.targets no tiene ningún keyClaim usado que lo sustente; obligatorio en modo publish.",
+  },
   "JIN-SCH-002": {
     id: "JIN-SCH-002", category: "schema", severity: "error",
     description: "metadata.targets es obligatorio para publicar (modo publish).",
@@ -362,6 +398,40 @@ function lintGuide(guidePath, options = {}) {
     if (typeof metadata.hours !== "number") {
       issue("JIN-SCH-003", "metadata.hours es obligatorio para publicar: declara la carga horaria del sílabo antes de compilar en modo publish.");
     }
+  }
+
+  // ── Contrato mínimo de autoinstruccionalidad (obligatorio en publish) ──
+  // Independiente del contrato de targets (JIN-SELF-00x más abajo, opt-in
+  // vía metadata.targets): orientation y la práctica guiada son
+  // estructurales para que el estudiante avance sin un tutor presente, así
+  // que se exigen siempre en publish.
+  if (publish) {
+    const hasContentPub = value => value !== undefined && value !== null && value !== "" &&
+      !(Array.isArray(value) && value.length === 0);
+    const orientationForPublish = sections.find(s => s.type === "orientation");
+    if (orientationForPublish) {
+      if (!hasContentPub(orientationForPublish.purpose)) {
+        issue("JIN-SELF-010", "El nodo 'orientation' no declara 'purpose' (obligatorio en publish).");
+      }
+      if (!hasContentPub(orientationForPublish.materials)) {
+        issue("JIN-SELF-011", "El nodo 'orientation' no declara 'materials' (obligatorio en publish).");
+      }
+      if (!hasContentPub(orientationForPublish.successCriteria)) {
+        issue("JIN-SELF-012", "El nodo 'orientation' no declara 'successCriteria' (obligatorio en publish).");
+      }
+      if (typeof orientationForPublish.estimatedMinutes !== "number") {
+        issue("JIN-SELF-013", "El nodo 'orientation' no declara 'estimatedMinutes' (obligatorio en publish).");
+      }
+    }
+    sections.forEach((node, idx) => {
+      if (node.type !== "practice" || (node.mode || "guided") !== "guided") return;
+      if (!hasContentPub(node.prompt)) {
+        issue("JIN-SELF-014", `Nodo ${idx + 1} (practice, mode='guided'): no declara 'prompt' (obligatorio en publish).`, { nodeIndex: idx });
+      }
+      if (!hasContentPub(node.steps)) {
+        issue("JIN-SELF-015", `Nodo ${idx + 1} (practice, mode='guided'): no declara 'steps' (obligatorio en publish).`, { nodeIndex: idx });
+      }
+    });
   }
 
   // ── JIN-CNT-005: outcome obligatorio ──
@@ -795,6 +865,19 @@ function lintGuide(guidePath, options = {}) {
       const claimIds    = new Set(claims.map(c => c.id));
       const referenced  = new Set(sections.flatMap(s => Array.isArray(s.claimIds) ? s.claimIds : []));
 
+      // JIN-EVD-025: identidad única de claims — un id duplicado podría
+      // fusionarse silenciosamente en el cálculo de procedencia y rompe el
+      // grafo target → claim → evidencia.
+      const claimIdCounts = new Map();
+      for (const c of claims) {
+        if (!c.id) continue;
+        claimIdCounts.set(c.id, (claimIdCounts.get(c.id) || 0) + 1);
+      }
+      const duplicateClaimIds = [...claimIdCounts.entries()].filter(([, count]) => count > 1).map(([id]) => id);
+      if (duplicateClaimIds.length > 0) {
+        issue("JIN-EVD-025", `evidence.json declara id(s) de claim duplicado(s): ${duplicateClaimIds.join(", ")}.`);
+      }
+
       for (const claimId of referenced) {
         if (!claimIds.has(claimId)) {
           issue("JIN-EVD-005", `guide.json referencia claimIds "${claimId}" que no existe en evidence.json.`);
@@ -875,6 +958,26 @@ function lintGuide(guidePath, options = {}) {
       if (claims.length > 0 && usedClaims.length === 0) {
         issue("JIN-EVD-024", "evidence.json declara keyClaims pero ninguno está referenciado desde guide.json: la procedencia académica no es calculable sobre afirmaciones reales de esta guía.");
         blocked = true;
+      }
+
+      // JIN-EVD-026 / JIN-EVD-027 (publish): cierra el grafo target → claim →
+      // evidencia de forma determinista. La matriz de alineación del plan
+      // puede declarar "T3 evidence = true", pero sin esto evidence.json
+      // final podría no contener ningún keyClaim asociado específicamente a
+      // T3 — targetId hace esa relación verificable en el propio artefacto.
+      if (publish && targetsDeclared) {
+        const targetIdSet = new Set(targets.map(t => t.id));
+        for (const claim of usedClaims) {
+          if (!claim.targetId || !targetIdSet.has(claim.targetId)) {
+            issue("JIN-EVD-026", `Claim "${claim.id}": no declara 'targetId' válido (debe existir en metadata.targets).`);
+            blocked = true;
+          }
+        }
+        const coveredTargetIds = new Set(usedClaims.filter(c => c.targetId).map(c => c.targetId));
+        const targetsWithoutEvidence = targets.filter(t => !coveredTargetIds.has(t.id));
+        if (targetsWithoutEvidence.length > 0) {
+          issue("JIN-EVD-027", `Target(s) sin ningún keyClaim usado que lo sustente: ${targetsWithoutEvidence.map(t => t.id).join(", ")}.`);
+        }
       }
 
       if (usedClaims.length > 0) {

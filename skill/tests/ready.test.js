@@ -26,7 +26,7 @@ function buildCompleteGuideDir() {
   const guide = {
     metadata: {
       course: "Test", week: 1, topic: "Tema", outcome: "Resultado",
-      hours: 2, citationStyle: "apa", bibliography: "reference.bib",
+      hours: 2.5, citationStyle: "apa", bibliography: "reference.bib",
       targets: [
         { id: "T1", verb: "diferenciar", description: "x" },
         { id: "T2", verb: "diagnosticar", description: "y" },
@@ -34,9 +34,17 @@ function buildCompleteGuideDir() {
       ],
     },
     sections: [
-      { type: "orientation", id: "o", route: ["Teoría", "Práctica", "Evaluación"] },
-      { type: "theory", id: "t", targetIds: ["T1", "T2", "T3"], claimIds: ["CLM-001"], estimatedMinutes: 60, content: "x {{cite:date2004}}" },
-      { type: "practice", id: "p", targetIds: ["T1", "T2", "T3"], workedExample: "e", successCriteria: ["c"], selfCheck: "s", feedback: "f", remediation: "r", transfer: "tr", estimatedMinutes: 40 },
+      {
+        type: "orientation", id: "o", route: ["Teoría", "Práctica", "Evaluación"],
+        purpose: "Propósito de la semana.", materials: ["Lectura base"],
+        successCriteria: ["Explica el propósito con sus propias palabras."], estimatedMinutes: 15,
+      },
+      { type: "theory", id: "t", targetIds: ["T1", "T2", "T3"], claimIds: ["CLM-001", "CLM-002", "CLM-003"], estimatedMinutes: 60, content: "x {{cite:date2004}}" },
+      {
+        type: "practice", id: "p", targetIds: ["T1", "T2", "T3"],
+        workedExample: "e", prompt: "Resuelve el caso.", steps: ["Paso 1", "Paso 2"],
+        successCriteria: ["c"], selfCheck: "s", feedback: "f", remediation: "r", transfer: "tr", estimatedMinutes: 40,
+      },
       { type: "practice", id: "retencion", mode: "retrieval", targetIds: ["T1"], estimatedMinutes: 10, successCriteria: ["x"], selfCheck: "y" },
       { type: "assessment", id: "e", targetIds: ["T1", "T2", "T3"], product: "Informe", criteria: [{ description: "c", weight: 100 }], estimatedMinutes: 20 },
       { type: "bibliography", id: "refs" },
@@ -47,7 +55,11 @@ function buildCompleteGuideDir() {
   fs.writeFileSync(path.join(weekDir, "reference.bib"), "@book{date2004, author={Date, C. J.}, title={An Introduction to Database Systems}, year={2004}, publisher={Addison-Wesley}}");
   fs.writeFileSync(path.join(weekDir, "evidence.json"), JSON.stringify({
     week: 1,
-    claims: [{ id: "CLM-001", claim: "x", sourceMode: "notebook-primary", bibliographyKey: "date2004", evidence: { sourceId: "s", sourceName: "Beynon-Davies", extractionStatus: "complete" } }],
+    claims: [
+      { id: "CLM-001", targetId: "T1", claim: "x", sourceMode: "notebook-primary", bibliographyKey: "date2004", evidence: { sourceId: "s", sourceName: "Beynon-Davies", extractionStatus: "complete" } },
+      { id: "CLM-002", targetId: "T2", claim: "y", sourceMode: "notebook-primary", bibliographyKey: "date2004", evidence: { sourceId: "s", sourceName: "Beynon-Davies", extractionStatus: "complete" } },
+      { id: "CLM-003", targetId: "T3", claim: "z", sourceMode: "notebook-primary", bibliographyKey: "date2004", evidence: { sourceId: "s", sourceName: "Beynon-Davies", extractionStatus: "complete" } },
+    ],
   }));
 
   return { dir, guidePath: path.join(weekDir, "guide.json") };
@@ -90,10 +102,31 @@ test("READY — una guía completa pasa toda la cadena determinista (--skip-pdf)
     assert.equal(stepStatus["bibliography (post-render)"], "ok");
     assert.equal(stepStatus["preflight"], "ok");
     assert.equal(stepStatus["compile (PDF)"], "skipped");
-    assert.equal(report.deterministicDecision, "READY");
+    assert.equal(report.deterministicDecision, "PRECHECK_READY", "Sin PDF real, la decisión no debe ser READY sino PRECHECK_READY");
     assert.equal(report.provenance.academicProvenance, "STRONG");
     assert.ok(report.notes.some(n => /jintia-selfstudy-reviewer/.test(n)), "Debe recordar que faltan las revisiones de agente");
   } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("READY — sin --skip-pdf y sin Vivliostyle disponible, la decisión es BLOCKED (no 'skipped')", async () => {
+  if (!isCitationJsAvailable()) return;
+  const { dir, guidePath } = buildCompleteGuideDir();
+  const originalPath    = process.env.PATH;
+  const originalManaged = process.env.JINTIA_VIVLIOSTYLE_BIN;
+  // Simula un entorno sin Vivliostyle CLI instalado, independientemente de
+  // si esta máquina lo tiene instalado globalmente.
+  process.env.PATH = "";
+  delete process.env.JINTIA_VIVLIOSTYLE_BIN;
+  try {
+    const report = await runReady(guidePath, { skipPdf: false });
+    const compileStep = report.steps.find(s => s.step === "compile (PDF)");
+    assert.equal(compileStep.status, "error", "Sin Vivliostyle y sin --skip-pdf, compile debe quedar en error, no 'skipped'");
+    assert.equal(report.deterministicDecision, "BLOCKED", "Pedir el cierre completo sin poder alcanzarlo debe bloquear, no aparentar READY");
+  } finally {
+    process.env.PATH = originalPath;
+    if (originalManaged !== undefined) process.env.JINTIA_VIVLIOSTYLE_BIN = originalManaged;
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });

@@ -49,8 +49,14 @@ async function runReady(guidePath, options = {}) {
   }
 
   function finalize(provenance) {
-    const hasWarning = issues.some(i => i.severity === "warning");
-    const deterministicDecision = blocked ? "BLOCKED" : (hasWarning ? "NEEDS_CHANGES" : "READY");
+    const hasWarning  = issues.some(i => i.severity === "warning");
+    const compileStep = steps.find(s => s.step === "compile (PDF)");
+    const pdfSkipped  = Boolean(compileStep) && compileStep.status === "skipped";
+    let deterministicDecision;
+    if (blocked) deterministicDecision = "BLOCKED";
+    else if (hasWarning) deterministicDecision = "NEEDS_CHANGES";
+    else if (pdfSkipped) deterministicDecision = "PRECHECK_READY";
+    else deterministicDecision = "READY";
     return {
       tool: "jintia ready",
       target: absolute,
@@ -61,6 +67,7 @@ async function runReady(guidePath, options = {}) {
       notes: [
         "jintia ready cubre lo determinista: validate --publish, procedencia de evidencia, bibliografía (pre y post render), render, html-lint, preflight y compile (PDF).",
         "No invoca a jintia-selfstudy-reviewer ni a jintia-finish-reviewer (contratos de agente, no deterministas). FINAL DECISION: READY exige también su confirmación por separado antes de compartir el material.",
+        ...(pdfSkipped ? ["PRECHECK_READY: todos los pasos deterministas previos al PDF están en orden, pero el PDF no se generó (--skip-pdf). No es un cierre completo — falta compilar el PDF antes de considerar la guía lista para entrega."] : []),
       ],
     };
   }
@@ -114,11 +121,13 @@ async function runReady(guidePath, options = {}) {
   } catch (err) {
     record("html lint", "error", err.message);
   }
+  if (blocked) return finalize(provenance);
 
   // 6. bibliografía (post-render): defensa en profundidad sobre el HTML ya renderizado
   const renderedGate = assertRenderedPublishReady(html);
   for (const err of renderedGate.errors) issues.push({ rule: err.code, category: "bibliography", severity: "error", message: err.message, file: htmlPath });
   record("bibliography (post-render)", renderedGate.ready ? "ok" : "error", renderedGate.ready ? "OK" : renderedGate.errors.map(e => e.code).join(", "));
+  if (blocked) return finalize(provenance);
 
   // 7. preflight (paginación del PDF)
   try {
@@ -127,14 +136,18 @@ async function runReady(guidePath, options = {}) {
   } catch (err) {
     record("preflight", "error", err.message);
   }
+  if (blocked) return finalize(provenance);
 
-  // 8. compile (PDF) — opcional (--skip-pdf) para entornos sin Vivliostyle CLI instalado.
+  // 8. compile (PDF) — --skip-pdf omite el cierre completo a propósito (útil
+  // en entornos sin Vivliostyle CLI): el resultado queda como PRECHECK_READY,
+  // no READY (ver finalize()). Sin --skip-pdf, Vivliostyle ausente SÍ bloquea:
+  // el usuario pidió explícitamente el cierre completo y no puede alcanzarlo.
   if (options.skipPdf) {
     record("compile (PDF)", "skipped", "--skip-pdf");
   } else {
     const vivliostyle = checkVivliostyle();
     if (!vivliostyle.ok) {
-      record("compile (PDF)", "skipped", "Vivliostyle CLI no instalado (npm install --global @vivliostyle/cli)");
+      record("compile (PDF)", "error", "Vivliostyle CLI no instalado (npm install --global @vivliostyle/cli) — usa --skip-pdf para un precheck sin PDF.");
     } else {
       try {
         const pdfPath = htmlPath.replace(/\.html$/i, ".pdf");

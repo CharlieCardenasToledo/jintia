@@ -5,6 +5,36 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 12.4.1 — 2026-08-22
+
+Cierre de una tercera revisión externa sobre `master` en 12.4.0 (commit
+`8856001`): cierra los últimos bypasses del contrato pedagógico del plan,
+completa el grafo target → claim → evidencia, endurece un mínimo de
+autoinstruccionalidad en publish, corrige la semántica y el early-stop de
+`jintia ready`, y añade trazabilidad opcional de los 3 intentos de
+NotebookLM. La revisión estimó el plan original en 94-96% implementado;
+este release cierra los puntos concretos restantes.
+
+### Corregido
+
+- **`plan-state.js`: el contrato de targets deja de ser opt-in.** Antes, un plan sin `targets` podía aprobarse igual (el contrato de alineación solo se exigía si el propio plan declaraba `targets`); ahora `plan approve` bloquea salvo que el plan declare `legacy: true` explícitamente (`JIN-PLN-001` targets ausentes, `JIN-PLN-002` matriz incompleta, `JIN-PLN-003` `workloadBudget` ausente o fuera de 70-130%, `JIN-PLN-004` `assessmentContract` no coincide con el sílabo).
+- **`jintia ready`: early-stop real.** Un error en `html-lint`, bibliografía post-render o `preflight` ya no dejaba de bloquear pero seguía ejecutando los pasos siguientes (contradecía la propia documentación, "se detiene en el primer paso bloqueante"); ahora retorna inmediatamente tras cada uno de esos tres pasos si hay bloqueo.
+- **`jintia ready`: semántica de PDF corregida.** `--skip-pdf` ya no produce `READY` (ahora `PRECHECK_READY`: precondición cumplida, cierre no confirmado). Sin `--skip-pdf`, Vivliostyle CLI ausente ya no se registra como `skipped` sino como `error` → `BLOCKED`: se pidió el cierre completo y no se pudo alcanzar.
+- `commands/guide.md`: el paso 6 del flujo de cierre decía `jintia plan approve`; ahora dice `jintia guide finalize` (ya existente en el CLI, llama a `markGenerated`).
+
+### Añadido
+
+- **`JIN-EVD-025/026/027`**: `evidence.json` con ids de claim duplicados (`025`); en publish, todo keyClaim usado debe declarar `targetId` válido (`026`) y todo target de `metadata.targets` debe tener al menos un keyClaim usado que lo sustente (`027`) — cierra el grafo target → claim → evidencia de forma verificable en el propio artefacto, no solo en la matriz del plan.
+- **`JIN-SELF-010..015`** (publish): `orientation` debe declarar `purpose`, `materials`, `successCriteria` y `estimatedMinutes`; toda práctica `guided` debe declarar `prompt` y `steps` además de `workedExample`.
+- **`evidence-gate.js`: trazabilidad opcional de los 3 intentos de NotebookLM.** `check()` acepta `notebookLM.attempts`/`fallbackReason` y adjunta `notebookResolution` al resultado; `local-fallback` con NotebookLM configurado pero sin los 3 intentos declarados emite `JIN-EVD-028` (advertencia). `plan-state.js` persiste `notebookResolution` si se declara.
+
+### Documentación
+
+- `commands/plan.md`: documenta el contrato obligatorio (`JIN-PLN-00x`), la excepción explícita `legacy: true` y la trazabilidad de intentos de NotebookLM.
+- `commands/ready.md`: documenta el early-stop completo y la tabla de decisiones (`READY`/`PRECHECK_READY`/`NEEDS_CHANGES`/`BLOCKED`).
+- `schemas/evidence.schema.json`: `targetId` documenta su obligatoriedad en publish; la descripción del artefacto deja de llamarlo "opcional" sin matiz.
+- `rules/catalog.json` sube a `2.6.0`.
+
 ## `jintia-skill` 12.4.0 — 2026-08-22
 
 Cierra los huecos de una segunda revisión externa sobre `master` en 12.3.0

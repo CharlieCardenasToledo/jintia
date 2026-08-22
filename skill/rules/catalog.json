@@ -1,5 +1,5 @@
 {
-  "version": "2.5.0",
+  "version": "2.6.0",
   "rules": [
     { "id": "JIN-SCH-001", "category": "schema", "severity": "error", "description": "guide.json no cumple el esquema canónico (guide.schema.json)." },
     { "id": "JIN-SCH-002", "category": "schema", "severity": "error", "description": "metadata.targets es obligatorio para publicar (modo publish)." },
@@ -25,6 +25,7 @@
     { "id": "JIN-EVD-001", "category": "evidence", "severity": "warning", "description": "Sin NotebookLM ni fuentes locales verificables: la sección se redacta con conocimiento del modelo (procedencia 'ai-fallback')." },
     { "id": "JIN-EVD-002", "category": "evidence", "severity": "error",   "description": "No está permitido presentar conocimiento general como evidencia verificada sin declarar procedencia 'ai-fallback'." },
     { "id": "JIN-EVD-003", "category": "evidence", "severity": "warning", "description": "NotebookLM no disponible tras los 3 intentos y sin fuentes locales de respaldo: se continúa con conocimiento del modelo (procedencia 'ai-fallback')." },
+    { "id": "JIN-EVD-028", "category": "evidence", "severity": "warning", "description": "local-fallback se usó sin evidencia de haber agotado la política de 3 intentos de NotebookLM." },
     { "id": "JIN-EVD-005", "category": "evidence", "severity": "error", "description": "guide.json referencia un claimId que no existe en evidence.json (o evidence.json no es JSON válido)." },
     { "id": "JIN-EVD-006", "category": "evidence", "severity": "warning", "description": "Una afirmación con sourceMode 'notebook-primary' o 'local-fallback' en evidence.json no declara bibliographyKey." },
     { "id": "JIN-EVD-010", "category": "evidence", "severity": "error", "description": "Un keyClaim de evidence.json no declara sourceMode." },
@@ -42,6 +43,9 @@
     { "id": "JIN-EVD-022", "category": "evidence", "severity": "error", "description": "evidence.json existe pero no declara ningún keyClaim, y la guía tiene contenido disciplinar (modo publish)." },
     { "id": "JIN-EVD-023", "category": "evidence", "severity": "warning", "description": "Uno o más claims de evidence.json no están referenciados desde guide.json (huérfanos); no se contabilizan en la procedencia." },
     { "id": "JIN-EVD-024", "category": "evidence", "severity": "error", "description": "evidence.json declara keyClaims pero ninguno está referenciado desde guide.json: la procedencia académica no es calculable." },
+    { "id": "JIN-EVD-025", "category": "evidence", "severity": "error", "description": "evidence.json declara dos o más claims con el mismo id: rompe la identidad única del grafo de evidencia." },
+    { "id": "JIN-EVD-026", "category": "evidence", "severity": "error", "description": "Un keyClaim usado no declara 'targetId' válido (debe existir en metadata.targets); obligatorio en modo publish." },
+    { "id": "JIN-EVD-027", "category": "evidence", "severity": "error", "description": "Un target de metadata.targets no tiene ningún keyClaim usado que lo sustente; obligatorio en modo publish." },
     { "id": "JIN-BIB-001", "category": "bibliography", "severity": "error", "description": "Citation.js no está disponible; no se puede publicar bibliografía formateada (modo publish)." },
     { "id": "JIN-BIB-002", "category": "bibliography", "severity": "error", "description": "reference.bib es requerido (hay citas) y está ausente (modo publish)." },
     { "id": "JIN-BIB-003", "category": "bibliography", "severity": "error", "description": "Una clave citada no existe en reference.bib (modo publish)." },
@@ -71,12 +75,22 @@
     { "id": "JIN-SELF-007", "category": "self-instruction", "severity": "error", "description": "Ningún conjunto de nodos 'assessment' cubre, en total, todos los targets declarados." },
     { "id": "JIN-SELF-008", "category": "self-instruction", "severity": "warning", "description": "Ninguna práctica de la guía declara selfCheck: no hay monitorización explícita de progreso." },
     { "id": "JIN-SELF-009", "category": "self-instruction", "severity": "warning", "description": "Ninguna práctica de la guía usa mode='transfer' ni declara el campo transfer." },
+    { "id": "JIN-SELF-010", "category": "self-instruction", "severity": "error", "description": "El nodo 'orientation' no declara 'purpose'; obligatorio en modo publish." },
+    { "id": "JIN-SELF-011", "category": "self-instruction", "severity": "error", "description": "El nodo 'orientation' no declara 'materials'; obligatorio en modo publish." },
+    { "id": "JIN-SELF-012", "category": "self-instruction", "severity": "error", "description": "El nodo 'orientation' no declara 'successCriteria'; obligatorio en modo publish." },
+    { "id": "JIN-SELF-013", "category": "self-instruction", "severity": "error", "description": "El nodo 'orientation' no declara 'estimatedMinutes'; obligatorio en modo publish." },
+    { "id": "JIN-SELF-014", "category": "self-instruction", "severity": "error", "description": "Una práctica guiada (mode='guided') no declara 'prompt'; obligatorio en modo publish." },
+    { "id": "JIN-SELF-015", "category": "self-instruction", "severity": "error", "description": "Una práctica guiada (mode='guided') no declara 'steps'; obligatorio en modo publish." },
     { "id": "JIN-ASM-010", "category": "assessment", "severity": "error", "description": "Un nodo 'assessment' no declara criteria." },
     { "id": "JIN-ASM-011", "category": "assessment", "severity": "error", "description": "Un nodo 'assessment' no declara product (producto observable)." },
     { "id": "JIN-ASM-012", "category": "assessment", "severity": "error", "description": "Un nodo 'assessment' no declara targetIds válidos entre metadata.targets." },
     { "id": "JIN-ASM-013", "category": "assessment", "severity": "error", "description": "El 'points' de un nodo 'assessment' difiere del puntaje declarado en el sílabo para ese código." },
     { "id": "JIN-ASM-014", "category": "assessment", "severity": "warning", "description": "Una actividad calificable o extensa no declara submissionChecklist." },
     { "id": "JIN-ASM-015", "category": "assessment", "severity": "warning", "description": "Una actividad extensa no declara ponderación por criterio (rúbrica)." },
-    { "id": "JIN-ASM-016", "category": "assessment", "severity": "warning", "description": "La suma de 'points' de actividades con código conocido no coincide con la suma declarada en el sílabo." }
+    { "id": "JIN-ASM-016", "category": "assessment", "severity": "warning", "description": "La suma de 'points' de actividades con código conocido no coincide con la suma declarada en el sílabo." },
+    { "id": "JIN-PLN-001", "category": "plan", "severity": "error", "description": "El plan no descompone el resultado de aprendizaje en 'targets' (obligatorio salvo legacy=true)." },
+    { "id": "JIN-PLN-002", "category": "plan", "severity": "error", "description": "La matriz de alineación del plan está incompleta para uno o más targets." },
+    { "id": "JIN-PLN-003", "category": "plan", "severity": "error", "description": "El plan no declara 'workloadBudget' o el presupuesto de horas es inconsistente (fuera de 70-130%)." },
+    { "id": "JIN-PLN-004", "category": "plan", "severity": "error", "description": "El 'assessmentContract' del plan no cubre las actividades calificadas del sílabo, o sus 'points' no coinciden." }
   ]
 }

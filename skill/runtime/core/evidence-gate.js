@@ -18,6 +18,13 @@
  *   JIN-EVD-001  Sin NotebookLM ni fuentes locales → continúa con ai-fallback (warning)
  *   JIN-EVD-002  Intento de sustituir evidencia por conocimiento genérico sin declararlo (bloquea)
  *   JIN-EVD-003  NotebookLM falló tras 3 intentos y sin fuentes locales → continúa con ai-fallback (warning)
+ *   JIN-EVD-028  local-fallback usado sin evidencia de haber agotado la política de 3 intentos (warning)
+ *
+ * Trazabilidad de intentos (opcional): quien llama a check() puede declarar
+ * notebookLM.attempts ([{ attempt, result, reAuth? }]) y notebookLM.
+ * fallbackReason para que el resultado incluya notebookResolution — así el
+ * "NotebookLM no disponible" deja de ser solo una instrucción de política y
+ * queda registrado por qué se activó el fallback local o ai-fallback.
  */
 
 const fs   = require("node:fs");
@@ -40,6 +47,11 @@ const ERRORS = {
     code:    "JIN-EVD-003",
     message: "NotebookLM no disponible tras los 3 intentos y sin fuentes locales de respaldo.",
     detail:  "Se continúa con conocimiento del modelo (procedencia 'ai-fallback'). No se fabricará bibliografía: registra una fuente local o resuelve NotebookLM para elevar la procedencia.",
+  },
+  JIN_EVD_028: {
+    code:    "JIN-EVD-028",
+    message: "local-fallback se usó sin evidencia de haber agotado la política de 3 intentos de NotebookLM.",
+    detail:  "Declara notebookLM.attempts (intento 1..3, con su resultado) para que el fallback local quede auditable, no solo declarado por política.",
   },
 };
 
@@ -112,33 +124,54 @@ function check({ courseRoot, weekNumber, notebookLM = {} }) {
 
   const nlmConfigured = Boolean(notebookLM.configured);
   const nlmAvailable  = Boolean(notebookLM.available);
+  const attempts       = Array.isArray(notebookLM.attempts) ? notebookLM.attempts : null;
+
+  // notebookResolution (opcional): solo se adjunta si quien llama declaró
+  // attempts — hace auditable POR QUÉ se activó el fallback, en vez de
+  // asumir que la política de 3 intentos se siguió.
+  const notebookResolution = attempts ? {
+    status:         nlmAvailable ? "available" : "unavailable",
+    attempts,
+    fallbackReason: notebookLM.fallbackReason || null,
+  } : null;
 
   const localSources = checkLocalSources(courseRoot, weekNumber);
 
   // NotebookLM disponible → siempre permitir (la comprobación de autenticación
   // es responsabilidad del flujo de trabajo, no de esta compuerta)
   if (nlmConfigured && nlmAvailable) {
-    return { allowed: true, provenance: "notebook-primary", sources: [{ type: "notebooklm" }, ...localSources] };
+    return { allowed: true, provenance: "notebook-primary", sources: [{ type: "notebooklm" }, ...localSources], notebookResolution };
   }
 
   // NotebookLM falló tras sus 3 intentos + sin fuentes locales → continuar con
   // ai-fallback, advertido mediante JIN-EVD-003 (ya no bloquea la generación).
   if (nlmConfigured && !nlmAvailable && localSources.length === 0) {
-    return { allowed: true, provenance: "ai-fallback", ...ERRORS.JIN_EVD_003, sources: [] };
+    return { allowed: true, provenance: "ai-fallback", ...ERRORS.JIN_EVD_003, sources: [], notebookResolution };
   }
 
   // Sin NotebookLM configurado y sin fuentes locales → continuar con
   // ai-fallback, advertido mediante JIN-EVD-001 (ya no bloquea la generación).
   if (!nlmConfigured && localSources.length === 0) {
-    return { allowed: true, provenance: "ai-fallback", ...ERRORS.JIN_EVD_001, sources: [] };
+    return { allowed: true, provenance: "ai-fallback", ...ERRORS.JIN_EVD_001, sources: [], notebookResolution };
   }
 
-  // Fuentes locales disponibles (con o sin NotebookLM) → permitir con procedencia local-fallback
+  // Fuentes locales disponibles (con o sin NotebookLM) → permitir con procedencia local-fallback.
+  // Si NotebookLM estaba configurado pero se saltó a local sin declarar (o
+  // sin agotar) los 3 intentos, JIN-EVD-028 lo deja advertido: no basta con
+  // decir "no disponible", debe quedar demostrado.
+  const attemptsExhausted = Boolean(attempts && attempts.length >= 3);
+  if (nlmConfigured && !attemptsExhausted) {
+    return {
+      allowed: true, provenance: "local-fallback", sources: localSources,
+      ...ERRORS.JIN_EVD_028, notebookResolution,
+    };
+  }
   return {
     allowed: true,
     provenance: "local-fallback",
     sources: localSources,
     warning: nlmConfigured ? "NotebookLM no disponible; se usarán fuentes locales." : undefined,
+    notebookResolution,
   };
 }
 

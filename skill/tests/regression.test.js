@@ -294,6 +294,46 @@ test("R04c — blockGenericKnowledge siempre devuelve JIN-EVD-002", () => {
   assert.equal(result.code, "JIN-EVD-002");
 });
 
+test("R04d — local-fallback sin declarar los 3 intentos de NotebookLM emite JIN-EVD-028", () => {
+  const dir = makeTempDir();
+  makeCourse(dir, { readme: README_NO_SOURCES });
+  fs.writeFileSync(path.join(dir, "bibliografia", "fuente.pdf"), "dummy PDF content for test");
+
+  const result = evidenceCheck({
+    courseRoot:  dir,
+    weekNumber:  1,
+    notebookLM:  { configured: true, available: false, reason: "BROWSER_CRASHED" },
+  });
+
+  assert.equal(result.provenance, "local-fallback");
+  assert.equal(result.code, "JIN-EVD-028", `Sin attempts declarados, debe advertir JIN-EVD-028: ${result.code}`);
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("R04e — local-fallback con los 3 intentos declarados no emite JIN-EVD-028 y adjunta notebookResolution", () => {
+  const dir = makeTempDir();
+  makeCourse(dir, { readme: README_NO_SOURCES });
+  fs.writeFileSync(path.join(dir, "bibliografia", "fuente.pdf"), "dummy PDF content for test");
+
+  const attempts = [
+    { attempt: 1, result: "session-error" },
+    { attempt: 2, result: "session-error" },
+    { attempt: 3, result: "auth-failure", reAuth: true },
+  ];
+  const result = evidenceCheck({
+    courseRoot:  dir,
+    weekNumber:  1,
+    notebookLM:  { configured: true, available: false, reason: "BROWSER_CRASHED", attempts, fallbackReason: "technical-unavailability" },
+  });
+
+  assert.equal(result.provenance, "local-fallback");
+  assert.equal(result.code, undefined, `Con los 3 intentos agotados, no debe emitir JIN-EVD-028: ${result.code}`);
+  assert.deepEqual(result.notebookResolution, { status: "unavailable", attempts, fallbackReason: "technical-unavailability" });
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Escenario 5: Prohibición de LaTeX en rutas activas
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -390,12 +430,15 @@ test("R06c — plan aprobado permite guide", () => {
   const dir = makeTempDir();
   makeCourse(dir, { readme: MINIMAL_README });
 
-  // Evidence verificada → pending; approvePlan re-verifica evidencia y semana
+  // Evidence verificada → pending; approvePlan re-verifica evidencia y semana.
+  // legacy: true porque este test no ejercita el contrato de targets (ver
+  // R06f/R06g), solo el flujo pending → approved → guide permitido.
   savePlan(dir, 1, {
     course: "TEST",
     topic:  "Tema",
     evidence: [{ source: "Beynon-Davies (2018)", status: "verified", location: "README.md" }],
     missingEvidence: [],
+    legacy: true,
   });
   const approval = approvePlan(dir, 1);
   assert.ok(approval.ok, `approvePlan debe tener éxito: ${approval.message}`);
@@ -418,6 +461,7 @@ test("R06d — ai-fallback (missingEvidence) ya no bloquea el plan por sí solo"
     topic:           "Tema",
     missingEvidence: ["Material ASU IFT-200 Module 1"],
     provenance:      "ai-fallback",
+    legacy:          true, // no ejercita el contrato de targets, ver R06f/R06g
   });
 
   const record = getPlan(dir, 1);
@@ -482,10 +526,44 @@ test("R06g — plan con targets se aprueba cuando la matriz de alineación cubre
     alignmentMatrix: [
       { targetId: "T1", teaching: true, practice: true, feedback: true, assessment: true, evidence: true },
     ],
+    workloadBudget: { declaredMinutes: 240, plannedMinutes: 235 },
   });
 
   const approval = approvePlan(dir, 1);
   assert.ok(approval.ok, `Plan con matriz completa debe aprobarse: ${approval.message}`);
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("R06h — plan sin targets no puede aprobarse salvo legacy=true (JIN-PLN-001)", () => {
+  const dir = makeTempDir();
+  makeCourse(dir, { readme: MINIMAL_README });
+
+  savePlan(dir, 1, { course: "TEST", topic: "Tema" });
+
+  const approval = approvePlan(dir, 1);
+  assert.equal(approval.ok, false, "Un plan nuevo sin targets no debe poder aprobarse");
+  assert.match(approval.message, /JIN-PLN-001/);
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("R06i — plan con targets pero sin workloadBudget no puede aprobarse (JIN-PLN-003)", () => {
+  const dir = makeTempDir();
+  makeCourse(dir, { readme: MINIMAL_README });
+
+  savePlan(dir, 1, {
+    course: "TEST",
+    topic: "Tema",
+    targets: [{ id: "T1", verb: "x", description: "x" }],
+    alignmentMatrix: [
+      { targetId: "T1", teaching: true, practice: true, feedback: true, assessment: true, evidence: true },
+    ],
+  });
+
+  const approval = approvePlan(dir, 1);
+  assert.equal(approval.ok, false, "Sin workloadBudget declarado, el plan no debe poder aprobarse");
+  assert.match(approval.message, /JIN-PLN-003/);
 
   fs.rmSync(dir, { recursive: true, force: true });
 });

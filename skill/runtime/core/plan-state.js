@@ -102,17 +102,24 @@ function savePlan(courseRoot, weekNumber, planData) {
     );
   }
 
-  const evidence        = Array.isArray(planData.evidence) ? planData.evidence : [];
-  const missingEvidence = planData.missingEvidence || [];
-  const provenance       = planData.provenance || null; // "notebook-primary" | "local-fallback" | "ai-fallback"
+  const evidence            = Array.isArray(planData.evidence) ? planData.evidence : [];
+  const missingEvidence     = planData.missingEvidence || [];
+  const provenance          = planData.provenance || null; // "notebook-primary" | "local-fallback" | "ai-fallback"
+  // Trazabilidad opcional de la resolución de NotebookLM (ver evidence-gate.js
+  // check()): { status, attempts: [{attempt, result, reAuth?}], fallbackReason }.
+  // Hace auditable por qué se activó local-fallback o ai-fallback, en vez de
+  // asumir que la política de 3 intentos se agotó.
+  const notebookResolution  = planData.notebookResolution || null;
 
-  // Contrato pedagógico previo a la redacción (opt-in: si el curso no
-  // descompone el RA en targets todavía, estos campos quedan vacíos y
-  // approvePlan() no exige la matriz — ver validateAlignmentMatrix()).
-  const targets            = Array.isArray(planData.targets) ? planData.targets : [];
-  const alignmentMatrix    = Array.isArray(planData.alignmentMatrix) ? planData.alignmentMatrix : [];
-  const workloadBudget     = planData.workloadBudget || null; // { declaredMinutes, plannedMinutes }
-  const assessmentContract = Array.isArray(planData.assessmentContract) ? planData.assessmentContract : [];
+  // Contrato pedagógico previo a la redacción. Obligatorio para planes
+  // nuevos (approvePlan() lo exige salvo legacy=true, ver JIN-PLN-00x):
+  // descomponer el RA en targets, completar la matriz de alineación,
+  // declarar el presupuesto de horas y el contrato de evaluación.
+  const legacy              = Boolean(planData.legacy);
+  const targets             = Array.isArray(planData.targets) ? planData.targets : [];
+  const alignmentMatrix     = Array.isArray(planData.alignmentMatrix) ? planData.alignmentMatrix : [];
+  const workloadBudget      = planData.workloadBudget || null; // { declaredMinutes, plannedMinutes }
+  const assessmentContract  = Array.isArray(planData.assessmentContract) ? planData.assessmentContract : [];
 
   // El plan ya NO se bloquea por falta de fuentes externas verificadas:
   // evidence-gate.js garantiza que siempre existe un fallback (ai-fallback
@@ -138,6 +145,8 @@ function savePlan(courseRoot, weekNumber, planData) {
     evidence,
     missingEvidence,
     provenance,
+    notebookResolution,
+    legacy,
     targets,
     alignmentMatrix,
     workloadBudget,
@@ -225,12 +234,78 @@ function approvePlan(courseRoot, weekNumber) {
     }
   }
 
-  // Si el plan descompuso el RA en targets, la matriz de alineación debe
-  // cubrir las cinco dimensiones (enseñanza, práctica, feedback, evaluación,
-  // evidencia) para cada uno antes de poder aprobar — no se puede empezar a
-  // redactar sin haber demostrado ese contrato. Opt-in: sin targets, no se
-  // exige matriz (planes que aún no adoptaron el contrato de targets).
-  if (Array.isArray(record.targets) && record.targets.length > 0) {
+  // Contrato pedagógico previo a la redacción: obligatorio para todo plan
+  // nuevo (targets, matriz, presupuesto de horas y contrato de evaluación),
+  // salvo que el plan declare legacy=true explícitamente (planes anteriores
+  // a este contrato). No es un opt-in silencioso: legacy debe declararse a
+  // propósito, no basta con omitir 'targets'.
+  if (!record.legacy) {
+    if (!Array.isArray(record.targets) || record.targets.length === 0) {
+      return {
+        ok:      false,
+        message: "JIN-PLN-001: el plan no descompone el resultado de aprendizaje en 'targets'. Añádelos antes de aprobar, o declara 'legacy: true' explícitamente si este plan no adopta el contrato de targets.",
+        path:    file,
+      };
+    }
+
+    const { complete, incomplete } = validateAlignmentMatrix(record.targets, record.alignmentMatrix || []);
+    if (!complete) {
+      const detail = incomplete.map(i => `${i.targetId} (falta: ${i.missing.join(", ")})`).join("; ");
+      return {
+        ok:      false,
+        message: `JIN-PLN-002: la matriz de alineación está incompleta: ${detail}. Cada target necesita enseñanza, práctica, feedback, evaluación y evidencia previstos antes de aprobar el plan.`,
+        path:    file,
+      };
+    }
+
+    const budget = record.workloadBudget;
+    if (!budget || typeof budget.declaredMinutes !== "number" || typeof budget.plannedMinutes !== "number") {
+      return {
+        ok:      false,
+        message: "JIN-PLN-003: el plan no declara 'workloadBudget' ({ declaredMinutes, plannedMinutes }). Calcula el presupuesto de horas antes de aprobar.",
+        path:    file,
+      };
+    }
+    const coverage = budget.declaredMinutes > 0 ? (budget.plannedMinutes / budget.declaredMinutes) * 100 : 0;
+    if (budget.declaredMinutes <= 0 || coverage < 70 || coverage > 130) {
+      return {
+        ok:      false,
+        message: `JIN-PLN-003: workloadBudget inconsistente (${budget.plannedMinutes} min planificados de ${budget.declaredMinutes} min declarados = ${coverage.toFixed(1)}%). Debe estar entre 70% y 130%.`,
+        path:    file,
+      };
+    }
+
+    if (fs.existsSync(readmePath)) {
+      const { parseSyllabus, parseGradedActivities } = require("./syllabus-manager");
+      const model = parseSyllabus(fs.readFileSync(readmePath, "utf8"));
+      const week  = model.weeks.find(w => w.number === Number(weekNumber));
+      const syllabusActivities = week ? parseGradedActivities(week.raw) : null;
+      if (Array.isArray(syllabusActivities) && syllabusActivities.length > 0) {
+        const contract       = Array.isArray(record.assessmentContract) ? record.assessmentContract : [];
+        const contractByCode = new Map(contract.map(c => [c.code, c]));
+        const missingCodes   = syllabusActivities.filter(a => !contractByCode.has(a.code)).map(a => a.code);
+        if (contract.length === 0 || missingCodes.length > 0) {
+          return {
+            ok:      false,
+            message: `JIN-PLN-004: 'assessmentContract' no cubre todas las actividades calificadas del sílabo. Faltan: ${missingCodes.join(", ") || "assessmentContract vacío"}.`,
+            path:    file,
+          };
+        }
+        for (const activity of syllabusActivities) {
+          const c = contractByCode.get(activity.code);
+          if (c && typeof c.points === "number" && Math.abs(c.points - activity.points) > 0.01) {
+            return {
+              ok:      false,
+              message: `JIN-PLN-004: assessmentContract declara ${activity.code} con points=${c.points}, pero el sílabo declara ${activity.points}.`,
+              path:    file,
+            };
+          }
+        }
+      }
+    }
+  } else if (Array.isArray(record.targets) && record.targets.length > 0) {
+    // legacy=true: contrato opt-in anterior — si igualmente se declararon
+    // targets, la matriz de alineación debe estar completa.
     const { complete, incomplete } = validateAlignmentMatrix(record.targets, record.alignmentMatrix || []);
     if (!complete) {
       const detail = incomplete.map(i => `${i.targetId} (falta: ${i.missing.join(", ")})`).join("; ");

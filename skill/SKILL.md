@@ -32,7 +32,8 @@ petición al playbook mínimo.
 | Diseñar una evaluación | `assessment` | `commands/assessment.md` |
 | Gestionar figuras | `visual` | `commands/visual.md` |
 | Validar guide.json | `validate` | `commands/validate.md` |
-| Reporte de calidad ("Jintia Ready") | `report` | `commands/report.md` |
+| Reporte de calidad rápido | `report` | `commands/report.md` |
+| Orquestador completo de publicación | `ready` | `commands/ready.md` |
 | Verificar contratos de comportamiento | `behavior` | `commands/behavior.md` |
 | Generar HTML desde guide.json | `render` | `commands/compile.md` |
 | Compilar HTML a PDF (Vivliostyle) | `compile` | `commands/compile.md` |
@@ -290,9 +291,12 @@ Aplicar Backward Design:
 3. Diseñar práctica guiada y recuperación.
 4. Redactar teoría suficiente para ejecutar esa práctica.
 
-**Descomponer el resultado de aprendizaje en targets** (opcional pero
-recomendado): declarar `metadata.targets` como una lista de `{ id: "T1",
-verb, description }` por cada desempeño observable distinto que el RA exige.
+**Descomponer el resultado de aprendizaje en targets**: declarar
+`metadata.targets` como una lista de `{ id: "T1", verb, description }` por
+cada desempeño observable distinto que el RA exige. Opcional únicamente en
+draft/`jintia validate` por defecto (adopción progresiva de guías previas);
+**obligatorio en modo publish** (`JIN-SCH-002`) — toda guía nueva debe
+declararlo desde el plan, no añadirlo después.
 Cada nodo de `sections` que enseñe, practique o evalúe un target debe
 declarar ese `targetIds`. Al declarar `metadata.targets`, Jintia activa la
 matriz de alineación (`JIN-ALN-01x`): cada target necesita, como mínimo, una
@@ -413,24 +417,39 @@ ante cualquier degradación bibliográfica (`JIN-BIB-001`…`JIN-BIB-007`, ver
 `commands/compile.md`). Ningún material académico final se publica con
 bibliografía degradada.
 
-### `evidence.json` (opcional)
+### `evidence.json`
 
-Junto a `guide.json` y `reference.bib`, una semana puede declarar
+Junto a `guide.json` y `reference.bib`, una semana declara
 `semanas/semana-XX/evidence.json` (ver `schemas/evidence.schema.json`): un
 registro por afirmación disciplinar central (keyClaim) con `sourceMode`
 (`notebook-primary`/`local-fallback`/`ai-fallback`), la `evidence` devuelta
 por la consulta y, si aplica, `bibliographyKey`. Cada nodo de `guide.json`
-que redacte una de esas afirmaciones declara su `claimId` en `claimIds`. Si
-existe `evidence.json`, `jintia validate` verifica, entre otras cosas: que
-todo `claimId` referenciado desde `guide.json` exista en `evidence.json`
-(`JIN-EVD-005`), que todo keyClaim declare `sourceMode` (`JIN-EVD-010`), que
-toda `bibliographyKey` exista en `reference.bib` (`JIN-EVD-012`), y que
-ninguna afirmación con `sourceMode: "ai-fallback"` declare `bibliographyKey`
-(`JIN-EVD-014`) — la comprobación automática de que nunca se fabrica
-bibliografía en ese modo. También calcula el resumen de procedencia
-(`provenanceSummary`: porcentaje por `sourceMode` y una clasificación
-`STRONG`/`GOOD`/`DEGRADED`/`WEAK`/`BLOCKED`, ver `references/bibliografia.md`).
-Es un artefacto opt-in: sin él, no se valida nada adicional.
+que redacte una de esas afirmaciones declara su `claimId` en `claimIds`.
+
+Opcional únicamente en draft/`jintia validate` por defecto; **obligatorio en
+modo publish cuando `metadata.targets` está declarado** (`JIN-EVD-020`) —
+sin este artefacto no hay procedencia académica verificable que publicar.
+
+`jintia validate` verifica, entre otras cosas: que `evidence.json` cumpla su
+esquema real, no solo checks manuales (`JIN-EVD-021`); que todo `claimId`
+referenciado desde `guide.json` exista en `evidence.json` (`JIN-EVD-005`);
+que todo keyClaim declare `sourceMode` (`JIN-EVD-010`); que toda
+`bibliographyKey` exista en `reference.bib` (`JIN-EVD-012`); que ninguna
+afirmación con `sourceMode: "ai-fallback"` declare `bibliographyKey`
+(`JIN-EVD-014`); y que un `notebook-primary`/`local-fallback` declare
+evidencia estructurada real, no solo el `sourceMode` (`JIN-EVD-017`/`018`).
+En publish, además: `week` es obligatorio y debe coincidir con
+`metadata.week` (`JIN-EVD-019`), y `claims` no puede quedar vacío si la guía
+tiene contenido disciplinar (`JIN-EVD-022`).
+
+El resumen de procedencia (`provenanceSummary`: porcentaje por `sourceMode`
+y clasificación `STRONG`/`GOOD`/`DEGRADED`/`WEAK`/`BLOCKED`, ver
+`references/bibliografia.md`) se calcula **solo sobre los keyClaims que
+`guide.json` referencia realmente** vía `claimIds` — un claim declarado en
+`evidence.json` pero nunca usado por la guía (huérfano, `JIN-EVD-023`) no
+cuenta, precisamente para que no se pueda inflar `STRONG` agregando claims
+NotebookLM que la guía no usa. Si ningún claim declarado está referenciado,
+la procedencia no es calculable y bloquea (`JIN-EVD-024`).
 
 ## Integraciones opcionales
 
@@ -446,7 +465,7 @@ Tratar logos, socios, módulos internacionales y ecosistemas institucionales com
 4. Compilar a PDF con `jintia compile <guide.json>` y comprobar `jintia preflight <guide.html>`. Antes de compartir el material final, ejecutar `jintia compile <guide.json> --publish` para confirmar que la bibliografía no quedó degradada.
 5. Verificar `reference.bib`, recortes, figuras y referencias cruzadas.
 6. Ejecutar `references/checklist.md` punto por punto.
-7. Si `metadata.targets` está declarado, ejecutar `jintia report <guide.json>` y confirmar que la decisión final sea `READY` (o `NEEDS_CHANGES` con las advertencias explícitamente aceptadas) antes de publicar.
+7. Antes de compartir el material final, ejecutar `jintia ready <guide.json>`: corre en cadena `validate --publish`, procedencia de evidencia, bibliografía (pre y post render), render, html-lint, preflight y compile. `DETERMINISTIC DECISION: READY` es necesario pero no suficiente — confirmar también `PASS` de `jintia-selfstudy-reviewer` y `ready` de `jintia-finish-reviewer` antes de declarar la guía lista.
 8. Informar archivos creados, validaciones ejecutadas y limitaciones reales.
 # Motor visual editorial
 

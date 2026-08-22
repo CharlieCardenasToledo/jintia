@@ -50,6 +50,33 @@ function planPath(courseRoot, weekNumber) {
   );
 }
 
+/**
+ * Comprueba que la matriz de alineación cubra las cinco dimensiones
+ * (enseñanza, práctica, feedback, evaluación, evidencia) para cada target
+ * declarado. Opt-in: si no hay targets, no hay nada que validar.
+ *
+ * @param {{id: string}[]} targets
+ * @param {{targetId: string, teaching?: boolean, practice?: boolean, feedback?: boolean, assessment?: boolean, evidence?: boolean}[]} matrix
+ * @returns {{ complete: boolean, incomplete: {targetId: string, missing: string[]}[] }}
+ */
+function validateAlignmentMatrix(targets, matrix) {
+  const DIMENSIONS = ["teaching", "practice", "feedback", "assessment", "evidence"];
+  const byTarget = new Map(matrix.map(row => [row.targetId, row]));
+  const incomplete = [];
+
+  for (const target of targets) {
+    const row = byTarget.get(target.id);
+    if (!row) {
+      incomplete.push({ targetId: target.id, missing: DIMENSIONS.slice() });
+      continue;
+    }
+    const missing = DIMENSIONS.filter(dim => row[dim] !== true);
+    if (missing.length > 0) incomplete.push({ targetId: target.id, missing });
+  }
+
+  return { complete: incomplete.length === 0, incomplete };
+}
+
 // ─── API pública ──────────────────────────────────────────────────────────────
 
 /**
@@ -79,6 +106,14 @@ function savePlan(courseRoot, weekNumber, planData) {
   const missingEvidence = planData.missingEvidence || [];
   const provenance       = planData.provenance || null; // "notebook-primary" | "local-fallback" | "ai-fallback"
 
+  // Contrato pedagógico previo a la redacción (opt-in: si el curso no
+  // descompone el RA en targets todavía, estos campos quedan vacíos y
+  // approvePlan() no exige la matriz — ver validateAlignmentMatrix()).
+  const targets            = Array.isArray(planData.targets) ? planData.targets : [];
+  const alignmentMatrix    = Array.isArray(planData.alignmentMatrix) ? planData.alignmentMatrix : [];
+  const workloadBudget     = planData.workloadBudget || null; // { declaredMinutes, plannedMinutes }
+  const assessmentContract = Array.isArray(planData.assessmentContract) ? planData.assessmentContract : [];
+
   // El plan ya NO se bloquea por falta de fuentes externas verificadas:
   // evidence-gate.js garantiza que siempre existe un fallback (ai-fallback
   // como último recurso), así que la ausencia de fuentes se registra en
@@ -95,7 +130,7 @@ function savePlan(courseRoot, weekNumber, planData) {
   }
 
   const record = {
-    schemaVersion:  "1.1",
+    schemaVersion:  "1.2",
     course:         planData.course || path.basename(path.resolve(courseRoot)),
     week:           Number(weekNumber),
     topic,
@@ -103,6 +138,10 @@ function savePlan(courseRoot, weekNumber, planData) {
     evidence,
     missingEvidence,
     provenance,
+    targets,
+    alignmentMatrix,
+    workloadBudget,
+    assessmentContract,
     syllabusHash,
     plannedFiles:   planData.plannedFiles || [
       `semanas/semana-${weekPadded(weekNumber)}/guide.json`,
@@ -181,6 +220,23 @@ function approvePlan(courseRoot, weekNumber) {
       return {
         ok:      false,
         message: `La semana ${weekNumber} tiene campos incompletos: ${weekResult.errors.join("; ")}`,
+        path:    file,
+      };
+    }
+  }
+
+  // Si el plan descompuso el RA en targets, la matriz de alineación debe
+  // cubrir las cinco dimensiones (enseñanza, práctica, feedback, evaluación,
+  // evidencia) para cada uno antes de poder aprobar — no se puede empezar a
+  // redactar sin haber demostrado ese contrato. Opt-in: sin targets, no se
+  // exige matriz (planes que aún no adoptaron el contrato de targets).
+  if (Array.isArray(record.targets) && record.targets.length > 0) {
+    const { complete, incomplete } = validateAlignmentMatrix(record.targets, record.alignmentMatrix || []);
+    if (!complete) {
+      const detail = incomplete.map(i => `${i.targetId} (falta: ${i.missing.join(", ")})`).join("; ");
+      return {
+        ok:      false,
+        message: `La matriz de alineación está incompleta: ${detail}. Cada target necesita enseñanza, práctica, feedback, evaluación y evidencia previstos antes de aprobar el plan.`,
         path:    file,
       };
     }
@@ -284,4 +340,5 @@ module.exports = {
   markGenerated,
   getPlan,
   planPath,
+  validateAlignmentMatrix,
 };

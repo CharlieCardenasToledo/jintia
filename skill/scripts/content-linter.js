@@ -252,6 +252,22 @@ const RULES = {
     id: "JIN-EVD-020", category: "evidence", severity: "error",
     description: "evidence.json es requerido para publicar cuando metadata.targets está declarado, y no existe (modo publish).",
   },
+  "JIN-EVD-021": {
+    id: "JIN-EVD-021", category: "evidence", severity: "error",
+    description: "evidence.json no cumple su esquema (evidence.schema.json).",
+  },
+  "JIN-EVD-022": {
+    id: "JIN-EVD-022", category: "evidence", severity: "error",
+    description: "evidence.json existe pero no declara ningún keyClaim, y la guía tiene contenido disciplinar (modo publish).",
+  },
+  "JIN-EVD-023": {
+    id: "JIN-EVD-023", category: "evidence", severity: "warning",
+    description: "Uno o más claims de evidence.json no están referenciados desde guide.json (huérfanos); no se contabilizan en la procedencia.",
+  },
+  "JIN-EVD-024": {
+    id: "JIN-EVD-024", category: "evidence", severity: "error",
+    description: "evidence.json declara keyClaims pero ninguno está referenciado desde guide.json: la procedencia académica no es calculable.",
+  },
   "JIN-SCH-002": {
     id: "JIN-SCH-002", category: "schema", severity: "error",
     description: "metadata.targets es obligatorio para publicar (modo publish).",
@@ -760,6 +776,21 @@ function lintGuide(guidePath, options = {}) {
       });
     }
     if (evidenceDoc) {
+      // JIN-EVD-021: evidence.json debe cumplir su JSON Schema real (enum de
+      // sourceMode, forma de evidence, etc.) — no solo los checks manuales
+      // de abajo. Sin esto, un sourceMode arbitrario podría escapar de las
+      // comprobaciones específicas y contaminar el cálculo de procedencia.
+      let evidenceSchema;
+      try {
+        evidenceSchema = JSON.parse(fs.readFileSync(EVIDENCE_SCHEMA_PATH, "utf8"));
+      } catch { evidenceSchema = null; }
+      if (evidenceSchema) {
+        const evidenceSchemaErrors = validateSchema(evidenceDoc, evidenceSchema, "$", evidenceSchema);
+        for (const msg of evidenceSchemaErrors) {
+          issue("JIN-EVD-021", `evidence.json no cumple su esquema: ${msg}`);
+        }
+      }
+
       const claims     = Array.isArray(evidenceDoc.claims) ? evidenceDoc.claims : [];
       const claimIds    = new Set(claims.map(c => c.id));
       const referenced  = new Set(sections.flatMap(s => Array.isArray(s.claimIds) ? s.claimIds : []));
@@ -768,6 +799,22 @@ function lintGuide(guidePath, options = {}) {
         if (!claimIds.has(claimId)) {
           issue("JIN-EVD-005", `guide.json referencia claimIds "${claimId}" que no existe en evidence.json.`);
         }
+      }
+
+      // JIN-EVD-022: en publish, si la guía tiene contenido disciplinar
+      // (theory/concept) evidence.json no puede quedarse con claims: [].
+      const hasDisciplinaryContent = sections.some(s => s.type === "theory" || s.type === "concept");
+      if (publish && hasDisciplinaryContent && claims.length === 0) {
+        issue("JIN-EVD-022", "evidence.json existe pero no declara ningún keyClaim, y la guía tiene contenido disciplinar (theory/concept).");
+      }
+
+      // JIN-EVD-023: claims declarados en evidence.json que ningún nodo de
+      // guide.json referencia vía claimIds — no cuentan en el cálculo de
+      // procedencia (ver más abajo) y podrían inflarlo artificialmente si se
+      // contaran.
+      const orphanClaims = claims.filter(c => c.id && !referenced.has(c.id));
+      if (orphanClaims.length > 0) {
+        issue("JIN-EVD-023", `${orphanClaims.length} claim(s) en evidence.json no están referenciados desde guide.json (huérfanos): ${orphanClaims.map(c => c.id).join(", ")}. No se contabilizan en el cálculo de procedencia.`);
       }
 
       let blocked = false;
@@ -809,31 +856,45 @@ function lintGuide(guidePath, options = {}) {
         }
       }
 
-      // JIN-EVD-019: evidence.json debe corresponder a la misma semana que guide.json
+      // JIN-EVD-019: evidence.json debe corresponder a la misma semana que
+      // guide.json. En publish, además, declarar 'week' deja de ser opcional.
       if (typeof evidenceDoc.week === "number" && typeof metadata.week === "number" && evidenceDoc.week !== metadata.week) {
         issue("JIN-EVD-019", `evidence.json declara week=${evidenceDoc.week}, pero guide.json es metadata.week=${metadata.week}.`);
         blocked = true;
+      } else if (publish && typeof evidenceDoc.week !== "number") {
+        issue("JIN-EVD-019", "evidence.json no declara 'week': obligatorio en modo publish para confirmar que corresponde a esta semana.");
+        blocked = true;
       }
 
-      // ── provenanceSummary / academicProvenance (calculado sobre los keyClaims) ──
-      if (claims.length > 0) {
-        const pct = mode => (claims.filter(c => c.sourceMode === mode).length / claims.length) * 100;
+      // ── provenanceSummary / academicProvenance ──
+      // Calculado exclusivamente sobre los keyClaims que guide.json referencia
+      // vía claimIds (usedClaims), no sobre todos los claims de evidence.json:
+      // de lo contrario se podría inflar notebookPrimary agregando claims
+      // NotebookLM que la guía nunca usa (ver JIN-EVD-023, huérfanos).
+      const usedClaims = claims.filter(c => c.id && referenced.has(c.id));
+      if (claims.length > 0 && usedClaims.length === 0) {
+        issue("JIN-EVD-024", "evidence.json declara keyClaims pero ninguno está referenciado desde guide.json: la procedencia académica no es calculable sobre afirmaciones reales de esta guía.");
+        blocked = true;
+      }
+
+      if (usedClaims.length > 0) {
+        const pct = mode => (usedClaims.filter(c => c.sourceMode === mode).length / usedClaims.length) * 100;
         const notebookPrimary = pct("notebook-primary");
         const localFallback   = pct("local-fallback");
         const aiFallback      = pct("ai-fallback");
         const hasGap          = [...referenced].some(id => !claimIds.has(id));
 
         if (aiFallback > 0) {
-          issue("JIN-EVD-013", `Se utilizó ai-fallback en ${claims.filter(c => c.sourceMode === "ai-fallback").length} de ${claims.length} keyClaim(s).`);
+          issue("JIN-EVD-013", `Se utilizó ai-fallback en ${usedClaims.filter(c => c.sourceMode === "ai-fallback").length} de ${usedClaims.length} keyClaim(s) referenciados.`);
         }
 
         let academicProvenance;
         if (blocked) {
           academicProvenance = "BLOCKED";
-          issue("JIN-EVD-016", "Academic provenance = BLOCKED: hay keyClaims sin sourceMode, con bibliographyKey inexistente, o con bibliografía fabricada en modo ai-fallback.");
+          issue("JIN-EVD-016", "Academic provenance = BLOCKED: hay keyClaims sin sourceMode, con bibliographyKey inexistente, con bibliografía fabricada en modo ai-fallback, o sin evidencia estructurada real.");
         } else if (aiFallback > 30 || hasGap) {
           academicProvenance = "WEAK";
-        } else if (aiFallback > 10 || claims.some(c => c.evidence && c.evidence.extractionStatus === "partial")) {
+        } else if (aiFallback > 10 || usedClaims.some(c => c.evidence && c.evidence.extractionStatus === "partial")) {
           academicProvenance = "DEGRADED";
           issue("JIN-EVD-015", `Academic provenance = DEGRADED (ai-fallback: ${aiFallback.toFixed(1)}%).`);
         } else if (aiFallback === 0 && notebookPrimary >= 80) {

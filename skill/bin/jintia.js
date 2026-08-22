@@ -77,6 +77,7 @@ Uso:
   jintia render    <guide.json> [--theme ID] [--output guide.html]
   jintia compile   <guide.json> [--output guide.pdf] [--publish]
   jintia report    <guide.json> [--json] [--final]
+  jintia ready     <guide.json> [--json] [--skip-pdf]
   jintia preview   <guide.json>
   jintia preflight <guide.html>
 
@@ -494,6 +495,7 @@ function main(argv) {
   // ─── Motor editorial HTML ───────────────────────────────────────────────────
   if (command === "validate") return runScript("content-linter.js", argv.slice(1), "validate");
   if (command === "report")   return runScript("quality-report.js", argv.slice(1), "report");
+  if (command === "ready")    return runScript("ready.js", argv.slice(1), "ready");
   if (command === "render") {
     const renderArgs = argv.slice(1);
     const inputFile  = renderArgs.find(a => !a.startsWith("-"));

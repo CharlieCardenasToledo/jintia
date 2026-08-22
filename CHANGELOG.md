@@ -5,6 +5,35 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 12.4.0 — 2026-08-22
+
+Cierra los huecos de una segunda revisión externa sobre `master` en 12.3.0
+(commit `08db37a`): integridad de `evidence.json`, contrato pedagógico del
+plan previo a la redacción, drift entre playbooks y runtime, y el
+orquestador de publicación completo. Consolida en un solo release lo que la
+revisión proponía como tres pasos (12.3.1 integridad de evidencia, 12.3.2
+plan/documentación, 12.4 `jintia ready`).
+
+### Corregido
+
+- **`evidence.json` ahora se valida contra su JSON Schema real**: `content-linter.js` declaraba `EVIDENCE_SCHEMA_PATH` pero nunca llamaba a `validateSchema()` sobre el documento — un `sourceMode` fuera del enum (`notebook-primary`/`local-fallback`/`ai-fallback`) podía escapar de todos los checks manuales. Nuevo `JIN-EVD-021`.
+- **`academicProvenance` se calcula solo sobre keyClaims referenciados desde `guide.json`** (`claimIds`), no sobre todos los claims de `evidence.json`: antes se podía inflar `NotebookLM primary` agregando claims que la guía nunca usa. Los claims no referenciados se marcan huérfanos (`JIN-EVD-023`, warning) y no entran en el cálculo; si ningún claim declarado está referenciado, la procedencia no es calculable y bloquea (`JIN-EVD-024`).
+
+### Añadido
+
+- `evidence.json` en modo publish: `week` pasa a ser obligatorio y debe coincidir con `metadata.week` (`JIN-EVD-019`, extendida); `claims` no puede quedar vacío si la guía tiene contenido disciplinar — theory/concept (`JIN-EVD-022`).
+- **Esquema del plan (`schemaVersion` 1.2)**: `plan-state.js` acepta y persiste `targets`, `alignmentMatrix`, `workloadBudget` y `assessmentContract`. Si el plan declara `targets`, `plan approve` bloquea con un mensaje explícito hasta que la matriz cubra las cinco dimensiones (enseñanza, práctica, feedback, evaluación, evidencia) para cada uno — el contrato pedagógico se demuestra antes de redactar, no después. Opt-in: planes sin `targets` no exigen la matriz.
+- **Comando `jintia ready`** (`scripts/ready.js`, `commands/ready.md`): el orquestador completo — `validate --publish` → procedencia de evidencia → bibliografía (pre-render) → render → html-lint → bibliografía (post-render) → preflight → compile (PDF, `--skip-pdf` para omitirlo). Se detiene en el primer paso bloqueante en vez de seguir corriendo pasos sobre una guía que ya se sabe inválida. Documenta explícitamente que `DETERMINISTIC DECISION: READY` no sustituye la confirmación de `jintia-selfstudy-reviewer` (`PASS`) ni de `jintia-finish-reviewer` (`ready`) — ningún script puede invocar esos contratos de agente por sí mismo.
+
+### Documentación
+
+- `commands/assessment.md` sincronizado con el schema real (`score`/`checklist` → `points`/`submissionChecklist`, cotejo con el sílabo).
+- `commands/guide.md` distingue el mínimo aceptado en draft del contrato recomendado/exigido en publish (targets, horas, práctica/evaluación estructurada, `evidence.json` entre los artefactos).
+- `commands/plan.md` documenta el esquema 1.2 del plan y el bloqueo por matriz incompleta.
+- `agents/jintia-finish-reviewer.md` deja de mencionar "linting LaTeX" (pipeline HTML/Vivliostyle vigente) e incorpora `report --final`/`ready` y la decisión de `jintia-selfstudy-reviewer` como entrada.
+- `SKILL.md` deja de describir `metadata.targets` y `evidence.json` como "opcional" sin matiz: aclara que son opcionales solo en draft y obligatorios en publish.
+- `rules/catalog.json` sube a `2.5.0`.
+
 ## `jintia-skill` 12.3.0 — 2026-08-22
 
 Cierra los huecos identificados en una revisión externa del repositorio en

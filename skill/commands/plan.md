@@ -44,6 +44,16 @@ Si alguna precondición falla, informar claramente y detener.
     "practice": "Diagnosticar redundancia...",
     "autonomous": "Investigar la evolución..."
   },
+  "targets": [
+    { "id": "T1", "verb": "diferenciar", "description": "Diferenciar el enfoque de BD frente a archivos." }
+  ],
+  "alignmentMatrix": [
+    { "targetId": "T1", "teaching": true, "practice": true, "feedback": true, "assessment": true, "evidence": true }
+  ],
+  "workloadBudget": { "declaredMinutes": 240, "plannedMinutes": 235 },
+  "assessmentContract": [
+    { "code": "PE-1.1", "targetIds": ["T1"], "product": "Informe diagnóstico", "points": 2.25 }
+  ],
   "evidence": [
     {
       "source": "Beynon-Davies (2018)",
@@ -54,14 +64,25 @@ Si alguna precondición falla, informar claramente y detener.
   "missingEvidence": [
     "Material ASU IFT-200 Module 1"
   ],
+  "provenance": "notebook-primary",
   "plannedFiles": [
     "semanas/semana-01/guide.json",
+    "semanas/semana-01/evidence.json",
     "semanas/semana-01/reference.bib",
     "semanas/semana-01/figure/"
   ],
   "status": "pending"
 }
 ```
+
+`targets`/`alignmentMatrix`/`workloadBudget`/`assessmentContract` son el
+contrato pedagógico previo a la redacción: **antes de escribir contenido**,
+descomponer el RA en targets y completar, por cada uno, las cinco columnas
+de la matriz (enseñanza, práctica, feedback, evaluación, evidencia). Si se
+declaran `targets`, `jintia plan approve` bloquea cuando la matriz está
+incompleta — no basta con planear escribirla "después"; debe demostrarse
+antes de aprobar. Sin `targets` (planes que aún no adoptaron el contrato),
+`plan approve` no exige la matriz — opt-in, igual que en `guide.json`.
 
 ## Estados del plan
 

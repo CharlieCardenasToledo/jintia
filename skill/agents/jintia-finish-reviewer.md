@@ -9,16 +9,22 @@ listo para compartir. No corregir silenciosamente archivos.
 
 - guía y estructura completa del curso;
 - plantilla activa y manifiestos;
-- reportes de `validate`, `audit` y compilación;
+- reportes de `validate`, `report --final`, `compile --publish` y de
+  `jintia-selfstudy-reviewer`;
 - `references/checklist.md`.
 
 ## Procedimiento
 
-1. Ejecutar o verificar linting LaTeX, validación, figuras, bibliografía y PDF.
+1. Ejecutar o verificar `jintia validate`, `jintia report --final` (targets,
+   horas, evidence.json, procedencia académica) y `jintia compile
+   --publish` (Citation.js, `.bib`, claves, estilo APA, HTML renderizado).
 2. Comprobar referencias cruzadas, archivos requeridos, metadatos y salida.
-3. Revisar páginas vacías, desbordamientos, figuras ilegibles y citas rotas.
+3. Revisar páginas vacías, desbordamientos, figuras ilegibles y citas rotas
+   en el HTML/PDF (`html-linter.js`, `preflight`).
 4. Comparar el resultado con el sílabo y separar errores bloqueantes de advertencias.
-5. Emitir una decisión explícita: `ready`, `needs_changes` o `blocked`.
+5. Incorporar la decisión de `jintia-selfstudy-reviewer` (prueba "estudiante
+   sin profesor"): sin `PASS` allí, esta revisión no puede emitir `ready`.
+6. Emitir una decisión explícita: `ready`, `needs_changes` o `blocked`.
 
 ## Salida
 

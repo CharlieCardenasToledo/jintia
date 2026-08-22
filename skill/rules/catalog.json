@@ -1,5 +1,5 @@
 {
-  "version": "2.4.0",
+  "version": "2.5.0",
   "rules": [
     { "id": "JIN-SCH-001", "category": "schema", "severity": "error", "description": "guide.json no cumple el esquema canónico (guide.schema.json)." },
     { "id": "JIN-SCH-002", "category": "schema", "severity": "error", "description": "metadata.targets es obligatorio para publicar (modo publish)." },
@@ -38,6 +38,10 @@
     { "id": "JIN-EVD-018", "category": "evidence", "severity": "error", "description": "Un keyClaim con sourceMode 'local-fallback' no identifica la fuente local (sourceId/sourceName)." },
     { "id": "JIN-EVD-019", "category": "evidence", "severity": "error", "description": "evidence.json declara un week distinto al de guide.json." },
     { "id": "JIN-EVD-020", "category": "evidence", "severity": "error", "description": "evidence.json es requerido para publicar cuando metadata.targets está declarado, y no existe (modo publish)." },
+    { "id": "JIN-EVD-021", "category": "evidence", "severity": "error", "description": "evidence.json no cumple su esquema (evidence.schema.json)." },
+    { "id": "JIN-EVD-022", "category": "evidence", "severity": "error", "description": "evidence.json existe pero no declara ningún keyClaim, y la guía tiene contenido disciplinar (modo publish)." },
+    { "id": "JIN-EVD-023", "category": "evidence", "severity": "warning", "description": "Uno o más claims de evidence.json no están referenciados desde guide.json (huérfanos); no se contabilizan en la procedencia." },
+    { "id": "JIN-EVD-024", "category": "evidence", "severity": "error", "description": "evidence.json declara keyClaims pero ninguno está referenciado desde guide.json: la procedencia académica no es calculable." },
     { "id": "JIN-BIB-001", "category": "bibliography", "severity": "error", "description": "Citation.js no está disponible; no se puede publicar bibliografía formateada (modo publish)." },
     { "id": "JIN-BIB-002", "category": "bibliography", "severity": "error", "description": "reference.bib es requerido (hay citas) y está ausente (modo publish)." },
     { "id": "JIN-BIB-003", "category": "bibliography", "severity": "error", "description": "Una clave citada no existe en reference.bib (modo publish)." },

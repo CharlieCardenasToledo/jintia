@@ -111,5 +111,7 @@ Referencia de `jintia-skill`. Ejecutar esta verificación completa antes de entr
 - [ ] `jintia preflight guide.html` terminó sin errores críticos de paginación.
 - [ ] `jintia report guide.json --final` termina en `READY` (equivalente a `compile --publish` sin renderizar).
 - [ ] `jintia compile guide.json --publish` no reporta degradación bibliográfica (`JIN-BIB-001..007`) antes de compartir el PDF final.
+- [ ] `jintia ready guide.json` termina en `DETERMINISTIC DECISION: READY` (cadena completa: validate --publish → evidencia → bibliografía pre/post-render → render → html-lint → preflight → compile).
 - [ ] Se aplicó la prueba "estudiante sin profesor" (`agents/jintia-selfstudy-reviewer.md`) y su decisión es `PASS`.
+- [ ] `agents/jintia-finish-reviewer.md` emitió `ready` incorporando el `PASS` anterior.
 - [ ] Las reglas editoriales, pedagógicas y de evidencia no cubiertas por los scripts se revisaron manualmente.

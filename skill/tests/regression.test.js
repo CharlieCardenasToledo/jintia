@@ -449,6 +449,47 @@ test("R06e — blocked queda reservado para contrato curricular irresoluble (sem
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("R06f — plan con targets no puede aprobarse si la matriz de alineación está incompleta", () => {
+  const dir = makeTempDir();
+  makeCourse(dir, { readme: MINIMAL_README });
+
+  savePlan(dir, 1, {
+    course: "TEST",
+    topic: "Tema",
+    targets: [{ id: "T1", verb: "x", description: "x" }, { id: "T2", verb: "y", description: "y" }],
+    // T2 no aparece en la matriz → incompleta
+    alignmentMatrix: [
+      { targetId: "T1", teaching: true, practice: true, feedback: true, assessment: true, evidence: true },
+    ],
+  });
+
+  const approval = approvePlan(dir, 1);
+  assert.equal(approval.ok, false, "No se puede aprobar con la matriz de alineación incompleta");
+  assert.match(approval.message, /matriz de alineación/i);
+  assert.match(approval.message, /T2/);
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("R06g — plan con targets se aprueba cuando la matriz de alineación cubre las 5 dimensiones", () => {
+  const dir = makeTempDir();
+  makeCourse(dir, { readme: MINIMAL_README });
+
+  savePlan(dir, 1, {
+    course: "TEST",
+    topic: "Tema",
+    targets: [{ id: "T1", verb: "x", description: "x" }],
+    alignmentMatrix: [
+      { targetId: "T1", teaching: true, practice: true, feedback: true, assessment: true, evidence: true },
+    ],
+  });
+
+  const approval = approvePlan(dir, 1);
+  assert.ok(approval.ok, `Plan con matriz completa debe aprobarse: ${approval.message}`);
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Escenario 7: Pipeline editorial (validate → render → preflight)
 // ═══════════════════════════════════════════════════════════════════════════════

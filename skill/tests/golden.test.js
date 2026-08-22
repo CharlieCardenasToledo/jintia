@@ -211,3 +211,66 @@ test("GOLDEN — el puntaje de assessment que difiere del sílabo dispara JIN-AS
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("GOLDEN — evidence.json se valida contra su schema real (JIN-EVD-021) y detecta huérfanos (JIN-EVD-023)", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-evd-schema-"));
+  fs.writeFileSync(path.join(dir, "guide.json"), JSON.stringify({
+    metadata: { course: "T", week: 1, topic: "T", outcome: "O" },
+    sections: [{ type: "theory", id: "t", claimIds: ["CLM-001"] }],
+  }));
+  fs.writeFileSync(path.join(dir, "evidence.json"), JSON.stringify({
+    claims: [
+      { id: "CLM-001", claim: "x", sourceMode: "invented-mode" },
+      { id: "CLM-999", claim: "y", sourceMode: "notebook-primary", evidence: { sourceId: "s", sourceName: "n", extractionStatus: "complete" } },
+    ],
+  }));
+  try {
+    const report = lintGuide(path.join(dir, "guide.json"));
+    const codes = report.issues.map(i => i.rule);
+    assert.ok(codes.includes("JIN-EVD-021"), `sourceMode fuera del enum debe fallar el schema: ${codes.join(", ")}`);
+    assert.ok(codes.includes("JIN-EVD-023"), `CLM-999 no referenciado debe marcarse huérfano: ${codes.join(", ")}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("GOLDEN — publish exige keyClaims con contenido disciplinar (JIN-EVD-022) y week declarado (JIN-EVD-019)", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-evd-required-"));
+  fs.writeFileSync(path.join(dir, "guide.json"), JSON.stringify({
+    metadata: { course: "T", week: 1, topic: "T", outcome: "O", targets: [{ id: "T1", verb: "x", description: "x" }], hours: 1 },
+    sections: [{ type: "orientation", id: "o", route: ["p"] }, { type: "theory", id: "t", targetIds: ["T1"] }],
+  }));
+  fs.writeFileSync(path.join(dir, "evidence.json"), JSON.stringify({ claims: [] }));
+  try {
+    const report = lintGuide(path.join(dir, "guide.json"), { mode: "publish" });
+    const codes = report.issues.map(i => i.rule);
+    assert.ok(codes.includes("JIN-EVD-022"), `claims vacío con contenido disciplinar debe bloquear en publish: ${codes.join(", ")}`);
+    assert.ok(codes.includes("JIN-EVD-019"), `evidence.json sin 'week' debe bloquear en publish: ${codes.join(", ")}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("GOLDEN — provenance solo sobre claims usados: un claim huérfano no puede inflar STRONG (JIN-EVD-024)", () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-evd-orphan-only-"));
+  fs.writeFileSync(path.join(dir, "guide.json"), JSON.stringify({
+    metadata: { course: "T", week: 1, topic: "T", outcome: "O" },
+    sections: [{ type: "theory", id: "t" }], // sin claimIds: no referencia ningún claim
+  }));
+  fs.writeFileSync(path.join(dir, "evidence.json"), JSON.stringify({
+    claims: [{ id: "CLM-001", claim: "x", sourceMode: "notebook-primary", evidence: { sourceId: "s", sourceName: "n", extractionStatus: "complete" } }],
+  }));
+  try {
+    const report = lintGuide(path.join(dir, "guide.json"));
+    assert.ok(report.issues.some(i => i.rule === "JIN-EVD-024"), `Sin claims usados, la procedencia no debería ser calculable: ${report.issues.map(i => i.rule).join(", ")}`);
+    assert.equal(report.provenanceSummary, null, "provenanceSummary no debe calcularse cuando no hay claims usados");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

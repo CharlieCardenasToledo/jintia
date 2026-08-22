@@ -21,6 +21,7 @@ No generar `guide.json` sin plan aprobado.
 ```text
 semanas/semana-XX/
 ├── guide.json       ← fuente canónica (este playbook)
+├── evidence.json    ← procedencia por afirmación (si metadata.targets está declarado; obligatorio en publish — JIN-EVD-020)
 ├── reference.bib    ← bibliografía (si no existe)
 └── figure/          ← carpeta de figuras (si no existe)
 ```
@@ -41,7 +42,16 @@ Intenciones que invocan este playbook:
 $jintia-skill genera la guía de la semana 3
 ```
 
-## Estructura mínima de guide.json
+## Estructura mínima de guide.json (draft)
+
+Este es el mínimo que acepta `jintia validate` en modo draft — sin
+`metadata.targets` ni `metadata.hours`, la matriz de alineación
+(`JIN-ALN-*`), autoinstruccionalidad (`JIN-SELF-*`) y evaluación estructurada
+(`JIN-ASM-*`) no se activan (son opt-in, ver `docs/rules.md`). **En modo
+publish** (`jintia compile --publish`, `jintia report --final`) `targets` y
+`hours` son obligatorios (`JIN-SCH-002`/`003`) y `evidence.json` también lo
+es si hay targets declarados (`JIN-EVD-020`) — no generar guías nuevas con
+esta forma mínima salvo que sea deliberadamente un borrador temprano.
 
 ```json
 {
@@ -63,6 +73,36 @@ $jintia-skill genera la guía de la semana 3
   ]
 }
 ```
+
+## Contrato recomendado (y exigido en publish)
+
+Para toda guía nueva, descomponer el RA en `metadata.targets` y estructurar
+`practice`/`assessment`/`orientation` desde el inicio — no como un paso
+posterior:
+
+```json
+{
+  "metadata": {
+    "course": "CC05A_IFT200", "week": 1,
+    "topic": "Introducción a bases de datos",
+    "outcome": "Resultado canónico del sílabo",
+    "hours": 4, "bibliography": "reference.bib", "citationStyle": "apa",
+    "targets": [
+      { "id": "T1", "verb": "diferenciar", "description": "Diferenciar el enfoque de BD frente a archivos." }
+    ]
+  },
+  "sections": [
+    { "type": "orientation", "id": "orientacion", "route": ["Teoría", "Práctica", "Evaluación"], "purpose": "...", "materials": [], "successCriteria": [], "estimatedMinutes": 15 },
+    { "type": "theory", "id": "enfoque-bd", "targetIds": ["T1"], "claimIds": ["CLM-001"], "content": "... {{cite:clave}}", "estimatedMinutes": 60 },
+    { "type": "practice", "id": "diagnostico", "mode": "guided", "targetIds": ["T1"], "workedExample": "...", "successCriteria": ["..."], "selfCheck": "...", "remediation": "...", "estimatedMinutes": 40 },
+    { "type": "assessment", "id": "comprobacion", "targetIds": ["T1"], "product": "...", "criteria": [{ "description": "...", "weight": 100 }], "estimatedMinutes": 20 },
+    { "type": "bibliography", "id": "referencias" }
+  ]
+}
+```
+
+Junto a `guide.json`, registrar `evidence.json` con un keyClaim por cada
+`claimIds` usado (ver `schemas/evidence.schema.json` y `SKILL.md` §2).
 
 ## Validaciones antes de guardar guide.json
 

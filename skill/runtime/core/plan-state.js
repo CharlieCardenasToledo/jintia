@@ -22,6 +22,7 @@
 const fs     = require("node:fs");
 const path   = require("node:path");
 const crypto = require("node:crypto");
+const { emitProgress } = require("../../scripts/progress-events");
 
 function hashContent(str) {
   return crypto.createHash("sha256").update(str, "utf8").digest("hex").slice(0, 16);
@@ -198,41 +199,39 @@ function approvePlan(courseRoot, weekNumber) {
   const root = path.resolve(courseRoot);
 
   // Verificar que el sílabo no cambió desde que se guardó el plan
+  emitProgress({ command: "plan-approve", step: "syllabus-hash", status: "running" });
   if (record.syllabusHash) {
     const readmePath = path.join(root, "README.md");
     if (fs.existsSync(readmePath)) {
       const currentHash = hashContent(fs.readFileSync(readmePath, "utf8"));
       if (currentHash !== record.syllabusHash) {
-        return {
-          ok:      false,
-          message: `El sílabo cambió desde que se guardó el plan (semana ${weekNumber}). Ejecuta 'jintia plan save' de nuevo para actualizar.`,
-          path:    file,
-        };
+        const message = `El sílabo cambió desde que se guardó el plan (semana ${weekNumber}). Ejecuta 'jintia plan save' de nuevo para actualizar.`;
+        emitProgress({ command: "plan-approve", step: "syllabus-hash", status: "blocked", detail: message });
+        return { ok: false, message, path: file };
       }
     }
   }
+  emitProgress({ command: "plan-approve", step: "syllabus-hash", status: "ok" });
 
   // Verificar que la semana existe y tiene todos los campos requeridos
+  emitProgress({ command: "plan-approve", step: "week", status: "running" });
   const readmePath = path.join(root, "README.md");
   if (fs.existsSync(readmePath)) {
     const { validateWeek } = require("./syllabus-manager");
     const content    = fs.readFileSync(readmePath, "utf8");
     const weekResult = validateWeek(content, weekNumber);
     if (!weekResult.found) {
-      return {
-        ok:      false,
-        message: `La semana ${weekNumber} no existe en el sílabo. Edita el README.md antes de aprobar.`,
-        path:    file,
-      };
+      const message = `La semana ${weekNumber} no existe en el sílabo. Edita el README.md antes de aprobar.`;
+      emitProgress({ command: "plan-approve", step: "week", status: "blocked", detail: message });
+      return { ok: false, message, path: file };
     }
     if (!weekResult.valid) {
-      return {
-        ok:      false,
-        message: `La semana ${weekNumber} tiene campos incompletos: ${weekResult.errors.join("; ")}`,
-        path:    file,
-      };
+      const message = `La semana ${weekNumber} tiene campos incompletos: ${weekResult.errors.join("; ")}`;
+      emitProgress({ command: "plan-approve", step: "week", status: "blocked", detail: message });
+      return { ok: false, message, path: file };
     }
   }
+  emitProgress({ command: "plan-approve", step: "week", status: "ok" });
 
   // Contrato pedagógico previo a la redacción: obligatorio para todo plan
   // nuevo (targets, matriz, presupuesto de horas y contrato de evaluación),
@@ -240,41 +239,40 @@ function approvePlan(courseRoot, weekNumber) {
   // a este contrato). No es un opt-in silencioso: legacy debe declararse a
   // propósito, no basta con omitir 'targets'.
   if (!record.legacy) {
+    emitProgress({ command: "plan-approve", step: "targets", status: "running" });
     if (!Array.isArray(record.targets) || record.targets.length === 0) {
-      return {
-        ok:      false,
-        message: "JIN-PLN-001: el plan no descompone el resultado de aprendizaje en 'targets'. Añádelos antes de aprobar, o declara 'legacy: true' explícitamente si este plan no adopta el contrato de targets.",
-        path:    file,
-      };
+      const message = "JIN-PLN-001: el plan no descompone el resultado de aprendizaje en 'targets'. Añádelos antes de aprobar, o declara 'legacy: true' explícitamente si este plan no adopta el contrato de targets.";
+      emitProgress({ command: "plan-approve", step: "targets", status: "blocked", detail: message });
+      return { ok: false, message, path: file };
     }
+    emitProgress({ command: "plan-approve", step: "targets", status: "ok" });
 
+    emitProgress({ command: "plan-approve", step: "alignment", status: "running" });
     const { complete, incomplete } = validateAlignmentMatrix(record.targets, record.alignmentMatrix || []);
     if (!complete) {
       const detail = incomplete.map(i => `${i.targetId} (falta: ${i.missing.join(", ")})`).join("; ");
-      return {
-        ok:      false,
-        message: `JIN-PLN-002: la matriz de alineación está incompleta: ${detail}. Cada target necesita enseñanza, práctica, feedback, evaluación y evidencia previstos antes de aprobar el plan.`,
-        path:    file,
-      };
+      const message = `JIN-PLN-002: la matriz de alineación está incompleta: ${detail}. Cada target necesita enseñanza, práctica, feedback, evaluación y evidencia previstos antes de aprobar el plan.`;
+      emitProgress({ command: "plan-approve", step: "alignment", status: "blocked", detail: message });
+      return { ok: false, message, path: file };
     }
+    emitProgress({ command: "plan-approve", step: "alignment", status: "ok" });
 
+    emitProgress({ command: "plan-approve", step: "workload", status: "running" });
     const budget = record.workloadBudget;
     if (!budget || typeof budget.declaredMinutes !== "number" || typeof budget.plannedMinutes !== "number") {
-      return {
-        ok:      false,
-        message: "JIN-PLN-003: el plan no declara 'workloadBudget' ({ declaredMinutes, plannedMinutes }). Calcula el presupuesto de horas antes de aprobar.",
-        path:    file,
-      };
+      const message = "JIN-PLN-003: el plan no declara 'workloadBudget' ({ declaredMinutes, plannedMinutes }). Calcula el presupuesto de horas antes de aprobar.";
+      emitProgress({ command: "plan-approve", step: "workload", status: "blocked", detail: message });
+      return { ok: false, message, path: file };
     }
     const coverage = budget.declaredMinutes > 0 ? (budget.plannedMinutes / budget.declaredMinutes) * 100 : 0;
     if (budget.declaredMinutes <= 0 || coverage < 70 || coverage > 130) {
-      return {
-        ok:      false,
-        message: `JIN-PLN-003: workloadBudget inconsistente (${budget.plannedMinutes} min planificados de ${budget.declaredMinutes} min declarados = ${coverage.toFixed(1)}%). Debe estar entre 70% y 130%.`,
-        path:    file,
-      };
+      const message = `JIN-PLN-003: workloadBudget inconsistente (${budget.plannedMinutes} min planificados de ${budget.declaredMinutes} min declarados = ${coverage.toFixed(1)}%). Debe estar entre 70% y 130%.`;
+      emitProgress({ command: "plan-approve", step: "workload", status: "blocked", detail: message });
+      return { ok: false, message, path: file };
     }
+    emitProgress({ command: "plan-approve", step: "workload", status: "ok" });
 
+    emitProgress({ command: "plan-approve", step: "assessment", status: "running" });
     if (fs.existsSync(readmePath)) {
       const { parseSyllabus, parseGradedActivities } = require("./syllabus-manager");
       const model = parseSyllabus(fs.readFileSync(readmePath, "utf8"));
@@ -285,48 +283,45 @@ function approvePlan(courseRoot, weekNumber) {
         const contractByCode = new Map(contract.map(c => [c.code, c]));
         const missingCodes   = syllabusActivities.filter(a => !contractByCode.has(a.code)).map(a => a.code);
         if (contract.length === 0 || missingCodes.length > 0) {
-          return {
-            ok:      false,
-            message: `JIN-PLN-004: 'assessmentContract' no cubre todas las actividades calificadas del sílabo. Faltan: ${missingCodes.join(", ") || "assessmentContract vacío"}.`,
-            path:    file,
-          };
+          const message = `JIN-PLN-004: 'assessmentContract' no cubre todas las actividades calificadas del sílabo. Faltan: ${missingCodes.join(", ") || "assessmentContract vacío"}.`;
+          emitProgress({ command: "plan-approve", step: "assessment", status: "blocked", detail: message });
+          return { ok: false, message, path: file };
         }
         for (const activity of syllabusActivities) {
           const c = contractByCode.get(activity.code);
           if (c && typeof c.points === "number" && Math.abs(c.points - activity.points) > 0.01) {
-            return {
-              ok:      false,
-              message: `JIN-PLN-004: assessmentContract declara ${activity.code} con points=${c.points}, pero el sílabo declara ${activity.points}.`,
-              path:    file,
-            };
+            const message = `JIN-PLN-004: assessmentContract declara ${activity.code} con points=${c.points}, pero el sílabo declara ${activity.points}.`;
+            emitProgress({ command: "plan-approve", step: "assessment", status: "blocked", detail: message });
+            return { ok: false, message, path: file };
           }
         }
       }
     }
+    emitProgress({ command: "plan-approve", step: "assessment", status: "ok" });
   } else if (Array.isArray(record.targets) && record.targets.length > 0) {
     // legacy=true: contrato opt-in anterior — si igualmente se declararon
     // targets, la matriz de alineación debe estar completa.
+    emitProgress({ command: "plan-approve", step: "alignment", status: "running" });
     const { complete, incomplete } = validateAlignmentMatrix(record.targets, record.alignmentMatrix || []);
     if (!complete) {
       const detail = incomplete.map(i => `${i.targetId} (falta: ${i.missing.join(", ")})`).join("; ");
-      return {
-        ok:      false,
-        message: `La matriz de alineación está incompleta: ${detail}. Cada target necesita enseñanza, práctica, feedback, evaluación y evidencia previstos antes de aprobar el plan.`,
-        path:    file,
-      };
+      const message = `La matriz de alineación está incompleta: ${detail}. Cada target necesita enseñanza, práctica, feedback, evaluación y evidencia previstos antes de aprobar el plan.`;
+      emitProgress({ command: "plan-approve", step: "alignment", status: "blocked", detail: message });
+      return { ok: false, message, path: file };
     }
+    emitProgress({ command: "plan-approve", step: "alignment", status: "ok" });
   }
 
   // Re-verificar compuerta de evidencia (fuentes locales, sin notebookLM por defecto)
+  emitProgress({ command: "plan-approve", step: "evidence", status: "running" });
   const evidenceGate = require("./evidence-gate");
   const evResult     = evidenceGate.check({ courseRoot: root, weekNumber: Number(weekNumber) });
   if (!evResult.allowed) {
-    return {
-      ok:      false,
-      message: `La compuerta de evidencia bloqueó la aprobación: ${evResult.code} — ${evResult.message}`,
-      path:    file,
-    };
+    const message = `La compuerta de evidencia bloqueó la aprobación: ${evResult.code} — ${evResult.message}`;
+    emitProgress({ command: "plan-approve", step: "evidence", status: "blocked", detail: message });
+    return { ok: false, message, path: file };
   }
+  emitProgress({ command: "plan-approve", step: "evidence", status: "ok" });
 
   record.status     = "approved";
   record.approvedAt = new Date().toISOString();

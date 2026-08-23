@@ -34,6 +34,7 @@ const { validateAssets } = require("./asset-validator");
 const { checkConsistency } = require("./render-consistency");
 const { runPreflight } = require("./pdf-preflight");
 const { buildPdf, checkVivliostyle } = require("./vivliostyle-adapter");
+const { emitProgress } = require("./progress-events");
 
 /**
  * @param {string} guidePath
@@ -49,7 +50,10 @@ async function runReady(guidePath, options = {}) {
   function record(step, status, detail) {
     steps.push({ step, status, detail });
     if (status === "error") blocked = true;
+    emitProgress({ command: "ready", step, status, detail });
   }
+
+  emitProgress({ command: "ready", step: "validate --publish", status: "running" });
 
   function finalize(provenance) {
     const hasWarning  = issues.some(i => i.severity === "warning");

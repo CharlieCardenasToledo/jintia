@@ -34,7 +34,21 @@ const { validateAssets } = require("./asset-validator");
 const { checkConsistency } = require("./render-consistency");
 const { runPreflight } = require("./pdf-preflight");
 const { buildPdf, checkVivliostyle } = require("./vivliostyle-adapter");
-const { emitProgress } = require("./progress-events");
+const { emitProgress, initProgressJournal, endProgressJournal } = require("./progress-events");
+const { createRevisionSnapshot, checkApproval } = require("./revision-manager");
+
+/** `absolute` normalmente sigue la convención `courseRoot/semanas/semana-NN/
+ * guide.json` (misma que ya asume `content-linter.js` para el cruce con el
+ * sílabo) — de ahí se deriva la raíz del curso para el journal de progreso.
+ * Si no sigue esa convención (ej. un fixture de test con guide.json suelto),
+ * usar el propio directorio del guide.json evita que el journal termine
+ * escribiendo fuera del árbol que el llamador controla. */
+function courseRootFromGuidePath(absoluteGuidePath) {
+  const weekDir    = path.dirname(absoluteGuidePath);
+  const semanasDir = path.dirname(weekDir);
+  if (path.basename(semanasDir) === "semanas") return path.dirname(semanasDir);
+  return weekDir;
+}
 
 /**
  * @param {string} guidePath
@@ -43,6 +57,15 @@ const { emitProgress } = require("./progress-events");
  */
 async function runReady(guidePath, options = {}) {
   const absolute = path.resolve(guidePath);
+  initProgressJournal(courseRootFromGuidePath(absolute));
+  try {
+    return await runReadySteps(absolute, options);
+  } finally {
+    endProgressJournal();
+  }
+}
+
+async function runReadySteps(absolute, options) {
   const steps  = [];
   const issues = [];
   let blocked  = false;
@@ -54,6 +77,8 @@ async function runReady(guidePath, options = {}) {
   }
 
   emitProgress({ command: "ready", step: "validate --publish", status: "running" });
+
+  let revision = null; // {hash, path} — solo se llena si se llega a congelar un snapshot (ver paso 8)
 
   function finalize(provenance) {
     const hasWarning  = issues.some(i => i.severity === "warning");
@@ -71,10 +96,11 @@ async function runReady(guidePath, options = {}) {
       issues,
       provenance: provenance || null,
       deterministicDecision,
+      revision,
       notes: [
         "jintia ready cubre lo determinista: validate --publish, procedencia de evidencia, bibliografía (pre y post render), render, html-lint, preflight y compile (PDF).",
         "No invoca a jintia-selfstudy-reviewer ni a jintia-finish-reviewer (contratos de agente, no deterministas). FINAL DECISION: READY exige también su confirmación por separado antes de compartir el material.",
-        ...(pdfSkipped ? ["PRECHECK_READY: todos los pasos deterministas previos al PDF están en orden, pero el PDF no se generó (--skip-pdf). No es un cierre completo — falta compilar el PDF antes de considerar la guía lista para entrega."] : []),
+        ...(pdfSkipped ? ["PRECHECK_READY: todos los pasos deterministas previos al PDF están en orden, pero el PDF no se generó (--skip-pdf). No es un cierre completo — falta compilar el PDF antes de considerar la guía lista para entrega. Usa el hash de 'revision' para solicitar aprobación humana antes de compilar."] : []),
       ],
     };
   }
@@ -179,19 +205,37 @@ async function runReady(guidePath, options = {}) {
   // en entornos sin Vivliostyle CLI): el resultado queda como PRECHECK_READY,
   // no READY (ver finalize()). Sin --skip-pdf, Vivliostyle ausente SÍ bloquea:
   // el usuario pidió explícitamente el cierre completo y no puede alcanzarlo.
+  //
+  // Congelar el snapshot (con --skip-pdf) y compilar (sin --skip-pdf) son
+  // momentos distintos a propósito: no se puede aprobar en la misma llamada
+  // que genera el contenido — la aprobación humana ocurre DESPUÉS, fuera de
+  // esta invocación (ver revision-manager.js). Por eso, sin --skip-pdf,
+  // NUNCA se crea un snapshot nuevo aquí ni se compila el HTML recién
+  // renderizado por esta corrida: se exige que ya exista una aprobación
+  // vigente (checkApproval) atada a un snapshot previo, y se compila
+  // exactamente ese HTML congelado — así el PDF corresponde siempre a lo
+  // que un humano realmente vio y aprobó, nunca a una re-renderización.
   if (options.skipPdf) {
+    revision = createRevisionSnapshot(absolute, htmlPath);
     record("compile (PDF)", "skipped", "--skip-pdf");
   } else {
-    const vivliostyle = checkVivliostyle();
-    if (!vivliostyle.ok) {
-      record("compile (PDF)", "error", "Vivliostyle CLI no instalado (npm install --global @vivliostyle/cli) — usa --skip-pdf para un precheck sin PDF.");
+    const approval = checkApproval(absolute);
+    if (!approval.allowed) {
+      record("compile (PDF)", "error", `${approval.code}: ${approval.message}`);
     } else {
-      try {
-        const pdfPath = htmlPath.replace(/\.html$/i, ".pdf");
-        buildPdf(htmlPath, pdfPath);
-        record("compile (PDF)", "ok", pdfPath);
-      } catch (err) {
-        record("compile (PDF)", "error", err.message);
+      revision = { hash: approval.hash, path: approval.revisionPath };
+      const vivliostyle = checkVivliostyle();
+      if (!vivliostyle.ok) {
+        record("compile (PDF)", "error", "Vivliostyle CLI no instalado (npm install --global @vivliostyle/cli) — usa --skip-pdf para un precheck sin PDF.");
+      } else {
+        try {
+          const approvedHtmlPath = path.join(approval.revisionPath, "guide.html");
+          const pdfPath = htmlPath.replace(/\.html$/i, ".pdf");
+          buildPdf(approvedHtmlPath, pdfPath);
+          record("compile (PDF)", "ok", pdfPath);
+        } catch (err) {
+          record("compile (PDF)", "error", err.message);
+        }
       }
     }
   }

@@ -22,7 +22,7 @@
 const fs     = require("node:fs");
 const path   = require("node:path");
 const crypto = require("node:crypto");
-const { emitProgress } = require("../../scripts/progress-events");
+const { emitProgress, initProgressJournal, endProgressJournal } = require("../../scripts/progress-events");
 
 function hashContent(str) {
   return crypto.createHash("sha256").update(str, "utf8").digest("hex").slice(0, 16);
@@ -176,6 +176,15 @@ function savePlan(courseRoot, weekNumber, planData) {
  * @returns {{ ok: boolean, message: string, path: string }}
  */
 function approvePlan(courseRoot, weekNumber) {
+  initProgressJournal(path.resolve(courseRoot));
+  try {
+    return approvePlanSteps(courseRoot, weekNumber);
+  } finally {
+    endProgressJournal();
+  }
+}
+
+function approvePlanSteps(courseRoot, weekNumber) {
   const file = planPath(courseRoot, weekNumber);
 
   if (!fs.existsSync(file)) {

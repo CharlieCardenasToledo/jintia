@@ -650,7 +650,25 @@ function main(argv) {
         }
       }
 
-      const compileArgs = [htmlPath];
+      // Compuerta de aprobación humana — solo en --publish (un compile de
+      // borrador sin --publish sigue sin necesitar aprobación, igual que
+      // hoy tolera bibliografía/assets sin resolver). Mismo gate que
+      // ready.js: nunca se compila el HTML recién renderizado por esta
+      // corrida, sino el que quedó congelado en el snapshot aprobado — así
+      // el PDF corresponde siempre a lo que un humano realmente revisó.
+      let compileInput = htmlPath;
+      if (publish) {
+        const { checkApproval } = require(path.join(SCRIPTS, "revision-manager.js"));
+        const approval = checkApproval(guideAbsolute);
+        if (!approval.allowed) {
+          console.error(`jintia compile --publish: bloqueado — ${approval.code}: ${approval.message}`);
+          process.exitCode = 1;
+          return;
+        }
+        compileInput = path.join(approval.revisionPath, "guide.html");
+      }
+
+      const compileArgs = [compileInput];
       if (outputArg) compileArgs.push("--output", outputArg);
       return runScript("vivliostyle-adapter.js", compileArgs, "compile");
     }

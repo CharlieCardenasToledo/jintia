@@ -14,9 +14,31 @@ const assert = require("node:assert/strict");
 const fs     = require("node:fs");
 const os     = require("node:os");
 const path   = require("node:path");
+const crypto = require("node:crypto");
 
 const { runReady } = require("../scripts/ready");
 const { isCitationJsAvailable } = require("../scripts/bibliography-manager");
+const { checkVivliostyle } = require("../scripts/vivliostyle-adapter");
+const { snapshotSources, canonicalizeApprovalPayload } = require("../scripts/revision-manager");
+
+/** Simula lo que Jintia Desktop hace en Rust al aprobar: firma el hash
+ * actual de las fuentes con un keypair Ed25519 recién generado y escribe
+ * la clave pública + el registro + la firma exactamente donde
+ * revision-manager.js::checkApproval() los espera. Requiere que ya exista
+ * un snapshot para ese hash (creado por una corrida previa con --skip-pdf)
+ * — igual que en el flujo real, aprobar no crea el snapshot, solo lo avala. */
+function grantTestApproval(dir, guidePath) {
+  const { hash } = snapshotSources(guidePath);
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
+  fs.mkdirSync(path.join(dir, ".jintia"), { recursive: true });
+  fs.writeFileSync(path.join(dir, ".jintia", "approval-public-key.pem"), publicKey.export({ type: "spki", format: "pem" }));
+  const payload = { hash, week: 1, approvedAt: new Date().toISOString() };
+  const signature = crypto.sign(null, canonicalizeApprovalPayload(payload), privateKey);
+  const weekDir = path.dirname(guidePath);
+  fs.writeFileSync(path.join(weekDir, ".jintia-approval.json"), JSON.stringify(payload));
+  fs.writeFileSync(path.join(weekDir, ".jintia-approval.sig"), signature.toString("base64"));
+  return hash;
+}
 
 function buildCompleteGuideDir() {
   const dir     = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-ready-test-"));
@@ -121,28 +143,77 @@ test("READY — una guía completa pasa toda la cadena determinista (--skip-pdf)
     assert.equal(report.deterministicDecision, "PRECHECK_READY", "Sin PDF real, la decisión no debe ser READY sino PRECHECK_READY");
     assert.equal(report.provenance.academicProvenance, "STRONG");
     assert.ok(report.notes.some(n => /jintia-selfstudy-reviewer/.test(n)), "Debe recordar que faltan las revisiones de agente");
+
+    assert.ok(report.revision?.hash, "PRECHECK_READY debe congelar un snapshot y reportar su hash");
+    assert.ok(fs.existsSync(report.revision.path), "el directorio del snapshot debe existir realmente");
+    assert.ok(fs.existsSync(path.join(report.revision.path, "guide.html")), "el snapshot debe incluir el guide.html ya renderizado");
+    assert.ok(fs.existsSync(path.join(report.revision.path, ".jintia-assets")), "REGRESIÓN: el snapshot debe incluir el CSS del tema (.jintia-assets), o el PDF compilado desde él sale sin estilos");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("READY — sin --skip-pdf y sin Vivliostyle disponible, la decisión es BLOCKED (no 'skipped')", async () => {
+test("REGRESIÓN — sin --skip-pdf y sin ninguna aprobación previa, compile queda bloqueado con JIN-APR-001 (nunca compila un HTML sin revisar)", async () => {
+  if (!isCitationJsAvailable()) return;
+  const { dir, guidePath } = buildCompleteGuideDir();
+  try {
+    // Un simple "jintia ready guide.json --json" (sin --skip-pdf) es
+    // exactamente el atajo que un agente podría usar para saltarse toda la
+    // aprobación humana si este gate no existiera.
+    const report = await runReady(guidePath, { skipPdf: false });
+    const compileStep = report.steps.find(s => s.step === "compile (PDF)");
+    assert.equal(compileStep.status, "error");
+    assert.match(compileStep.detail, /JIN-APR-001/);
+    assert.equal(report.deterministicDecision, "BLOCKED");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("READY — sin --skip-pdf y sin Vivliostyle disponible, la decisión es BLOCKED (no 'skipped') — con una aprobación vigente", async () => {
   if (!isCitationJsAvailable()) return;
   const { dir, guidePath } = buildCompleteGuideDir();
   const originalPath    = process.env.PATH;
   const originalManaged = process.env.JINTIA_VIVLIOSTYLE_BIN;
-  // Simula un entorno sin Vivliostyle CLI instalado, independientemente de
-  // si esta máquina lo tiene instalado globalmente.
-  process.env.PATH = "";
-  delete process.env.JINTIA_VIVLIOSTYLE_BIN;
   try {
+    // Sin aprobación previa, el gate JIN-APR-001 bloquearía antes de
+    // siquiera mirar Vivliostyle — hay que aprobar primero para que este
+    // test verifique lo que dice verificar (Vivliostyle ausente).
+    await runReady(guidePath, { skipPdf: true });
+    grantTestApproval(dir, guidePath);
+
+    // Simula un entorno sin Vivliostyle CLI instalado, independientemente de
+    // si esta máquina lo tiene instalado globalmente.
+    process.env.PATH = "";
+    delete process.env.JINTIA_VIVLIOSTYLE_BIN;
     const report = await runReady(guidePath, { skipPdf: false });
     const compileStep = report.steps.find(s => s.step === "compile (PDF)");
     assert.equal(compileStep.status, "error", "Sin Vivliostyle y sin --skip-pdf, compile debe quedar en error, no 'skipped'");
+    assert.doesNotMatch(compileStep.detail, /JIN-APR/, "con una aprobación vigente, el bloqueo debe ser por Vivliostyle, no por falta de aprobación");
+    assert.match(compileStep.detail, /Vivliostyle/);
     assert.equal(report.deterministicDecision, "BLOCKED", "Pedir el cierre completo sin poder alcanzarlo debe bloquear, no aparentar READY");
   } finally {
     process.env.PATH = originalPath;
     if (originalManaged !== undefined) process.env.JINTIA_VIVLIOSTYLE_BIN = originalManaged;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("READY — con una aprobación vigente y Vivliostyle disponible, compile usa el HTML congelado del snapshot, no una re-renderización", async () => {
+  if (!isCitationJsAvailable()) return;
+  if (!checkVivliostyle().ok) return;
+  const { dir, guidePath } = buildCompleteGuideDir();
+  try {
+    const prepared = await runReady(guidePath, { skipPdf: true });
+    grantTestApproval(dir, guidePath);
+
+    const report = await runReady(guidePath, { skipPdf: false });
+    const compileStep = report.steps.find(s => s.step === "compile (PDF)");
+    assert.equal(compileStep.status, "ok", JSON.stringify(report.issues));
+    assert.equal(report.deterministicDecision, "READY");
+    assert.equal(report.revision.hash, prepared.revision.hash, "debe reutilizar el snapshot ya aprobado, no crear uno nuevo");
+    assert.ok(fs.existsSync(compileStep.detail), "el PDF reportado debe existir realmente");
+  } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });

@@ -81,3 +81,21 @@ test("REGRESIÓN — el mensaje de error del CLI nunca expone líneas ##JINTIA-E
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("REGRESIÓN — jintia ready --json SÍ reenvía los eventos ##JINTIA-EVENT## al stderr real del proceso (no los descarta al capturarlos con stdio:pipe)", () => {
+  // spawnSync captura el stderr del hijo internamente (runScript usa
+  // stdio:"pipe" para poder parsear el stdout como JSON) — sin reenviarlo
+  // explícitamente, esos eventos nunca llegaban a ningún observador externo
+  // (ej. Jintia Desktop viendo la salida de ESTE proceso), dejando el modo
+  // --json — el que el propio SKILL.md recomienda para uso por agentes —
+  // incompatible con el progreso semántico. Este test corre el binario real
+  // (no en proceso) y verifica el stderr que él mismo produce hacia afuera.
+  const { dir, guidePath } = buildBlockedGuideDir();
+  try {
+    const result = run(["ready", guidePath, "--skip-pdf", "--json"]);
+    assert.match(result.stderr, /##JINTIA-EVENT##/, "el stderr real del proceso debe contener los eventos de progreso, no solo el stdout capturado internamente");
+    assert.match(result.stderr, /"step":"validate --publish"/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

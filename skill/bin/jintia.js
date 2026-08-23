@@ -124,12 +124,18 @@ function runScript(script, args, command = script.replace(/\.js$/, "")) {
   });
   if (result.error) throw result.error;
   if (asJson) {
-    // Los scripts que emiten eventos de progreso (ready.js, ver
-    // scripts/progress-events.js) escriben líneas ##JINTIA-EVENT## a su
-    // stderr. Esas líneas son telemetría interna, no un mensaje de error
-    // legible — deben excluirse de `output`, que solo alimenta el mensaje
-    // de fallback de createReport() (lastOutputLine) cuando el script no
-    // reporta sus propios errores estructurados en `data`.
+    // stdio:"pipe" captura el stderr del hijo (necesario para poder parsear
+    // su stdout como JSON) pero, a diferencia de "inherit", nunca lo deja
+    // llegar al stderr real de este proceso por sí solo. Los scripts que
+    // emiten eventos de progreso (ready.js, ver scripts/progress-events.js)
+    // dependen de que un observador externo (Jintia Desktop, viendo la
+    // salida de ESTE proceso) los vea — sin este reenvío, `jintia ready
+    // --json` los capturaba y los tiraba, dejando el progreso invisible
+    // justo en el modo que el propio SKILL.md recomienda usar.
+    if (result.stderr) process.stderr.write(result.stderr);
+    // Para el mensaje de fallback de createReport() (lastOutputLine), en
+    // cambio, esas líneas SÍ deben excluirse: son telemetría interna, no un
+    // mensaje de error legible para un humano.
     const cleanStderr = String(result.stderr || "")
       .split(/\r?\n/)
       .filter(line => !line.includes(PROGRESS_EVENT_SENTINEL))

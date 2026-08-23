@@ -5,6 +5,12 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 12.5.1 — 2026-08-23
+
+### Corregido
+
+- **Los eventos de progreso (`##JINTIA-EVENT##`) nunca salían de `jintia ready --json`.** `runScript()` en `bin/jintia.js` captura el stderr del proceso hijo con `stdio:"pipe"` para poder parsear su salida como JSON, pero a diferencia de `"inherit"` nunca dejaba que ese stderr llegara por sí solo al stderr real de este proceso. Un observador externo (Jintia Desktop, viendo la salida del proceso `jintia`) nunca veía los eventos de progreso al usar `--json` — justo el modo que este mismo proyecto recomienda para consumo por agentes. `jintia ready guide.json` (sin `--json`) sí funcionaba, porque ahí el stderr del hijo pasa directo. Ahora se reenvía explícitamente; el mensaje de error de `createReport()` sigue excluyendo esas líneas (12.5.0) para no mostrarle telemetría interna a un humano.
+
 ## `jintia-skill` 12.5.0 — 2026-08-23
 
 Flexibiliza el AST de `guide.json` para que la IA autora ya no esté

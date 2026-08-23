@@ -516,31 +516,35 @@ function main(argv) {
     const publish   = argv.slice(1).includes("--publish");
     const inputFile = restArgs.find(a => !a.startsWith("-"));
     if (inputFile && /\.json$/i.test(inputFile)) {
+      const { assertPublishReady } = require(path.join(SCRIPTS, "bibliography-manager.js"));
+      const { lintGuide } = require(path.join(SCRIPTS, "content-linter.js"));
+      const { validateAssets } = require(path.join(SCRIPTS, "asset-validator.js"));
+      const guideAbsolute = path.resolve(inputFile);
+      let guide;
+      try {
+        guide = JSON.parse(fs.readFileSync(guideAbsolute, "utf8"));
+      } catch (err) {
+        console.error(`jintia compile: no se pudo leer ${guideAbsolute}: ${err.message}`);
+        process.exitCode = 1;
+        return;
+      }
+
+      // Gate de schema/pedagogía — SIEMPRE, con o sin --publish. `compile`
+      // ya no es un atajo que evite `jintia validate`: un guide.json con
+      // campos incompatibles con el esquema (ej. "titulo"/"contenido" en
+      // vez de "title"/"content") debe bloquear aquí, no producir un PDF
+      // con secciones vacías.
+      const lintReport = lintGuide(guideAbsolute, { mode: publish ? "publish" : "default" });
+      const lintErrors = lintReport.issues.filter(i => i.severity === "error");
+      if (lintErrors.length > 0) {
+        console.error(`jintia compile${publish ? " --publish" : ""}: bloqueado por incidencias pedagógicas/estructurales.`);
+        for (const err of lintErrors) console.error(`✗ ${err.rule} · ${err.message}`);
+        console.error("Corrige guide.json o usa 'jintia validate' para ver el detalle completo.");
+        process.exitCode = 1;
+        return;
+      }
+
       if (publish) {
-        const { assertPublishReady } = require(path.join(SCRIPTS, "bibliography-manager.js"));
-        const { lintGuide } = require(path.join(SCRIPTS, "content-linter.js"));
-        const guideAbsolute = path.resolve(inputFile);
-        let guide;
-        try {
-          guide = JSON.parse(fs.readFileSync(guideAbsolute, "utf8"));
-        } catch (err) {
-          console.error(`jintia compile --publish: no se pudo leer ${guideAbsolute}: ${err.message}`);
-          process.exitCode = 1;
-          return;
-        }
-
-        // Gate pedagógico: targets, horas, evidencia estructurada y todo lo
-        // demás que valide content-linter.js, en modo publish (más estricto
-        // que jintia validate por defecto).
-        const lintReport = lintGuide(guideAbsolute, { mode: "publish" });
-        const lintErrors = lintReport.issues.filter(i => i.severity === "error");
-        if (lintErrors.length > 0) {
-          console.error("jintia compile --publish: bloqueado por incidencias pedagógicas/estructurales.");
-          for (const err of lintErrors) console.error(`✗ ${err.rule} · ${err.message}`);
-          process.exitCode = 1;
-          return;
-        }
-
         // Gate bibliográfico específico (Citation.js, .bib, claves, estilo).
         const { ready, errors } = assertPublishReady(guide, guideAbsolute);
         if (!ready) {
@@ -550,6 +554,27 @@ function main(argv) {
           return;
         }
       }
+
+      // Gate de assets (SVG) — solo en --publish (draft compile tolera
+      // figuras aún no renderizadas/placeholders, igual que hoy tolera
+      // citas sin resolver).
+      if (publish) {
+        try {
+          const assetReport = validateAssets(guideAbsolute);
+          const assetErrors = assetReport.issues.filter(i => i.severity === "error");
+          if (assetErrors.length > 0) {
+            console.error("jintia compile --publish: bloqueado por assets/SVG inválidos.");
+            for (const err of assetErrors) console.error(`✗ ${err.rule} · ${err.message}`);
+            process.exitCode = 1;
+            return;
+          }
+        } catch (err) {
+          console.error(`jintia compile --publish: bloqueado — no se pudieron validar los assets: ${err.message}`);
+          process.exitCode = 1;
+          return;
+        }
+      }
+
       // guide.json → render a HTML → compilar a PDF
       const htmlPath  = inputFile.replace(/\.json$/i, ".html");
       const themeArg  = option(restArgs, "--theme", null);
@@ -561,6 +586,33 @@ function main(argv) {
       });
       if (renderResult.error) throw renderResult.error;
       if (renderResult.status !== 0) { process.exitCode = renderResult.status; return; }
+
+      // Gates post-render — solo en --publish: un render "exitoso" (exit 0)
+      // puede seguir siendo un cascarón vacío si el AST no coincidía con lo
+      // que el renderer sabe leer, pero el schema gate de arriba (siempre
+      // activo) ya bloquea la causa raíz conocida (campos incompatibles);
+      // estos gates son la defensa en profundidad exigida antes de publicar.
+      if (publish) {
+        const { checkConsistency } = require(path.join(SCRIPTS, "render-consistency.js"));
+        const consistency = checkConsistency(guideAbsolute, htmlPath);
+        const consistencyErrors = consistency.issues.filter(i => i.severity === "error");
+        if (consistencyErrors.length > 0) {
+          console.error("jintia compile --publish: bloqueado por inconsistencia AST → HTML.");
+          for (const err of consistencyErrors) console.error(`✗ ${err.rule} · ${err.message}`);
+          process.exitCode = 1;
+          return;
+        }
+
+        const { lintHtmlContent } = require(path.join(SCRIPTS, "html-content-gate.js"));
+        const contentGate = lintHtmlContent(htmlPath, { guidePath: guideAbsolute });
+        const contentErrors = contentGate.issues.filter(i => i.severity === "error");
+        if (contentErrors.length > 0) {
+          console.error("jintia compile --publish: bloqueado por contenido HTML vacío o insuficiente.");
+          for (const err of contentErrors) console.error(`✗ ${err.rule} · ${err.message}`);
+          process.exitCode = 1;
+          return;
+        }
+      }
 
       if (publish) {
         const { assertRenderedPublishReady } = require(path.join(SCRIPTS, "bibliography-manager.js"));
@@ -577,6 +629,27 @@ function main(argv) {
       const compileArgs = [htmlPath];
       if (outputArg) compileArgs.push("--output", outputArg);
       return runScript("vivliostyle-adapter.js", compileArgs, "compile");
+    }
+
+    // Entrada .html directa (sin guide.json): no hay AST contra el cual
+    // comparar, pero en --publish igual se valida que el HTML no esté vacío.
+    const htmlInput = publish ? restArgs.find(a => !a.startsWith("-") && /\.html$/i.test(a)) : null;
+    if (htmlInput) {
+      const { lintHtmlContent } = require(path.join(SCRIPTS, "html-content-gate.js"));
+      try {
+        const contentGate = lintHtmlContent(path.resolve(htmlInput));
+        const contentErrors = contentGate.issues.filter(i => i.severity === "error");
+        if (contentErrors.length > 0) {
+          console.error("jintia compile: bloqueado por contenido HTML vacío o insuficiente.");
+          for (const err of contentErrors) console.error(`✗ ${err.rule} · ${err.message}`);
+          process.exitCode = 1;
+          return;
+        }
+      } catch (err) {
+        console.error(`jintia compile: bloqueado — no se pudo validar el HTML: ${err.message}`);
+        process.exitCode = 1;
+        return;
+      }
     }
     return runScript("vivliostyle-adapter.js", restArgs, "compile");
   }

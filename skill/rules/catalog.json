@@ -1,5 +1,5 @@
 {
-  "version": "2.6.0",
+  "version": "2.7.0",
   "rules": [
     { "id": "JIN-SCH-001", "category": "schema", "severity": "error", "description": "guide.json no cumple el esquema canónico (guide.schema.json)." },
     { "id": "JIN-SCH-002", "category": "schema", "severity": "error", "description": "metadata.targets es obligatorio para publicar (modo publish)." },
@@ -91,6 +91,27 @@
     { "id": "JIN-PLN-001", "category": "plan", "severity": "error", "description": "El plan no descompone el resultado de aprendizaje en 'targets' (obligatorio salvo legacy=true)." },
     { "id": "JIN-PLN-002", "category": "plan", "severity": "error", "description": "La matriz de alineación del plan está incompleta para uno o más targets." },
     { "id": "JIN-PLN-003", "category": "plan", "severity": "error", "description": "El plan no declara 'workloadBudget' o el presupuesto de horas es inconsistente (fuera de 70-130%)." },
-    { "id": "JIN-PLN-004", "category": "plan", "severity": "error", "description": "El 'assessmentContract' del plan no cubre las actividades calificadas del sílabo, o sus 'points' no coinciden." }
+    { "id": "JIN-PLN-004", "category": "plan", "severity": "error", "description": "El 'assessmentContract' del plan no cubre las actividades calificadas del sílabo, o sus 'points' no coinciden." },
+    { "id": "JIN-HTMLQ-001", "category": "content", "severity": "error", "description": "Título principal no puede estar vacío (h1)." },
+    { "id": "JIN-HTMLQ-002", "category": "content", "severity": "error", "description": "Curso no puede estar vacío." },
+    { "id": "JIN-HTMLQ-003", "category": "content", "severity": "error", "description": "Todo bloque pedagógico obligatorio debe contener texto visible." },
+    { "id": "JIN-HTMLQ-004", "category": "content", "severity": "error", "description": "La guía debe superar umbral mínimo de contenido académico." },
+    { "id": "JIN-HTMLQ-005", "category": "content", "severity": "error", "description": "No se permite sección compuesta únicamente por su etiqueta." },
+    { "id": "JIN-HTMLQ-006", "category": "content", "severity": "error", "description": "La bibliografía no puede aparecer vacía si existe bibliografía declarada." },
+    { "id": "JIN-HTMLQ-007", "category": "content", "severity": "error", "description": "El HTML debe conservar los targets y contenidos principales del AST (retención)." },
+    { "id": "JIN-ASSET-001", "category": "asset", "severity": "error", "description": "Archivo de figura no existe." },
+    { "id": "JIN-ASSET-002", "category": "asset", "severity": "error", "description": "SVG no parseable (XML malformado)." },
+    { "id": "JIN-ASSET-003", "category": "asset", "severity": "error", "description": "Raíz no es <svg> o namespace incorrecto." },
+    { "id": "JIN-ASSET-004", "category": "asset", "severity": "error", "description": "viewBox o dimensiones inválidas." },
+    { "id": "JIN-ASSET-005", "category": "asset", "severity": "error", "description": "SVG visualmente vacío." },
+    { "id": "JIN-ASSET-006", "category": "asset", "severity": "error", "description": "Referencias externas prohibidas o href no resuelve." },
+    { "id": "JIN-ASSET-007", "category": "asset", "severity": "error", "description": "Contiene <script> o foreignObject prohibido." },
+    { "id": "JIN-ASSET-008", "category": "asset", "severity": "warning", "description": "IDs duplicados en SVG." },
+    { "id": "JIN-RENDER-001", "category": "render", "severity": "error", "description": "metadata.topic debe renderizarse en <h1>." },
+    { "id": "JIN-RENDER-002", "category": "render", "severity": "error", "description": "metadata.course debe renderizarse en portada." },
+    { "id": "JIN-RENDER-003", "category": "render", "severity": "error", "description": "N secciones AST no coincide con secciones HTML." },
+    { "id": "JIN-RENDER-004", "category": "render", "severity": "error", "description": "N figuras AST no coincide con figuras HTML." },
+    { "id": "JIN-RENDER-005", "category": "render", "severity": "error", "description": "N tablas AST no coincide con tablas HTML." },
+    { "id": "JIN-RENDER-006", "category": "render", "severity": "error", "description": "Pérdida masiva de contenido AST→HTML (retención < umbral)." }
   ]
 }

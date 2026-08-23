@@ -29,6 +29,9 @@ const { lintGuide } = require("./content-linter");
 const { assertPublishReady, assertRenderedPublishReady } = require("./bibliography-manager");
 const { renderGuide } = require("./guide-renderer");
 const { lintHtml } = require("./html-linter");
+const { lintHtmlContent } = require("./html-content-gate");
+const { validateAssets } = require("./asset-validator");
+const { checkConsistency } = require("./render-consistency");
 const { runPreflight } = require("./pdf-preflight");
 const { buildPdf, checkVivliostyle } = require("./vivliostyle-adapter");
 
@@ -100,6 +103,16 @@ async function runReady(guidePath, options = {}) {
   // Si ya hay bloqueos estructurales/pedagógicos/bibliográficos, no renderizar.
   if (blocked) return finalize(provenance);
 
+  // 3b. asset/SVG gate — bloqueante antes de render
+  try {
+    const assetReport = validateAssets(absolute);
+    issues.push(...assetReport.issues);
+    record("assets (SVG)", assetReport.summary.errors === 0 ? "ok" : "error", `${assetReport.summary.errors} error(es), ${assetReport.summary.warnings} advertencia(s) (${assetReport.metrics.figuresChecked} figura(s))`);
+  } catch (err) {
+    record("assets (SVG)", "error", err.message);
+  }
+  if (blocked) return finalize(provenance);
+
   // 4. render
   const htmlPath = absolute.replace(/\.json$/i, ".html");
   let html;
@@ -120,6 +133,26 @@ async function runReady(guidePath, options = {}) {
     record("html lint", htmlReport.summary.errors === 0 ? "ok" : "error", `${htmlReport.summary.errors} error(es), ${htmlReport.summary.warnings} advertencia(s)`);
   } catch (err) {
     record("html lint", "error", err.message);
+  }
+  if (blocked) return finalize(provenance);
+
+  // 5b. render-consistency — AST vs HTML
+  try {
+    const consistency = checkConsistency(absolute, htmlPath);
+    issues.push(...consistency.issues);
+    record("render consistency", consistency.summary.errors === 0 ? "ok" : "error", consistency.summary.errors === 0 ? `retención ${consistency.metrics.retention ?? "—"}%` : consistency.issues.map(i => i.rule).join(", "));
+  } catch (err) {
+    record("render consistency", "error", err.message);
+  }
+  if (blocked) return finalize(provenance);
+
+  // 5c. html-content gate — contenido semántico real
+  try {
+    const contentGate = lintHtmlContent(htmlPath, { guidePath: absolute });
+    issues.push(...contentGate.issues);
+    record("html content", contentGate.summary.errors === 0 ? "ok" : "error", contentGate.summary.errors === 0 ? `${contentGate.metrics.htmlVisibleWords} palabras, retención ${contentGate.metrics.retention ?? "—"}%` : contentGate.issues.map(i => i.rule).join(", "));
+  } catch (err) {
+    record("html content", "error", err.message);
   }
   if (blocked) return finalize(provenance);
 

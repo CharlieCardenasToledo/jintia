@@ -48,7 +48,8 @@
   "dependencies": {
     "@citation-js/core": "^0.7.21",
     "@citation-js/plugin-bibtex": "^0.7.21",
-    "@citation-js/plugin-csl": "^0.7.22"
+    "@citation-js/plugin-csl": "^0.7.22",
+    "node-html-parser": "^6.1.13"
   },
   "keywords": [
     "instructional-design",

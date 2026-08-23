@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json.schemastore.org/guide",
+  "metadata": {
+    "asignatura": "CC05A_IFT200 — Estructura, modelado, almacenamiento de bases de datos",
+    "periodoAcademicoOrdinar": "mayo – agosto 2026",
+    "unidad": "Unidad 1",
+    "semana": 1,
+    "titulo": "[ASU IFT-200]: Module 1: Introduction to Database & Database Concepts",
+    "horas": { "docencia": 4, "practica": 1, "autonomo": 5 }
+  },
+  "sections": [
+    {
+      "type": "orientation",
+      "titulo": "Introducción a las Bases de Datos",
+      "contenido": [
+        "El curso CC05A_IFT200 explora la estructura, modelado y almacenamiento de bases de datos, comparando el enfoque tradicional de archivos con el enfoque moderno de bases de datos relacionales y no relacionales."
+      ]
+    },
+    {
+      "type": "theory",
+      "titulo": "Fundamentos del Enfoque de Bases de Datos",
+      "contenido": [
+        "1. El enfoque de base de datos surgió para superar las limitaciones del procesamiento de archivos tradicionales",
+        "2. Una DBMS proporciona un repositorio centralizado de datos definido una vez y accesible por múltiples usuarios y departamentos"
+      ]
+    },
+    {
+      "type": "practice",
+      "titulo": "Práctica: Diagnóstico de Redundancia en Archivos",
+      "contenido": [
+        "Actividad guiada: Diagnóstico de redundancia en sistemas de archivos (PE-1.1)"
+      ],
+      "recuperacion": "Identificar fuentes de redundancia en un conjunto de archivos universitarios ejemplo"
+    },
+    {
+      "type": "assessment",
+      "titulo": "Evaluación",
+      "contenido": ["Alineación con PE-1.1 del sílabo"]
+    },
+    {
+      "type": "bibliography",
+      "nodo": "bibliography",
+      "referencias": [
+        "Elmasri, R., & Navathe, S. B. (2016). Fundamentals of Database Systems (7th Edition). Pearson."
+      ]
+    }
+  ]
+}

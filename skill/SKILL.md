@@ -59,6 +59,37 @@ de `scripts/`; no duplica la lógica de validación ni de renderizado. Resolver
 incluida con `node "<skill-root>/bin/jintia.js" <comando>`; no asumir que la
 carpeta de trabajo es la raíz de la skill ni descargar un paquete con `npx`.
 
+### Reglas no negociables (incidente 2026-08-23)
+
+Un guide.json redactado a mano por el agente con campos en español
+(`asignatura`/`titulo`/`contenido` en vez de `course`/`title`/`content`) llegó
+a producir un HTML y un PDF "compilados con éxito" pero vacíos, porque el
+agente nunca ejecutó `jintia validate` ni `jintia ready`: exploró el skill
+invocando scripts sueltos bajo `scripts/` (`node scripts/guide-renderer.js`,
+`node scripts/html-linter.js`, etc.) y terminó llamando `jintia compile` a
+secas, sin `--publish`. Para que esto no se repita:
+
+- **Nunca invocar los scripts de `scripts/` directamente como sustituto de un
+  comando de `bin/jintia.js`.** Los únicos scripts que se invocan sueltos son
+  los explícitamente listados en `references/checklist.md` y en "Cierre
+  obligatorio" (`visual-pipeline.js`, `visual-linter.js`, `html-linter.js`) —
+  todo lo demás (schema, render, bibliografía, assets, consistencia AST→HTML,
+  contenido semántico) pasa por `jintia <comando>`.
+- **`jintia compile` no es un atajo para saltarse `jintia validate`.** Antes
+  de generar o volver a generar un PDF, ejecutar siempre `jintia validate
+  <guide.json>` primero; si algo bloquea, corregir el guide.json y repetir. No
+  interpretar un `compile` "exitoso" (exit 0) como evidencia de que el
+  contenido es correcto — solo `validate`/`ready` certifican eso.
+- **Todo material que se vaya a mostrar o entregar al usuario debe cerrar con
+  `jintia compile <guide.json> --publish` (nunca sin `--publish`) o, mejor
+  aún, con `jintia ready <guide.json>`** (ver paso 7 de "Cierre obligatorio").
+  `--publish` activa las validaciones bibliográficas que la variante sin
+  publish omite deliberadamente.
+- **Si `jintia` no aparece en `node_modules/.bin`, no empezar a improvisar
+  con scripts internos.** Resolver la ruta real del binario (`bin/jintia.js`
+  dentro de `<skill-root>`, ver arriba) y seguir usando los comandos de la
+  CLI normalmente.
+
 Para gestionar la instalación en harnesses, usar `harness status`, `harness
 install`, `harness update`, `harness repair` o `harness uninstall`. Las
 mutaciones exigen `--yes` y nunca sobrescriben rutas no gestionadas.

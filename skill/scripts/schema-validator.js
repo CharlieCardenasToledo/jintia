@@ -1,5 +1,23 @@
 "use strict";
 
+// Levenshtein distance for field suggestion
+function lev(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+function suggestField(input, candidates) {
+  let best = null, bestDist = Infinity;
+  for (const c of candidates) {
+    const d = lev(input.toLowerCase(), c.toLowerCase());
+    if (d < bestDist && d <= 3) { bestDist = d; best = c; }
+  }
+  return best;
+}
+
 function typeMatches(value, type) {
   if (type === "null")    return value === null;
   if (type === "array")   return Array.isArray(value);
@@ -101,9 +119,40 @@ function validate(value, schema, location, root) {
       if (!(req in value)) errors.push(`${location}.${req}: campo obligatorio`);
     }
     if (schema.additionalProperties === false && schema.properties) {
+      // Las claves habilitadas condicionalmente por allOf/if-then (ej. campos
+      // específicos de 'practice' o 'figure' en guide.schema.json) también
+      // cuentan como permitidas: additionalProperties solo mira su propio
+      // `properties`, así que sin esto, cualquier allOf.then.properties
+      // rompería additionalProperties:false para los tipos que lo usan.
+      const allowedKeys = new Set(Object.keys(schema.properties));
+      if (Array.isArray(schema.allOf)) {
+        for (const sub of schema.allOf) {
+          for (const branch of [sub, sub.then, sub.else]) {
+            if (branch && branch.properties) {
+              for (const k of Object.keys(branch.properties)) allowedKeys.add(k);
+            }
+          }
+        }
+      }
       for (const key of Object.keys(value)) {
-        if (!(key in schema.properties)) {
-          errors.push(`${location}.${key}: propiedad no permitida`);
+        if (!allowedKeys.has(key)) {
+          const hint = suggestField(key, [...allowedKeys]);
+          const extra = hint ? `; did you mean "${hint}"?` : "";
+          // Map Spanish field aliases to canonical English for better diagnostics
+          const aliasMap = {
+            asignatura: 'course',
+            semana: 'week',
+            titulo: typeof location === "string" && location.endsWith('.metadata') ? 'topic' : 'title',
+            contenido: 'content',
+            horas: 'hours',
+            unidad: 'unit',
+            periodoAcademicoOrdinar: 'period',
+            periodoAcademico: 'period',
+            referencias: 'bibliography',
+            bibliografia: 'bibliography',
+          };
+          const aliasHint = aliasMap[key] ? ` (alias ES → "${aliasMap[key]}")` : "";
+          errors.push(`${location}.${key}: propiedad no permitida${aliasHint}${extra}`);
         }
       }
     }

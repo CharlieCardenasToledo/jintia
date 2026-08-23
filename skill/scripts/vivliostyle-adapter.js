@@ -143,6 +143,7 @@ function buildPdf(htmlPath, outputPath, options = {}) {
 
   const absHtml   = path.resolve(htmlPath);
   const absOutput = path.resolve(outputPath);
+  const workDir   = path.dirname(absHtml);
 
   if (!fs.existsSync(absHtml)) {
     throw new Error(`Archivo HTML no encontrado: ${absHtml}`);
@@ -150,23 +151,37 @@ function buildPdf(htmlPath, outputPath, options = {}) {
 
   fs.mkdirSync(path.dirname(absOutput), { recursive: true });
 
+  // Vivliostyle CLI (visto en cli 11.1.0+) tiene una detección de "esto
+  // sobrescribiría el manuscrito original / el directorio de trabajo" que
+  // dispara un falso positivo cuando se le pasan rutas ABSOLUTAS como
+  // entrada y --output, incluso apuntando a directorios completamente
+  // distintos entre sí. Confirmado manualmente: el mismo build con rutas
+  // relativas y `cwd` puesto en el directorio del HTML de entrada funciona
+  // correctamente. Por eso invocamos siempre así, en vez de con rutas
+  // absolutas.
+  const relHtml   = path.relative(workDir, absHtml);
+  const relOutput = path.relative(workDir, absOutput);
+
   const args = [
     "build",
-    absHtml,
-    "--output",   absOutput,
+    relHtml,
+    "--output",   relOutput,
     "--size",     options.size || "A4",
   ];
 
-  if (options.theme)   args.push("--theme",   path.resolve(options.theme));
-  if (options.verbose) args.push("--verbose");
+  if (options.theme)   args.push("--theme",   path.relative(workDir, path.resolve(options.theme)));
+  // Vivliostyle CLI eliminó el flag booleano --verbose (visto en cli 11.2.0):
+  // el nivel de log ahora se controla con --log-level <silent|info|verbose|debug>.
+  if (options.verbose) args.push("--log-level", "verbose");
 
   if (options.verbose) {
-    console.log(`[vivliostyle-adapter] ${vivliostyle.invoker.join(" ")} ${args.join(" ")}`);
+    console.log(`[vivliostyle-adapter] (cwd=${workDir}) ${vivliostyle.invoker.join(" ")} ${args.join(" ")}`);
   }
 
   // invoker = [exec, ...prefixArgs] — cmd.exe /C path.cmd en Windows, path directo en Unix
   const [bin, ...invokerArgs] = vivliostyle.invoker;
   const result = spawnSync(bin, [...invokerArgs, ...args], {
+    cwd:      workDir,
     encoding: "utf8",
     stdio:    "inherit",
     shell:    false,

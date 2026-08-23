@@ -97,6 +97,31 @@ test("buildPdf: un error de spawn que no es timeout (ej. binario ausente) sigue 
   }
 });
 
+test("buildPdf: invoca con cwd en el directorio del HTML y rutas relativas (evita el falso 'overwrite' de Vivliostyle CLI con rutas absolutas)", () => {
+  const { dir, htmlPath, outputPath } = tmpHtml();
+  let capturedArgs = null;
+  let capturedOptions = null;
+  try {
+    withMockedSpawnSync((bin, args, spawnOptions) => {
+      if (args.includes("--version")) {
+        return { status: 0, stdout: "1.0.0", stderr: "" };
+      }
+      capturedArgs = args;
+      capturedOptions = spawnOptions;
+      fs.writeFileSync(outputPath, "%PDF-1.7 fake");
+      return { status: 0, signal: null, error: null, stdout: "", stderr: "" };
+    }, (adapter) => {
+      adapter.buildPdf(htmlPath, outputPath, { timeout: 10 });
+    });
+    assert.equal(capturedOptions.cwd, path.dirname(htmlPath));
+    assert.ok(capturedArgs.includes("guide.html"), `esperaba el nombre relativo del HTML: ${capturedArgs.join(" ")}`);
+    assert.ok(capturedArgs.includes("guide.pdf"), `esperaba el nombre relativo del PDF: ${capturedArgs.join(" ")}`);
+    assert.ok(!capturedArgs.some(a => a.includes(dir)), `no debe pasar rutas absolutas: ${capturedArgs.join(" ")}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("buildPdf: comportamiento previo se conserva — código de salida != 0 con PDF existente es éxito", () => {
   const { dir, htmlPath, outputPath } = tmpHtml();
   try {

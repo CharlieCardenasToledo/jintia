@@ -5,6 +5,17 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 12.4.3 — 2026-08-22
+
+Corrige dos bugs reales de compatibilidad con versiones actuales de
+Vivliostyle CLI (cli 11.1.0+), descubiertos al depurar un fallo de CI en
+`jintia-desktop` que resultó no ser específico de ese repositorio.
+
+### Corregido
+
+- **Compilación a PDF rota con rutas absolutas.** `vivliostyle-adapter.js` invocaba siempre a Vivliostyle CLI con rutas absolutas para el HTML de entrada y el `--output`. Las versiones actuales de Vivliostyle CLI disparan un falso positivo — `"this will overwrite the original manuscript file"` / `"this will overwrite the working directory of Vivliostyle"` — y abortan la compilación con código de salida 1 cuando reciben rutas absolutas, incluso apuntando a directorios completamente distintos entre sí. Esto rompía `jintia compile` y `jintia ready` (sin `--skip-pdf`) en cualquier entorno con Vivliostyle CLI reciente instalado. Verificado manualmente con el binario real: las mismas rutas, pasadas como relativas con `cwd` en el directorio del HTML de entrada, compilan correctamente. `buildPdf()` ahora siempre invoca así. Añadido un test de regresión que verifica que `spawnSync` nunca recibe rutas absolutas y que `cwd` queda fijado al directorio del HTML.
+- **`--verbose` ya no es una opción válida de Vivliostyle CLI** (eliminada en cli 11.2.0; el nivel de log ahora se controla con `--log-level <silent|info|verbose|debug>`). `buildPdf({ verbose: true })` pasaba `--verbose` directamente y Vivliostyle abortaba con `error: unknown option '--verbose'`. Corregido a `--log-level verbose`. No afectaba el flujo normal de `compile`/`ready` (que no pasan `verbose: true`), pero sí cualquier invocación explícita con esa opción, incluido el smoke test de CI de `jintia-desktop`.
+
 ## `jintia-skill` 12.4.2 — 2026-08-22
 
 Release documental: cierra una cuarta revisión externa que encontró que el

@@ -36,8 +36,14 @@ try {
   require("@citation-js/plugin-bibtex");
   require("@citation-js/plugin-csl");
   citationJs = true;
-} catch {
-  // No disponible; operar en modo degradado
+} catch (err) {
+  // Antes esto era un catch totalmente silencioso: un .bib perfectamente
+  // válido terminaba degradado ("[referencia no formateada]") sin ningún
+  // rastro de por qué, porque la causa real (Citation.js no instalado en
+  // ESTE entorno de render, no en el repo de desarrollo) nunca se
+  // reportaba. jintia validate/ready sigue siendo el gate real — esto es
+  // para que quien mire la consola entienda el síntoma sin adivinar.
+  console.warn(`[bibliography-manager] Citation.js no está disponible (${err.message}); las citas y la bibliografía se mostrarán en modo degradado (claves sin formatear). Verifica que @citation-js/core, @citation-js/plugin-bibtex y @citation-js/plugin-csl estén instalados en este entorno.`);
 }
 
 // ─── Cache de bibliografías cargadas ─────────────────────────────────────────
@@ -57,6 +63,7 @@ function loadBibliography(bibPath) {
   if (cache.has(absolute)) return cache.get(absolute);
 
   if (!fs.existsSync(absolute)) {
+    console.warn(`[bibliography-manager] No se encontró el archivo de bibliografía en ${absolute}; las citas y la bibliografía se mostrarán en modo degradado.`);
     const result = { entries: [], raw: "", available: false, notFound: true, path: absolute };
     cache.set(absolute, result);
     return result;
@@ -180,11 +187,15 @@ function renderBibliographyEntries(keys, bib, style = "apa") {
       lang:     "es-ES",
     });
 
-    // Citation.js devuelve un bloque HTML; dividir por <div> de entrada
+    // Citation.js devuelve un bloque HTML; dividir por <div> de entrada.
+    // `[\s\S]*` (no `.*`) es necesario: el chunk de la última entrada trae
+    // el </div> de cierre del contenedor externo en la línea siguiente, y
+    // `.` no cruza saltos de línea — con `.*` quedaba un `</div>` colgando
+    // al final de cada referencia en el HTML final.
     return html
       .split(/<div[^>]*>/)
       .slice(1)
-      .map(chunk => chunk.replace(/<\/div>.*/, "").trim())
+      .map(chunk => chunk.replace(/<\/div>[\s\S]*/, "").trim())
       .filter(Boolean);
   } catch (err) {
     console.warn(`[bibliography-manager] Error al formatear bibliografía: ${err.message}`);

@@ -76,9 +76,42 @@ function processInlineMarkup(text, bib = null, style = "apa") {
   return parts.join("");
 }
 
-/** Convierte texto plano (con saltos de línea) en párrafos HTML. */
+// Detecta si un valor de content/steps/etc. YA es HTML (el agente puede
+// escribirlo directamente en vez de texto plano con {{cite:}}/{{keyterm:}}).
+// Exige que el string EMPIECE con una etiqueta reconocida para no disparar
+// en falso con texto legítimo como "< 5 minutos" — "<p>La semana..." sí
+// cuenta, "< 5 minutos" no (falta el nombre de etiqueta pegado al "<").
+const HTML_TAG_START = /^\s*<(p|ul|ol|li|div|table|thead|tbody|tr|td|th|blockquote|h[1-6]|figure|strong|em|b|i|span|a|code|pre)[\s>/]/i;
+
+function looksLikeHtml(text) {
+  return typeof text === "string" && HTML_TAG_START.test(text);
+}
+
+// Sanitización mínima para HTML que el agente escribió directamente (en vez
+// de texto plano): ese HTML se inserta sin escapar en el documento que
+// Vivliostyle compila con un Chromium headless — un <script>/manejador de
+// evento ahí es ejecución real durante el render, no solo cosmética. No es
+// un sanitizador completo (no hay parser HTML en las dependencias de este
+// paquete): cubre el vector real (ejecución de script), no cada variante
+// teórica de HTML inválido.
+function sanitizeInlineHtml(html) {
+  return html
+    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<style\b[\s\S]*?<\/style\s*>/gi, "")
+    .replace(/<(iframe|object|embed)\b[\s\S]*?(?:\/>|<\/\1\s*>)/gi, "")
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s(href|src)\s*=\s*("javascript:[^"]*"|'javascript:[^']*'|"data:(?!image\/)[^"]*"|'data:(?!image\/)[^']*')/gi, "");
+}
+
+/** Convierte texto plano (con saltos de línea) en párrafos HTML. Si el
+ * valor ya es HTML de bloque, se inserta tal cual (sanitizado) en vez de
+ * escaparlo y volver a envolverlo en <p> — evita el <p>&lt;p&gt;...&lt;/p&gt;</p>
+ * que resulta de tratar HTML ya válido como texto plano. Como contrapartida,
+ * {{cite:}}/{{keyterm:}} no se procesan dentro de HTML ya escrito por el
+ * agente: para citas inline, usar texto plano con esa sintaxis. */
 function textToHtml(text, bib = null, style = "apa") {
   if (typeof text !== "string") return "";
+  if (looksLikeHtml(text)) return sanitizeInlineHtml(text.trim());
   return text
     .split(/\n{2,}/)
     .filter(Boolean)
@@ -274,7 +307,9 @@ function renderPractice(node, bib, style) {
   const extraBlock = (className, heading, value, asList = false) => {
     if (asList) {
       if (!Array.isArray(value) || value.length === 0) return "";
-      const items = value.map(item => `<li>${processInlineMarkup(String(item), bib, style)}</li>`).join("\n");
+      const items = value
+        .map(item => `<li>${looksLikeHtml(String(item)) ? sanitizeInlineHtml(String(item).trim()) : processInlineMarkup(String(item), bib, style)}</li>`)
+        .join("\n");
       return `<div class="${className}"><h3>${escapeHtml(heading)}</h3><ul>${items}</ul></div>`;
     }
     if (!value) return "";

@@ -66,6 +66,11 @@ test("compile-stub: jintia compile guide.json invoca vivliostyle con HTML", () =
 
   const guideDst = path.join(outDir, "guide.json");
   fs.copyFileSync(GUIDE_SRC, guideDst);
+  // guide-sample.json cita {{cite:codd1970}}/{{cite:date2004}} y declara
+  // metadata.bibliography: sin el .bib real presente, el gate de
+  // degradación bibliográfica (JIN-BIB-006, siempre activo en compile)
+  // bloquearía correctamente esto como una bibliografía rota.
+  fs.copyFileSync(path.join(FIXTURES, "reference.bib"), path.join(outDir, "reference.bib"));
 
   const env    = { ...process.env, PATH: `${tmpDir}${path.delimiter}${process.env.PATH || ""}` };
   const result = spawnSync(process.execPath, [JINTIA, "compile", guideDst], {
@@ -218,6 +223,116 @@ test("compile-stub: keyterm syntax se renderiza como span, no como texto escapad
       !html.includes("{{keyterm:"),
       "La sintaxis {{keyterm:}} no debe aparecer cruda en el HTML",
     );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("REGRESIÓN — content que ya es HTML no se escapa ni se envuelve en <p> otra vez", () => {
+  const { renderGuide } = require("../scripts/guide-renderer");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-html-content-"));
+
+  try {
+    const guide = {
+      metadata: { course: "Test", topic: "Test", outcome: "Aplicar conceptos" },
+      sections: [
+        {
+          type: "orientation",
+          content: ["<p>La semana 03 inicia con <strong>atributos</strong>.</p>", "<ul><li>Simples</li><li>Compuestos</li></ul>"],
+        },
+        {
+          type: "practice",
+          workedExample: "<p>Ejemplo ya en HTML.</p>",
+          steps: ["<strong>Paso 1</strong>: identifica la clave.", "Paso 2 en texto plano con {{keyterm:clave}}."],
+        },
+      ],
+    };
+    const guidePath = path.join(tmpDir, "guide.json");
+    fs.writeFileSync(guidePath, JSON.stringify(guide));
+
+    const html = renderGuide(guidePath);
+
+    assert.ok(html.includes("<p>La semana 03 inicia con <strong>atributos</strong>.</p>"), "el <p> ya válido debe pasar tal cual");
+    assert.ok(html.includes("<ul><li>Simples</li><li>Compuestos</li></ul>"), "el <ul> ya válido debe pasar tal cual");
+    assert.ok(html.includes("<li><strong>Paso 1</strong>: identifica la clave.</li>"), "un item de steps que ya es HTML no debe escaparse");
+    assert.ok(html.includes('<span class="jintia-keyterm">clave</span>'), "un item de steps en texto plano sigue procesando {{keyterm:}}");
+    assert.ok(!html.includes("&lt;p&gt;"), "no debe quedar ningún <p> escapado como texto visible");
+    assert.ok(!html.includes("&lt;strong&gt;"), "no debe quedar ningún <strong> escapado como texto visible");
+    assert.ok(!html.includes("&lt;ul&gt;"), "no debe quedar ningún <ul> escapado como texto visible");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("REGRESIÓN — content en texto plano que empieza con '<' sin ser una etiqueta real sigue escapándose", () => {
+  const { renderGuide } = require("../scripts/guide-renderer");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-plain-lt-"));
+
+  try {
+    const guide = {
+      metadata: { course: "Test", topic: "Test", outcome: "Aplicar conceptos" },
+      sections: [{ type: "orientation", content: "< 5 minutos son suficientes para esta actividad." }],
+    };
+    const guidePath = path.join(tmpDir, "guide.json");
+    fs.writeFileSync(guidePath, JSON.stringify(guide));
+
+    const html = renderGuide(guidePath);
+
+    assert.ok(html.includes("&lt; 5 minutos"), "un '<' que no forma una etiqueta real debe seguir escapándose (no es HTML)");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("REGRESIÓN — HTML de content pasa por sanitización mínima (sin <script>, sin manejadores de evento)", () => {
+  const { renderGuide } = require("../scripts/guide-renderer");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-html-sanitize-"));
+
+  try {
+    const guide = {
+      metadata: { course: "Test", topic: "Test", outcome: "Aplicar conceptos" },
+      sections: [{
+        type: "orientation",
+        content: '<p onclick="alert(1)">texto<script>alert(1)</script> seguro</p>',
+      }],
+    };
+    const guidePath = path.join(tmpDir, "guide.json");
+    fs.writeFileSync(guidePath, JSON.stringify(guide));
+
+    const html = renderGuide(guidePath);
+
+    assert.ok(!html.includes("<script>"), "no debe sobrevivir ningún <script>");
+    assert.ok(!/onclick\s*=/.test(html), "no debe sobrevivir ningún manejador de evento");
+    assert.ok(html.includes("texto"), "el texto legítimo sí debe conservarse");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("REGRESIÓN — compile bloquea (incluso sin --publish) si la bibliografía queda degradada en el HTML final", () => {
+  const tmpDir   = fs.mkdtempSync(path.join(os.tmpdir(), "jintia-bib-degraded-"));
+  const argsFile = createVivliostyleStub(tmpDir);
+  const outDir   = path.join(tmpDir, "out");
+  fs.mkdirSync(outDir);
+  const guideDst = path.join(outDir, "guide.json");
+  fs.copyFileSync(GUIDE_SRC, guideDst);
+  // A propósito NO se copia reference.bib: guide-sample.json declara
+  // metadata.bibliography y cita {{cite:codd1970}}/{{cite:date2004}}, así
+  // que sin el .bib real el render cae en modo degradado
+  // (jintia-degraded) — eso debe bloquear el compile, no solo avisar,
+  // independientemente de si se pidió --publish (incidente 2026-08-24:
+  // un .bib real que no se resolvía por una ruta rota terminó en un PDF
+  // con "[referencia no formateada]" sin ningún error).
+
+  const env    = { ...process.env, PATH: `${tmpDir}${path.delimiter}${process.env.PATH || ""}` };
+  const result = spawnSync(process.execPath, [JINTIA, "compile", guideDst], {
+    env, encoding: "utf8", stdio: "pipe", cwd: outDir,
+  });
+
+  try {
+    assert.notEqual(result.status, 0, "compile debe fallar si la bibliografía queda degradada");
+    assert.match(result.stderr, /JIN-BIB-006/, `stderr debe citar JIN-BIB-006: ${result.stderr}`);
+    assert.ok(!fs.existsSync(argsFile), "vivliostyle no debe invocarse si la bibliografía está degradada");
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

@@ -614,12 +614,19 @@ function main(argv) {
         }
       }
 
-      if (publish) {
+      // A diferencia de assertPublishReady() (pre-render, gateada por
+      // --publish porque tolera estados de borrador legítimos como una
+      // clave citada que aún no está en el .bib), esto revisa el HTML YA
+      // renderizado: si quedó "jintia-degraded" o "{{cite:" sin resolver
+      // ahí, es un defecto real (bibliografía rota, no "trabajo en curso")
+      // sin importar si se pidió --publish. Un PDF con
+      // "[referencia no formateada]" nunca debería salir sin aviso.
+      {
         const { assertRenderedPublishReady } = require(path.join(SCRIPTS, "bibliography-manager.js"));
         const renderedHtml = fs.readFileSync(htmlPath, "utf8");
         const { ready, errors } = assertRenderedPublishReady(renderedHtml);
         if (!ready) {
-          console.error("jintia compile --publish: bloqueado por degradación bibliográfica en el HTML renderizado.");
+          console.error(`jintia compile${publish ? " --publish" : ""}: bloqueado por degradación bibliográfica en el HTML renderizado.`);
           for (const err of errors) console.error(`✗ ${err.code} · ${err.message}`);
           process.exitCode = 1;
           return;

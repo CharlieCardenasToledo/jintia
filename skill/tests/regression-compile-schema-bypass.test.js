@@ -124,6 +124,10 @@ test("REGRESIÓN 2026-08-23 — un guide.json correcto sigue compilando (los gat
   fs.mkdirSync(outDir);
   const guideDst = path.join(outDir, "guide.json");
   fs.copyFileSync(GOOD_GUIDE, guideDst);
+  // guide-sample.json cita {{cite:codd1970}}/{{cite:date2004}}: sin el .bib
+  // real, el gate de degradación bibliográfica (siempre activo en compile)
+  // bloquearía esto correctamente como bibliografía rota, no como falso positivo.
+  fs.copyFileSync(path.join(FIXTURES, "reference.bib"), path.join(outDir, "reference.bib"));
 
   const env    = { ...process.env, PATH: `${tmpDir}${path.delimiter}${process.env.PATH || ""}` };
   const result = spawnSync(process.execPath, [JINTIA, "compile", guideDst], {

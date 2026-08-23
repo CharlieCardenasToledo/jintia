@@ -66,6 +66,7 @@ const CHILD_CAPABILITY_ALIASES = {
   feedback:        new Set(["feedback", "retroalimentacion", "retroalimentación"]),
   remediation:     new Set(["remediation", "remediacion", "remediación"]),
   transfer:        new Set(["transfer", "transferencia"]),
+  steps:           new Set(["step", "steps", "paso", "pasos"]),
 };
 
 function hasContent(value) {
@@ -97,18 +98,36 @@ function hasExplicitRoleAnchor(section) {
   return Object.prototype.hasOwnProperty.call(LEGACY_TYPE_ROLES, section.type);
 }
 
-function childrenWithCapability(section, capability) {
+/** Todas las piezas del subárbol de `children` (recursivo, no solo el
+ * primer nivel) — una pieza puede anidar otras (`activity > phase >
+ * feedback`), y la capacidad debe detectarse sin importar a qué profundidad
+ * aparezca. */
+function collectDescendantPieces(section) {
   if (!section || !Array.isArray(section.children)) return [];
+  const result = [];
+  const stack = [...section.children];
+  while (stack.length > 0) {
+    const piece = stack.shift();
+    if (!piece) continue;
+    result.push(piece);
+    if (Array.isArray(piece.children)) stack.push(...piece.children);
+  }
+  return result;
+}
+
+function childrenWithCapability(section, capability) {
   const aliases = CHILD_CAPABILITY_ALIASES[capability];
   if (!aliases) return [];
-  return section.children.filter(c => c && typeof c.type === "string" && aliases.has(c.type.toLowerCase()));
+  return collectDescendantPieces(section)
+    .filter(c => c && typeof c.type === "string" && aliases.has(c.type.toLowerCase()));
 }
 
 /** ¿Esta sección satisface la capacidad pedagógica `capability`? Comprueba
  * el campo plano clásico (ej. `workedExample`) O la presencia de al menos
- * una pieza en `children` cuyo type sea un alias reconocido de esa
- * capacidad (ej. un hijo `{"type":"example", ...}`). Ambas rutas son
- * equivalentes: una guía puede usar la que le convenga, o ambas. */
+ * una pieza en `children` (a cualquier profundidad) cuyo type sea un alias
+ * reconocido de esa capacidad (ej. un hijo `{"type":"example", ...}`, o un
+ * nieto anidado dentro de otra pieza). Ambas rutas son equivalentes: una
+ * guía puede usar la que le convenga, o ambas. */
 function hasCapability(section, flatField, capability) {
   if (!section) return false;
   if (hasContent(section[flatField])) return true;

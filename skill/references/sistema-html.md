@@ -124,10 +124,12 @@ en vez de quedar fuera de ellas:
   `remediation`/`transfer`/`purpose`/`materials`/`route`): en vez de rellenar
   esos campos, podés descomponer el nodo en piezas semánticas anidables
   (`example`, `prompt`, `hint`, `narrative`, `question`, `reflection`,
-  `table`, `figure`, `feedback`, `remediation`, `success-criteria`,
+  `step`, `table`, `figure`, `feedback`, `remediation`, `success-criteria`,
   `self-check`, `transfer`...). Coexisten: un nodo puede usar campos planos,
   `children`, o ambos. El linter detecta la capacidad pedagógica (¿hay
-  ejemplo trabajado? ¿hay retroalimentación?) por cualquiera de las dos vías.
+  ejemplo trabajado? ¿hay retroalimentación?) por cualquiera de las dos vías,
+  buscando en **todo el subárbol** de `children` — no solo en el primer
+  nivel, así que un `feedback` anidado dentro de otra pieza también cuenta.
 - `content` también acepta un objeto estructurado (ej.
   `{"question":"...","answer":"..."}`) — se renderiza como lista de
   definición en vez de colapsar a texto.

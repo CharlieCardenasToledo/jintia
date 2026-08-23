@@ -409,8 +409,6 @@ function lintGuide(guidePath, options = {}) {
   // estructurales para que el estudiante avance sin un tutor presente, así
   // que se exigen siempre en publish.
   if (publish) {
-    const hasContentPub = value => value !== undefined && value !== null && value !== "" &&
-      !(Array.isArray(value) && value.length === 0);
     const orientationForPublish = sections.find(s => hasRole(s, "orientation"));
     if (orientationForPublish) {
       if (!hasCapability(orientationForPublish, "purpose", "purpose")) {
@@ -431,7 +429,7 @@ function lintGuide(guidePath, options = {}) {
       if (!hasCapability(node, "prompt", "prompt")) {
         issue("JIN-SELF-014", `Nodo ${idx + 1} (practice, mode='guided'): no declara 'prompt' (obligatorio en publish).`, { nodeIndex: idx });
       }
-      if (!hasContentPub(node.steps)) {
+      if (!hasCapability(node, "steps", "steps")) {
         issue("JIN-SELF-015", `Nodo ${idx + 1} (practice, mode='guided'): no declara 'steps' (obligatorio en publish).`, { nodeIndex: idx });
       }
     });

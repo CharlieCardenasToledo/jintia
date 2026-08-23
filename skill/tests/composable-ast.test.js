@@ -21,6 +21,7 @@ const path   = require("node:path");
 const { validate: validateSchema } = require("../scripts/schema-validator");
 const { lintGuide }   = require("../scripts/content-linter");
 const { renderGuide } = require("../scripts/guide-renderer");
+const { hasCapability } = require("../scripts/pedagogical-roles");
 
 const SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "schemas", "guide.schema.json"), "utf8"));
 
@@ -162,6 +163,50 @@ test("AST — children anidados (piezas dentro de piezas) se renderizan recursiv
     assert.ok(html.includes("Una empresa necesita registrar pedidos"), "la narrativa de primer nivel debe renderizarse");
     assert.ok(html.includes("¿Qué entidades identificas?"), "la pregunta de primer nivel debe renderizarse");
     assert.ok(html.includes("Piensa en los sustantivos"), "la pista anidada dentro de la pregunta debe renderizarse");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("AST — hasCapability() busca en todo el subárbol de children, no solo en el primer nivel (activity > phase > feedback)", () => {
+  const node = {
+    type: "activity",
+    children: [
+      {
+        type: "phase", content: "Fase 1: exploración",
+        children: [{ type: "feedback", content: "Retroalimentación de la fase 1." }],
+      },
+    ],
+  };
+  assert.equal(
+    hasCapability(node, "feedback", "feedback"), true,
+    "un 'feedback' anidado dos niveles abajo (dentro de 'phase') debe contar igual que uno directo en children"
+  );
+  assert.equal(
+    hasCapability(node, "remediation", "remediation"), false,
+    "una capacidad realmente ausente en todo el subárbol debe seguir reportando false"
+  );
+});
+
+test("AST — JIN-SELF-015 (steps, obligatorio en publish) se satisface con children de type 'step', sin el campo plano 'steps'", () => {
+  const guide = {
+    metadata: { course: "Test", week: 1, topic: "T", outcome: "O" },
+    sections: [
+      { type: "orientation", route: ["a"], purpose: "p", materials: ["m"], successCriteria: ["sc"], estimatedMinutes: 5 },
+      {
+        type: "practice", mode: "guided", prompt: "Consigna de la práctica.", workedExample: "Ejemplo modelo.",
+        children: [
+          { type: "step", content: "Primero identifica las entidades." },
+          { type: "step", content: "Después identifica los atributos." },
+        ],
+      },
+    ],
+  };
+  const { dir, guidePath } = tmpGuide(guide);
+  try {
+    const report = lintGuide(guidePath, { mode: "publish" });
+    const codes = report.issues.map(i => i.rule);
+    assert.ok(!codes.includes("JIN-SELF-015"), `'steps' vía children debería satisfacer JIN-SELF-015: ${codes.join(", ")}`);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { createReport, parseJsonOutput, printReport } = require("../scripts/report");
+const { SENTINEL: PROGRESS_EVENT_SENTINEL } = require("../scripts/progress-events");
 
 const ROOT = path.resolve(__dirname, "..");
 const SCRIPTS = path.join(ROOT, "scripts");
@@ -112,7 +113,7 @@ function option(args, name, fallback = null) {
 function runScript(script, args, command = script.replace(/\.js$/, "")) {
   const asJson = args.includes("--json");
   const forwardedArgs = args.filter(arg => arg !== "--json");
-  const childArgs = asJson && (script === "rules-runner.js" || script === "context-manager.js" || script === "agent-plan.js" || script === "harness-detect.js" || script === "harness-manager.js" || script === "migrate-runner.js" || script === "legacy-linter.js" || script === "openai-plugin-manager.js")
+  const childArgs = asJson && (script === "rules-runner.js" || script === "context-manager.js" || script === "agent-plan.js" || script === "harness-detect.js" || script === "harness-manager.js" || script === "migrate-runner.js" || script === "legacy-linter.js" || script === "openai-plugin-manager.js" || script === "ready.js")
     ? [...forwardedArgs, "--json"]
     : forwardedArgs;
   const result = spawnSync(process.execPath, [path.join(SCRIPTS, script), ...childArgs], {
@@ -123,7 +124,17 @@ function runScript(script, args, command = script.replace(/\.js$/, "")) {
   });
   if (result.error) throw result.error;
   if (asJson) {
-    const output = `${result.stdout || ""}${result.stderr || ""}`;
+    // Los scripts que emiten eventos de progreso (ready.js, ver
+    // scripts/progress-events.js) escriben líneas ##JINTIA-EVENT## a su
+    // stderr. Esas líneas son telemetría interna, no un mensaje de error
+    // legible — deben excluirse de `output`, que solo alimenta el mensaje
+    // de fallback de createReport() (lastOutputLine) cuando el script no
+    // reporta sus propios errores estructurados en `data`.
+    const cleanStderr = String(result.stderr || "")
+      .split(/\r?\n/)
+      .filter(line => !line.includes(PROGRESS_EVENT_SENTINEL))
+      .join("\n");
+    const output = `${result.stdout || ""}${cleanStderr}`;
     const data = parseJsonOutput(result.stdout);
     const target = forwardedArgs.find(arg => !arg.startsWith("--")) || null;
     printReport(createReport({ command, target, exitCode: result.status ?? 1, data, output }));

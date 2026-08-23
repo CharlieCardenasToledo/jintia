@@ -19,7 +19,7 @@ Ejecuta el linter de contenido (`content-linter.js`) contra el schema canónico.
 | JIN-CNT-003 | Pedagogía | Advertencia — `assessment` sin `practice` previo |
 | JIN-CNT-004 | Bibliografía | Advertencia — clave citada no existe en `.bib` |
 | JIN-CNT-005 | Alineación | Error — falta `outcome` en metadata |
-| JIN-CNT-006 | Estructura | Error — tipo de nodo desconocido |
+| JIN-CNT-006 | Estructura | Advertencia — `type` personalizado sin `role`: sin validación pedagógica de familia |
 | JIN-CNT-007 | Accesibilidad | Advertencia — tabla sin `caption` o `headers` |
 | JIN-CNT-008 | Estructura | Advertencia — IDs duplicados |
 | JIN-CNT-009 | Bibliografía | Advertencia — hay citas pero no se declaró `bibliography` |

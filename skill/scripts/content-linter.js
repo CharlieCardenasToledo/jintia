@@ -20,6 +20,7 @@ const path = require("node:path");
 const { validate: validateSchema } = require("./schema-validator");
 const { collectCitationKeys, collectFromContent } = require("./citation-keys");
 const { getRule: getCatalogRule } = require("../runtime/core/rule-catalog");
+const { resolveRole, hasRole, hasExplicitRoleAnchor, hasCapability, flattenContentSources } = require("./pedagogical-roles");
 
 const ROOT             = path.resolve(__dirname, "..");
 const SCHEMA_PATH      = path.join(ROOT, "schemas", "guide.schema.json");
@@ -42,7 +43,7 @@ const RULES = {
   },
   "JIN-CNT-003": {
     id: "JIN-CNT-003", category: "pedagogy", severity: "warning",
-    description: "Todo nodo 'assessment' debería seguir a un nodo 'practice' o 'scenario'.",
+    description: "Todo nodo con role='assessment' debería seguir a una sección con role='practice'.",
   },
   "JIN-CNT-004": {
     id: "JIN-CNT-004", category: "bibliography", severity: "warning",
@@ -53,8 +54,8 @@ const RULES = {
     description: "guide.json debe incluir el campo 'outcome' en metadata.",
   },
   "JIN-CNT-006": {
-    id: "JIN-CNT-006", category: "structure", severity: "error",
-    description: "No se permiten tipos de nodo desconocidos.",
+    id: "JIN-CNT-006", category: "structure", severity: "warning",
+    description: "Un nodo usa un 'type' personalizado (fuera del vocabulario clásico) sin declarar 'role': no recibe las reglas pedagógicas de familia (JIN-ALN-*, JIN-SELF-*, JIN-WRK-*).",
   },
   "JIN-CNT-007": {
     id: "JIN-CNT-007", category: "accessibility", severity: "warning",
@@ -314,22 +315,13 @@ const RULES = {
   },
 };
 
-const VALID_TYPES = new Set([
-  "orientation", "opening", "theory", "concept", "comparison", "warning", "critical-error",
-  "practice", "activity", "figure", "table", "scenario", "case", "reflection", "assessment",
-  "margin-note", "bibliography", "citation",
-]);
-
-// El schema no impone secuencia ni conteo fijo de tipos — la IA compone
-// libremente. Estos conjuntos agrupan tipos "hermanos" (misma función
-// pedagógica, distinta etiqueta visual — ver BLOCK_RENDER_CONFIG en
-// guide-renderer.js) para que las reglas de alineación (JIN-ALN-*) y
-// autoinstruccionalidad (JIN-SELF-*) reconozcan "opening" como orientación,
-// "case"/"comparison" como enseñanza y "activity"/"reflection" como
-// práctica, en vez de exigir literalmente los nombres originales.
-const ORIENTATION_TYPES = new Set(["orientation", "opening"]);
-const TEACHING_TYPES    = new Set(["theory", "concept", "case", "comparison"]);
-const PRACTICE_TYPES    = new Set(["practice", "activity", "scenario", "reflection"]);
+// El schema no impone secuencia, conteo ni vocabulario cerrado de tipos — la
+// IA compone libremente e incluso puede inventar un `type` (ver
+// guide.schema.json). Las reglas de alineación (JIN-ALN-*), autoinstrucción
+// (JIN-SELF-*) y carga (JIN-WRK-*) ya no preguntan "¿tu type es theory?"
+// sino "¿tu role es teaching?" — ver scripts/pedagogical-roles.js, que
+// infiere el role de los tipos clásicos automáticamente (compatibilidad
+// total) y lo exige explícito solo para tipos personalizados.
 
 const VALID_PAGINATION = new Set([
   "atomic", "splittable", "repeatable-header", "keep-with-next", "page-contained",
@@ -419,15 +411,15 @@ function lintGuide(guidePath, options = {}) {
   if (publish) {
     const hasContentPub = value => value !== undefined && value !== null && value !== "" &&
       !(Array.isArray(value) && value.length === 0);
-    const orientationForPublish = sections.find(s => ORIENTATION_TYPES.has(s.type));
+    const orientationForPublish = sections.find(s => hasRole(s, "orientation"));
     if (orientationForPublish) {
-      if (!hasContentPub(orientationForPublish.purpose)) {
+      if (!hasCapability(orientationForPublish, "purpose", "purpose")) {
         issue("JIN-SELF-010", "El nodo 'orientation' no declara 'purpose' (obligatorio en publish).");
       }
-      if (!hasContentPub(orientationForPublish.materials)) {
+      if (!hasCapability(orientationForPublish, "materials", "materials")) {
         issue("JIN-SELF-011", "El nodo 'orientation' no declara 'materials' (obligatorio en publish).");
       }
-      if (!hasContentPub(orientationForPublish.successCriteria)) {
+      if (!hasCapability(orientationForPublish, "successCriteria", "successCriteria")) {
         issue("JIN-SELF-012", "El nodo 'orientation' no declara 'successCriteria' (obligatorio en publish).");
       }
       if (typeof orientationForPublish.estimatedMinutes !== "number") {
@@ -435,8 +427,8 @@ function lintGuide(guidePath, options = {}) {
       }
     }
     sections.forEach((node, idx) => {
-      if (!PRACTICE_TYPES.has(node.type) || (node.mode || "guided") !== "guided") return;
-      if (!hasContentPub(node.prompt)) {
+      if (!hasRole(node, "practice") || (node.mode || "guided") !== "guided") return;
+      if (!hasCapability(node, "prompt", "prompt")) {
         issue("JIN-SELF-014", `Nodo ${idx + 1} (practice, mode='guided'): no declara 'prompt' (obligatorio en publish).`, { nodeIndex: idx });
       }
       if (!hasContentPub(node.steps)) {
@@ -456,7 +448,7 @@ function lintGuide(guidePath, options = {}) {
   }
 
   // ── JIN-CNT-001: al menos un nodo orientation ──
-  const hasOrientation = sections.some(s => ORIENTATION_TYPES.has(s.type));
+  const hasOrientation = sections.some(s => hasRole(s, "orientation"));
   if (!hasOrientation) {
     issue("JIN-CNT-001", "No se encontró ningún nodo de tipo 'orientation'.");
   }
@@ -484,15 +476,18 @@ function lintGuide(guidePath, options = {}) {
 
   // ── Iterar secciones ──
   const ids   = new Set();
-  let prevType = null;
+  let prevNode = null;
 
   for (let i = 0; i < sections.length; i++) {
     const node   = sections[i];
     const prefix = `Nodo ${i + 1}`;
 
-    // JIN-CNT-006: tipo válido
-    if (!VALID_TYPES.has(node.type)) {
-      issue("JIN-CNT-006", `${prefix}: tipo desconocido "${node.type}".`, { nodeIndex: i });
+    // JIN-CNT-006: type personalizado sin role — no participa en las reglas
+    // de familia. No es un error (el vocabulario de type es abierto), solo
+    // un aviso de que ese nodo queda fuera de JIN-ALN-*/JIN-SELF-*/JIN-WRK-*
+    // hasta que se declare qué role cumple.
+    if (!hasExplicitRoleAnchor(node)) {
+      issue("JIN-CNT-006", `${prefix}: type "${node.type}" es personalizado y no declara 'role' — no recibe las reglas pedagógicas de familia.`, { nodeIndex: i });
     }
 
     // JIN-CNT-010: pagination válido
@@ -529,10 +524,10 @@ function lintGuide(guidePath, options = {}) {
       }
     }
 
-    // JIN-CNT-003: assessment debería seguir a practice o scenario
-    if (node.type === "assessment" && !PRACTICE_TYPES.has(prevType)) {
+    // JIN-CNT-003: assessment debería seguir a una sección de práctica (role="practice")
+    if (hasRole(node, "assessment") && !hasRole(prevNode, "practice")) {
       issue("JIN-CNT-003",
-        `${prefix} (assessment): no está precedido por un nodo 'practice' o 'scenario' (previo: "${prevType || "ninguno"}").`,
+        `${prefix} (assessment): no está precedido por una sección de práctica (previo: "${prevNode ? prevNode.type : "ninguno"}").`,
         { nodeIndex: i }
       );
     }
@@ -569,7 +564,7 @@ function lintGuide(guidePath, options = {}) {
       }
     }
 
-    prevType = node.type;
+    prevNode = node;
   }
 
   // ── JIN-CNT-011: bibliography debe ser el último nodo ──
@@ -616,16 +611,16 @@ function lintGuide(guidePath, options = {}) {
 
   // ── JIN-WRK-004 / JIN-WRK-005: distribución de la carga planificada ──
   if (anyEstimated) {
-    const minutesByTypes = types => sections
-      .filter(s => types.has(s.type) && typeof s.estimatedMinutes === "number")
+    const minutesByRole = role => sections
+      .filter(s => hasRole(s, role) && typeof s.estimatedMinutes === "number")
       .reduce((sum, s) => sum + s.estimatedMinutes, 0);
-    const teachingMinutes   = minutesByTypes(TEACHING_TYPES);
-    const practiceMinutes   = minutesByTypes(PRACTICE_TYPES);
-    const assessmentMinutes = minutesByTypes(new Set(["assessment"]));
+    const teachingMinutes   = minutesByRole("teaching");
+    const practiceMinutes   = minutesByRole("practice");
+    const assessmentMinutes = minutesByRole("assessment");
     const totalMinutes      = sections.reduce((sum, s) => sum + (typeof s.estimatedMinutes === "number" ? s.estimatedMinutes : 0), 0);
 
     if (totalMinutes > 0 && teachingMinutes / totalMinutes > 0.6) {
-      issue("JIN-WRK-004", `La enseñanza (theory/concept) concentra ${((teachingMinutes / totalMinutes) * 100).toFixed(1)}% de la carga planificada; revisar el balance con práctica y evaluación.`);
+      issue("JIN-WRK-004", `La enseñanza concentra ${((teachingMinutes / totalMinutes) * 100).toFixed(1)}% de la carga planificada; revisar el balance con práctica y evaluación.`);
     }
     if (practiceMinutes > 0 && assessmentMinutes > practiceMinutes) {
       issue("JIN-WRK-005", `El tiempo evaluativo planificado (${assessmentMinutes} min) supera el de práctica formativa (${practiceMinutes} min).`);
@@ -638,53 +633,55 @@ function lintGuide(guidePath, options = {}) {
   const targets = Array.isArray(metadata.targets) ? metadata.targets : [];
   if (targets.length > 0) {
     const targetIds       = new Set(targets.map(t => t.id));
-    const practiceNodes   = sections.filter(s => PRACTICE_TYPES.has(s.type));
-    const assessmentNodes = sections.filter(s => s.type === "assessment");
+    const practiceNodes   = sections.filter(s => hasRole(s, "practice"));
+    const assessmentNodes = sections.filter(s => hasRole(s, "assessment"));
     const hasContent      = value => value !== undefined && value !== null && value !== "" &&
       !(Array.isArray(value) && value.length === 0);
 
     // JIN-ALN-010 .. JIN-ALN-015: matriz de alineación por target
     for (const target of targets) {
       const nodesForTarget = sections.filter(s => Array.isArray(s.targetIds) && s.targetIds.includes(target.id));
-      const teachingNodes  = nodesForTarget.filter(s => TEACHING_TYPES.has(s.type));
-      const practiceForT   = nodesForTarget.filter(s => PRACTICE_TYPES.has(s.type));
-      const assessmentForT = nodesForTarget.filter(s => s.type === "assessment");
+      const teachingNodes  = nodesForTarget.filter(s => hasRole(s, "teaching"));
+      const practiceForT   = nodesForTarget.filter(s => hasRole(s, "practice"));
+      const assessmentForT = nodesForTarget.filter(s => hasRole(s, "assessment"));
 
       if (teachingNodes.length === 0) {
-        issue("JIN-ALN-010", `Target ${target.id}: no tiene ninguna sección de enseñanza ('theory'/'concept') con targetIds que lo incluya.`);
+        issue("JIN-ALN-010", `Target ${target.id}: no tiene ninguna sección de enseñanza (role='teaching') con targetIds que lo incluya.`);
       }
       if (practiceForT.length === 0) {
-        issue("JIN-ALN-011", `Target ${target.id}: no tiene ninguna práctica formativa ('practice'/'scenario') con targetIds que lo incluya.`);
-      } else if (!practiceForT.some(s => hasContent(s.feedback) || hasContent(s.selfCheck))) {
+        issue("JIN-ALN-011", `Target ${target.id}: no tiene ninguna práctica formativa (role='practice') con targetIds que lo incluya.`);
+      } else if (!practiceForT.some(s => hasCapability(s, "feedback", "feedback") || hasCapability(s, "selfCheck", "selfCheck"))) {
         issue("JIN-ALN-012", `Target ${target.id}: tiene práctica pero ninguna declara 'feedback' ni 'selfCheck'.`);
       }
       if (assessmentForT.length === 0) {
         issue("JIN-ALN-013", `Target ${target.id}: no tiene ninguna sección 'assessment' con targetIds que lo evalúe.`);
       }
       if (teachingNodes.length > 0) {
-        const citedInTeaching = teachingNodes.flatMap(s => collectFromContent(s.content));
+        const citedInTeaching = teachingNodes.flatMap(s => flattenContentSources(s).flatMap(c => collectFromContent(c)));
         if (citedInTeaching.length === 0) {
           issue("JIN-ALN-015", `Target ${target.id}: sus secciones de enseñanza no citan ninguna fuente ({{cite:clave}}).`);
         }
       }
     }
 
-    // JIN-ALN-016: contenido extenso de teoría/concepto sin targetIds declarado
+    // JIN-ALN-016: contenido extenso de enseñanza sin targetIds declarado
     const contentLength = value => {
       if (typeof value === "string") return value.length;
       if (Array.isArray(value)) return value.reduce((sum, v) => sum + contentLength(v), 0);
       return 0;
     };
     sections.forEach((node, idx) => {
-      if (!TEACHING_TYPES.has(node.type) || hasContent(node.targetIds)) return;
-      if (contentLength(node.content) > 400) {
-        issue("JIN-ALN-016", `Nodo ${idx + 1} (${node.type}): contenido extenso (${contentLength(node.content)} caracteres) sin relación explícita con un target (targetIds vacío).`, { nodeIndex: idx });
+      if (!hasRole(node, "teaching") || hasContent(node.targetIds)) return;
+      const length = flattenContentSources(node).reduce((sum, c) => sum + contentLength(c), 0);
+      if (length > 400) {
+        issue("JIN-ALN-016", `Nodo ${idx + 1} (${node.type}): contenido extenso (${length} caracteres) sin relación explícita con un target (targetIds vacío).`, { nodeIndex: idx });
       }
     });
 
     // JIN-WRK-003: bloque académico relevante sin estimatedMinutes
     sections.forEach((node, idx) => {
-      if (!TEACHING_TYPES.has(node.type) && !PRACTICE_TYPES.has(node.type) && node.type !== "assessment") return;
+      const role = resolveRole(node);
+      if (role !== "teaching" && role !== "practice" && role !== "assessment") return;
       if (typeof node.estimatedMinutes !== "number") {
         issue("JIN-WRK-003", `Nodo ${idx + 1} (${node.type}): no declara 'estimatedMinutes'.`, { nodeIndex: idx });
       }
@@ -693,7 +690,7 @@ function lintGuide(guidePath, options = {}) {
     // JIN-ALN-014: assessment evalúa un target sin enseñanza en toda la guía
     const teachingTargetIds = new Set(
       sections
-        .filter(s => TEACHING_TYPES.has(s.type) && Array.isArray(s.targetIds))
+        .filter(s => hasRole(s, "teaching") && Array.isArray(s.targetIds))
         .flatMap(s => s.targetIds)
     );
     assessmentNodes.forEach(node => {
@@ -718,8 +715,8 @@ function lintGuide(guidePath, options = {}) {
           .map((s, i) => ({ s, i }))
           .filter(({ s }) => {
             if (!Array.isArray(s.targetIds) || !s.targetIds.includes(tid)) return false;
-            if (TEACHING_TYPES.has(s.type)) return true;
-            if (PRACTICE_TYPES.has(s.type)) {
+            if (hasRole(s, "teaching")) return true;
+            if (hasRole(s, "practice")) {
               const mode = s.mode || "guided";
               return mode !== "retrieval" && mode !== "transfer";
             }
@@ -733,8 +730,8 @@ function lintGuide(guidePath, options = {}) {
     });
 
     // JIN-SELF-001: ruta de aprendizaje real (orientation.route), no un proxy de tiempo
-    const orientationNode = sections.find(s => ORIENTATION_TYPES.has(s.type));
-    if (!orientationNode || !hasContent(orientationNode.route)) {
+    const orientationNode = sections.find(s => hasRole(s, "orientation"));
+    if (!orientationNode || !hasCapability(orientationNode, "route", "route")) {
       issue("JIN-SELF-001", "El nodo 'orientation' no declara 'route' (ruta de aprendizaje) no vacía.");
     }
 
@@ -742,18 +739,18 @@ function lintGuide(guidePath, options = {}) {
     practiceNodes.forEach(node => {
       const idx  = sections.indexOf(node);
       const mode = node.mode || "guided";
-      if (mode === "guided" && !hasContent(node.workedExample)) {
+      if (mode === "guided" && !hasCapability(node, "workedExample", "workedExample")) {
         issue("JIN-SELF-002", `Nodo ${idx + 1} (practice, mode='guided'): no declara 'workedExample'.`, { nodeIndex: idx });
       }
-      if (!hasContent(node.successCriteria)) {
+      if (!hasCapability(node, "successCriteria", "successCriteria")) {
         issue("JIN-SELF-003", `Nodo ${idx + 1} (practice): no declara 'successCriteria'.`, { nodeIndex: idx });
       }
-      if (!hasContent(node.selfCheck) && !hasContent(node.feedback)) {
+      if (!hasCapability(node, "selfCheck", "selfCheck") && !hasCapability(node, "feedback", "feedback")) {
         issue("JIN-SELF-004", `Nodo ${idx + 1} (practice): no declara 'selfCheck' ni 'feedback'; el estudiante no puede autocorregirse.`, { nodeIndex: idx });
       }
       // JIN-SELF-005: la remediación se exige por práctica crítica (guided/independent),
       // no basta con que exista en alguna práctica cualquiera de la guía.
-      if ((mode === "guided" || mode === "independent") && !hasContent(node.remediation)) {
+      if ((mode === "guided" || mode === "independent") && !hasCapability(node, "remediation", "remediation")) {
         issue("JIN-SELF-005", `Nodo ${idx + 1} (practice, mode='${mode}'): no declara 'remediation'.`, { nodeIndex: idx });
       }
     });
@@ -766,10 +763,10 @@ function lintGuide(guidePath, options = {}) {
     if (missingFromFinalCheck.length > 0) {
       issue("JIN-SELF-007", `Ningún nodo 'assessment' cubre, en conjunto, todos los targets declarados. Faltan: ${missingFromFinalCheck.join(", ")}.`);
     }
-    if (!practiceNodes.some(s => hasContent(s.selfCheck))) {
+    if (!practiceNodes.some(s => hasCapability(s, "selfCheck", "selfCheck"))) {
       issue("JIN-SELF-008", "Ninguna práctica de la guía declara 'selfCheck': no hay monitorización explícita de progreso.");
     }
-    if (!practiceNodes.some(s => s.mode === "transfer" || hasContent(s.transfer))) {
+    if (!practiceNodes.some(s => s.mode === "transfer" || hasCapability(s, "transfer", "transfer"))) {
       issue("JIN-SELF-009", "Ninguna práctica de la guía usa mode='transfer' ni declara el campo 'transfer'.");
     }
 
@@ -897,9 +894,9 @@ function lintGuide(guidePath, options = {}) {
 
       // JIN-EVD-022: en publish, si la guía tiene contenido disciplinar
       // (theory/concept) evidence.json no puede quedarse con claims: [].
-      const hasDisciplinaryContent = sections.some(s => TEACHING_TYPES.has(s.type));
+      const hasDisciplinaryContent = sections.some(s => hasRole(s, "teaching"));
       if (publish && hasDisciplinaryContent && claims.length === 0) {
-        issue("JIN-EVD-022", "evidence.json existe pero no declara ningún keyClaim, y la guía tiene contenido disciplinar (theory/concept).");
+        issue("JIN-EVD-022", "evidence.json existe pero no declara ningún keyClaim, y la guía tiene contenido disciplinar (role='teaching').");
       }
 
       // JIN-EVD-023: claims declarados en evidence.json que ningún nodo de

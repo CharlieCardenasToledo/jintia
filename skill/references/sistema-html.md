@@ -68,21 +68,69 @@ publish) `targetId` obligatorio — ver `docs/notebooklm.md`.
 
 ### Tipos de nodo disponibles
 
+`type` es una etiqueta **libre**, no un enum cerrado: podés escribir el tipo
+que mejor describa el nodo (`debate`, `timeline`, `decision-tree`...), no
+solo los de esta tabla. Los tipos clásicos siguen siendo la forma más simple
+de escribir una guía porque activan automáticamente su renderizado dedicado
+y sus reglas pedagógicas de familia. `opening`/`case`/`comparison`/`activity`/
+`reflection` son alias con la misma capacidad estructural que
+`orientation`/`theory`-`concept`/`practice`/`scenario` respectivamente — solo
+cambia la etiqueta visual.
+
 | Tipo | Clase CSS | Uso |
 |---|---|---|
-| `orientation` | `.jintia-orientation` | Orientación inicial de la semana; `route` declara la ruta de aprendizaje |
+| `orientation` / `opening` | `.jintia-orientation` | Orientación inicial de la semana; `route` declara la ruta de aprendizaje |
 | `theory` | `.jintia-theory` | Contenido teórico expositivo |
 | `concept` | `.jintia-concept` | Definición resaltada de un concepto |
-| `practice` | `.jintia-practice` | Práctica (`mode`: `guided`, `independent`, `retrieval`, `transfer`) |
+| `case` | `.jintia-theory` | Enseñanza contextualizada en un caso (admite `workedExample`/`prompt` como `practice`) |
+| `comparison` | `.jintia-concept` | Comparación entre conceptos (admite `workedExample`/`prompt` como `practice`) |
+| `practice` / `activity` | `.jintia-practice` | Práctica (`mode`: `guided`, `independent`, `retrieval`, `transfer`) |
 | `warning` | `.jintia-warning` | Error frecuente o advertencia |
 | `critical-error` | `.jintia-critical-error` | Error crítico que impide avanzar |
-| `scenario` | `.jintia-scenario` | Caso o situación contextualizada |
+| `scenario` / `reflection` | `.jintia-scenario` | Caso o situación contextualizada |
 | `assessment` | `.jintia-assessment` | Actividad evaluativa (`criteria`, `product`, `targetIds`) |
 | `figure` | `.jintia-figure` | Imagen con `alt` y `caption`, y `src` **o** `visualSpec` |
 | `table` | `.jintia-table` | Tabla estructurada con `caption` y `headers` |
 | `margin-note` | `.jintia-margin-note` | Nota marginal complementaria |
 | `bibliography` | `.jintia-bibliography` | Sección de referencias — debe ser el último nodo |
 | `citation` | `.jintia-citation` | **Deprecado.** No usar en guías nuevas — ver más abajo |
+| *(cualquier otro string)* | `.jintia-generic--<type>` | Se renderiza igual (nunca se descarta), con etiqueta humanizada del `type`. Ver "Tipos personalizados" abajo |
+
+### Tipos personalizados: `role` y `children`
+
+Cuando ningún tipo clásico describe bien el nodo, inventá el `type` que
+corresponda (`"type": "debate"`) y declará **`role`** para que siga
+recibiendo las reglas pedagógicas de familia (JIN-ALN-*/JIN-SELF-*/JIN-WRK-*)
+en vez de quedar fuera de ellas:
+
+```json
+{ "type": "debate", "role": "practice", "targetIds": ["T1"], "estimatedMinutes": 20,
+  "content": "Debate estructurado sobre el tema.",
+  "children": [
+    { "type": "example", "content": "Ronda modelo con evidencia citada." },
+    { "type": "prompt", "content": "Defiende tu postura durante 3 minutos." },
+    { "type": "feedback", "content": "El moderador retroalimenta cada ronda." }
+  ]
+}
+```
+
+- `role` es uno de `orientation | teaching | practice | assessment |
+  supplement`. Con un `type` clásico se infiere solo (no hace falta
+  declararlo); con un `type` inventado, sin `role` el nodo se trata como
+  `supplement` (renderiza, pero no participa en las reglas de familia) y el
+  linter emite `JIN-CNT-006` (aviso, no error) recordándolo.
+- `children` es una composición recursiva alternativa a los campos planos
+  (`workedExample`/`prompt`/`steps`/`successCriteria`/`selfCheck`/`feedback`/
+  `remediation`/`transfer`/`purpose`/`materials`/`route`): en vez de rellenar
+  esos campos, podés descomponer el nodo en piezas semánticas anidables
+  (`example`, `prompt`, `hint`, `narrative`, `question`, `reflection`,
+  `table`, `figure`, `feedback`, `remediation`, `success-criteria`,
+  `self-check`, `transfer`...). Coexisten: un nodo puede usar campos planos,
+  `children`, o ambos. El linter detecta la capacidad pedagógica (¿hay
+  ejemplo trabajado? ¿hay retroalimentación?) por cualquiera de las dos vías.
+- `content` también acepta un objeto estructurado (ej.
+  `{"question":"...","answer":"..."}`) — se renderiza como lista de
+  definición en vez de colapsar a texto.
 
 ### Citas: sintaxis inline, no el nodo `citation`
 

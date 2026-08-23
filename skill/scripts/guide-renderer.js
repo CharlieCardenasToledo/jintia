@@ -25,6 +25,7 @@ const fs     = require("node:fs");
 const path   = require("node:path");
 const bibMgr  = require("./bibliography-manager");
 const { collectCitationKeys } = require("./citation-keys");
+const { resolveRole } = require("./pedagogical-roles");
 
 const ROOT       = path.resolve(__dirname, "..");
 const THEMES_DIR = path.join(ROOT, "themes");
@@ -119,11 +120,34 @@ function textToHtml(text, bib = null, style = "apa") {
     .join("\n");
 }
 
-/** Renderiza el campo `content` de un nodo: puede ser string, array o null. */
+/** Convierte una clave de objeto (ej. "successCriteria") en una etiqueta
+ * legible ("Success criteria") para renderStructuredContent(). */
+function humanizeKey(key) {
+  const spaced = String(key).replace(/[-_]+/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+}
+
+/** Renderiza un `content` que es un objeto estructurado (ej.
+ * {"question":"...","answer":"..."}) como una lista de definición, en vez
+ * de dejarlo colapsar a "[object Object]" vía String(). Cada valor se
+ * renderiza recursivamente con renderContent, así un valor anidado (string,
+ * array u otro objeto) se procesa igual que el content de nivel superior. */
+function renderStructuredContent(obj, bib = null, style = "apa") {
+  const entries = Object.entries(obj).filter(([, v]) => v !== undefined && v !== null && v !== "");
+  if (entries.length === 0) return "";
+  const rows = entries
+    .map(([key, value]) => `<div class="jintia-structured-content__entry"><dt>${escapeHtml(humanizeKey(key))}</dt><dd>${renderContent(value, bib, style)}</dd></div>`)
+    .join("\n");
+  return `<dl class="jintia-structured-content">\n${rows}\n</dl>`;
+}
+
+/** Renderiza el campo `content` de un nodo: puede ser string, array,
+ * objeto estructurado (ver renderStructuredContent) o null. */
 function renderContent(content, bib = null, style = "apa") {
   if (!content) return "";
   if (typeof content === "string") return textToHtml(content, bib, style);
   if (Array.isArray(content)) return content.map(c => renderContent(c, bib, style)).join("\n");
+  if (typeof content === "object") return renderStructuredContent(content, bib, style);
   return escapeHtml(String(content));
 }
 
@@ -251,6 +275,7 @@ function renderBlock(node, typeClass, label, bib = null, style = "apa", tag = "a
   <div class="jintia-block__content">
 ${renderContent(node.content, bib, style)}
   </div>
+  ${renderChildren(node.children, bib, style)}
 </${tag}>`;
 }
 
@@ -305,6 +330,7 @@ function renderOrientationLike(node, cssClass, label, bib, style) {
     listBlock("jintia-orientation__before-start", "Antes de empezar", [...(node.priorKnowledge || []), ...(node.materials || [])]),
     listBlock("jintia-orientation__route", "Ruta de esta semana", node.route),
     listBlock("jintia-orientation__success-criteria", "Criterios de éxito", node.successCriteria),
+    renderChildren(node.children, bib, style),
   ].filter(Boolean).join("\n  ");
 
   if (!extraHtml) return base;
@@ -349,6 +375,7 @@ function renderStructuredBlock(node, cssClass, defaultLabel, bib, style) {
     extraBlock(`${cssClass}__feedback`, "Retroalimentación", node.feedback),
     extraBlock(`${cssClass}__remediation`, "¿No coincidió?", node.remediation),
     extraBlock(`${cssClass}__transfer`, "Transferencia", node.transfer),
+    renderChildren(node.children, bib, style),
   ].filter(Boolean).join("\n  ");
 
   return `
@@ -368,6 +395,74 @@ function renderConfiguredBlock(node, config, bib, style) {
   if (config.kind === "orientation") return renderOrientationLike(node, config.cssClass, config.label, bib, style);
   if (config.kind === "structured") return renderStructuredBlock(node, config.cssClass, config.label, bib, style);
   return renderBlock(node, config.cssClass, config.label, bib, style, config.tag || "aside");
+}
+
+// ─── Composición recursiva (section.children / piece.children) ─────────────
+//
+// Alternativa u complemento a los campos planos (workedExample/prompt/etc.):
+// un nodo puede componerse de piezas semánticas más pequeñas en vez de (o
+// además de) rellenar esos campos. El vocabulario de `type` de una pieza es
+// abierto igual que en section — una pieza reconocida (example/prompt/hint/
+// narrative/question/reflection/table/figure...) obtiene una etiqueta
+// legible dedicada; cualquier otra usa una etiqueta genérica derivada de su
+// propio nombre, pero igual se renderiza (nunca se descarta contenido).
+const PIECE_LABELS = {
+  example: "Ejemplo", "worked-example": "Ejemplo trabajado", model: "Modelo",
+  narrative: "Narrativa",
+  prompt: "Consigna", question: "Pregunta",
+  hint: "Pista",
+  "success-criteria": "Criterios de éxito",
+  "self-check": "Comprueba tu respuesta",
+  feedback: "Retroalimentación",
+  remediation: "¿No coincidió?",
+  transfer: "Transferencia",
+  reflection: "Reflexión",
+};
+
+function slugify(value) {
+  return String(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "piece";
+}
+
+function renderPiece(piece, bib, style) {
+  const type = String(piece.type || "").toLowerCase();
+  if (type === "table") return renderTable(piece);
+  if (type === "figure") return renderFigure(piece);
+
+  const label       = PIECE_LABELS[type] || humanizeKey(type);
+  const idAttr      = piece.id ? ` id="${escapeHtml(piece.id)}"` : "";
+  const titleHtml   = piece.title ? `<h4 class="jintia-piece__title">${escapeHtml(piece.title)}</h4>` : "";
+  const childrenHtml = renderChildren(piece.children, bib, style);
+  return `
+<div class="jintia-piece jintia-piece--${slugify(type)}"${idAttr}>
+  <span class="jintia-piece__label" aria-hidden="true">${escapeHtml(label)}</span>
+  ${titleHtml}
+  <div class="jintia-piece__content">
+${renderContent(piece.content, bib, style)}
+  </div>
+  ${childrenHtml}
+</div>`;
+}
+
+/** Renderiza section.children / piece.children (composición recursiva).
+ * Cadena vacía si no hay children — así se puede concatenar sin condicionales
+ * en cada llamador. */
+function renderChildren(children, bib, style) {
+  if (!Array.isArray(children) || children.length === 0) return "";
+  return `<div class="jintia-children">\n${children.map(p => renderPiece(p, bib, style)).join("\n")}\n</div>`;
+}
+
+/** Render genérico para un `type` de sección personalizado (fuera de
+ * BLOCK_RENDER_CONFIG). El vocabulario de type es abierto: un tipo no
+ * reconocido no debe perder su contenido (antes, RENDERERS[node.type]
+ * ausente producía solo un comentario HTML vacío). El `role` decide qué
+ * forma de bloque usar — orientation-like, structured (campos extra +
+ * children) o plain — igual que un tipo clásico de esa misma familia. */
+function renderGenericBlock(node, bib, style) {
+  const role  = resolveRole(node);
+  const label = humanizeKey(node.type);
+  if (role === "orientation") return renderOrientationLike(node, `jintia-generic jintia-generic--${slugify(node.type)}`, label, bib, style);
+  if (role === "practice" || role === "teaching") return renderStructuredBlock(node, `jintia-generic jintia-generic--${slugify(node.type)}`, label, bib, style);
+  return renderBlock(node, `jintia-generic jintia-generic--${slugify(node.type)}`, label, bib, style, "section");
 }
 
 function renderMarginNote(node, bib, style) {
@@ -576,10 +671,11 @@ function renderColophon(metadata) {
 
 function renderSection(node, bib = null, usedKeys = [], style = "apa") {
   const renderer = RENDERERS[node.type];
-  if (!renderer) {
-    console.warn(`[guide-renderer] Tipo de nodo desconocido: "${node.type}" — se omite.`);
-    return `<!-- nodo desconocido: ${escapeHtml(node.type)} -->`;
-  }
+  // El vocabulario de `type` es abierto (guide.schema.json): un type que no
+  // está en BLOCK_RENDER_CONFIG no es un error, es una etiqueta personalizada
+  // que la IA autora inventó. Debe seguir rindiendo su contenido — antes de
+  // esto, un type desconocido descartaba el nodo entero silenciosamente.
+  if (!renderer) return renderGenericBlock(node, bib, style);
   if (node.type === "bibliography") return renderer(node, bib, usedKeys, style);
   if (node.type === "figure" || node.type === "table") return renderer(node);
   return renderer(node, bib, style);
@@ -721,4 +817,8 @@ module.exports = {
   copyThemeAssets,
   resolveThemeDeps,
   processInlineMarkup,
+  renderContent,
+  renderStructuredContent,
+  renderChildren,
+  renderPiece,
 };

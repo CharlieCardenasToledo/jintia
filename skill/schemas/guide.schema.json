@@ -117,27 +117,18 @@
       "properties": {
         "type": {
           "type": "string",
-          "description": "Tipo de nodo pedagógico. No hay secuencia ni conteo obligatorio entre tipos — la IA elige libremente cuáles usar y en qué orden según convenga al tema de la semana; el schema no impone una plantilla fija de 'orientation→theory→...→assessment'. 'opening'/'case'/'comparison'/'activity'/'reflection' son variantes con la misma capacidad estructural que 'orientation'/'theory'-'concept'/'practice'/'scenario' respectivamente (mismos campos opcionales admitidos), solo cambia la etiqueta visual — úsalos para no forzar una guía en el vocabulario original cuando otra forma de organizarla sirva mejor al tema. NOTA: 'citation' está DEPRECADO — usar sintaxis inline {{cite:clave}} en campos content.",
-          "enum": [
-            "orientation",
-            "opening",
-            "theory",
-            "concept",
-            "comparison",
-            "warning",
-            "critical-error",
-            "practice",
-            "activity",
-            "figure",
-            "table",
-            "scenario",
-            "case",
-            "reflection",
-            "assessment",
-            "margin-note",
-            "bibliography",
-            "citation"
-          ]
+          "minLength": 1,
+          "description": "Etiqueta libre del nodo pedagógico (ej. 'theory', 'case', o algo inventado como 'debate'/'timeline'/'decision-tree'). No hay secuencia, conteo ni vocabulario cerrado obligatorio — la IA elige libremente qué type usar y en qué orden según convenga al tema de la semana; el schema no impone una plantilla fija de 'orientation→theory→...→assessment'. Los nombres clásicos ('orientation','opening','theory','concept','comparison','warning','critical-error','practice','activity','figure','table','scenario','case','reflection','assessment','margin-note','bibliography','citation') se reconocen automáticamente y activan sus reglas pedagógicas de familia y su renderizado dedicado. Un type personalizado se renderiza igual (genérico) pero SOLO participa en las reglas de familia (JIN-ALN-*, JIN-SELF-*, JIN-WRK-*) si declara 'role' explícitamente — ver esa propiedad. NOTA: 'citation' está DEPRECADO — usar sintaxis inline {{cite:clave}} en campos content."
+        },
+        "role": {
+          "type": "string",
+          "description": "Rol pedagógico determinista del nodo, independiente de 'type'. Ancla las reglas de familia (JIN-ALN-*: ¿enseña/practica/evalúa un target?, JIN-SELF-*: autoinstruccionalidad, JIN-WRK-*: carga horaria) cuando 'type' es una etiqueta personalizada que no está en el vocabulario clásico. Con un type clásico, role se infiere automáticamente y normalmente no hace falta declararlo; para un type inventado, declara el role que corresponda a la función real del nodo para que reciba la validación pedagógica adecuada (si se omite, el nodo se trata como 'supplement': renderiza pero no se valida pedagógicamente).",
+          "enum": ["orientation", "teaching", "practice", "assessment", "supplement"]
+        },
+        "children": {
+          "type": "array",
+          "description": "Composición recursiva del nodo en piezas semánticas más pequeñas (ej. un 'case' compuesto de narrative/table/question/reflection, o una 'activity' compuesta de example/prompt/hint). Alternativa u complemento a los campos planos (workedExample/prompt/steps/etc. más abajo): un nodo puede usar los campos planos, children, o ambos — no son mutuamente excluyentes. Ver definitions/piece.",
+          "items": { "$ref": "#/definitions/piece" }
         },
         "id": {
           "type": "string",
@@ -180,7 +171,12 @@
       },
       "allOf": [
         {
-          "if": { "properties": { "type": { "enum": ["orientation", "opening"] } } },
+          "if": {
+            "anyOf": [
+              { "properties": { "type": { "enum": ["orientation", "opening"] } } },
+              { "required": ["role"], "properties": { "role": { "const": "orientation" } } }
+            ]
+          },
           "then": {
             "properties": {
               "purpose": {
@@ -211,7 +207,12 @@
           }
         },
         {
-          "if": { "properties": { "type": { "enum": ["practice", "activity", "case", "comparison", "scenario", "reflection"] } } },
+          "if": {
+            "anyOf": [
+              { "properties": { "type": { "enum": ["practice", "activity", "case", "comparison", "scenario", "reflection"] } } },
+              { "required": ["role"], "properties": { "role": { "enum": ["practice", "teaching"] } } }
+            ]
+          },
           "then": {
             "properties": {
               "mode": {
@@ -340,7 +341,12 @@
           }
         },
         {
-          "if": { "properties": { "type": { "const": "assessment" } } },
+          "if": {
+            "anyOf": [
+              { "properties": { "type": { "const": "assessment" } } },
+              { "required": ["role"], "properties": { "role": { "const": "assessment" } } }
+            ]
+          },
           "then": {
             "properties": {
               "format": {
@@ -390,6 +396,49 @@
           }
         }
       ]
+    },
+    "piece": {
+      "type": "object",
+      "description": "Pieza semántica componible dentro de section.children (ej. un ejemplo, una consigna, una pista, una narrativa, una pregunta). Vocabulario de 'type' abierto igual que en section; ciertos nombres (ver CHILD_CAPABILITY_ALIASES en scripts/pedagogical-roles.js) habilitan la detección automática de capacidades pedagógicas del nodo padre (JIN-SELF-*).",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Tipo de la pieza (ej. 'example', 'prompt', 'hint', 'narrative', 'question', 'reflection', 'table', 'figure'...). Vocabulario abierto."
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "title": {
+          "type": "string",
+          "description": "Título breve de la pieza."
+        },
+        "content": {
+          "description": "Contenido de la pieza: string HTML seguro, array de sub-contenidos, u objeto estructurado (se renderiza como lista de definición clave/valor)."
+        },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/piece" },
+          "description": "Anidamiento recursivo: una pieza puede componerse de otras piezas."
+        },
+        "src": { "type": "string", "description": "Solo si type='figure': ruta a la imagen." },
+        "alt": { "type": "string", "description": "Solo si type='figure': texto alternativo." },
+        "caption": { "type": "string", "description": "Solo si type='figure' o 'table'." },
+        "width": { "type": "string", "description": "Solo si type='figure': ancho CSS." },
+        "headers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Solo si type='table': encabezados de columna."
+        },
+        "rows": {
+          "type": "array",
+          "items": { "type": "array", "items": { "type": "string" } },
+          "description": "Solo si type='table': filas de datos."
+        }
+      }
     }
   }
 }

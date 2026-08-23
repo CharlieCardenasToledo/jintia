@@ -117,17 +117,22 @@
       "properties": {
         "type": {
           "type": "string",
-          "description": "Tipo de nodo pedagógico. NOTA: 'citation' está DEPRECADO — usar sintaxis inline {{cite:clave}} en campos content.",
+          "description": "Tipo de nodo pedagógico. No hay secuencia ni conteo obligatorio entre tipos — la IA elige libremente cuáles usar y en qué orden según convenga al tema de la semana; el schema no impone una plantilla fija de 'orientation→theory→...→assessment'. 'opening'/'case'/'comparison'/'activity'/'reflection' son variantes con la misma capacidad estructural que 'orientation'/'theory'-'concept'/'practice'/'scenario' respectivamente (mismos campos opcionales admitidos), solo cambia la etiqueta visual — úsalos para no forzar una guía en el vocabulario original cuando otra forma de organizarla sirva mejor al tema. NOTA: 'citation' está DEPRECADO — usar sintaxis inline {{cite:clave}} en campos content.",
           "enum": [
             "orientation",
+            "opening",
             "theory",
             "concept",
+            "comparison",
             "warning",
             "critical-error",
             "practice",
+            "activity",
             "figure",
             "table",
             "scenario",
+            "case",
+            "reflection",
             "assessment",
             "margin-note",
             "bibliography",
@@ -175,7 +180,7 @@
       },
       "allOf": [
         {
-          "if": { "properties": { "type": { "const": "orientation" } } },
+          "if": { "properties": { "type": { "enum": ["orientation", "opening"] } } },
           "then": {
             "properties": {
               "purpose": {
@@ -206,7 +211,7 @@
           }
         },
         {
-          "if": { "properties": { "type": { "const": "practice" } } },
+          "if": { "properties": { "type": { "enum": ["practice", "activity", "case", "comparison", "scenario", "reflection"] } } },
           "then": {
             "properties": {
               "mode": {

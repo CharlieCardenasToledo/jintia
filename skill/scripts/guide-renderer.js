@@ -254,12 +254,45 @@ ${renderContent(node.content, bib, style)}
 </${tag}>`;
 }
 
-/**
- * Orientation: además del content libre, renderiza los campos estructurados
- * opcionales (purpose, priorKnowledge, materials, route, successCriteria).
- */
-function renderOrientation(node, bib, style) {
-  const base = renderBlock(node, "jintia-orientation", "Orientación", bib, style);
+// ─── Sistema de render configurable por tipo ────────────────────────────────
+//
+// Jintia no obliga una plantilla fija (orientation→theory→...→assessment):
+// el schema no impone secuencia ni conteo, y la IA elige libremente qué
+// tipos usar y en qué orden según convenga al tema de la semana (un caso
+// práctico puede ir antes que la teoría, una comparación puede reemplazar
+// un concepto, etc.). Lo que SÍ es fijo es un vocabulario pequeño de tipos
+// con una función pedagógica reconocible (BLOCK_RENDER_CONFIG) — no una
+// plantilla obligatoria, sino las piezas con las que se puede construir
+// cualquier secuencia. Tipos "hermanos" (p. ej. "case"/"comparison" con
+// "theory"/"concept", o "activity"/"reflection" con "practice"/"scenario")
+// comparten el mismo motor de render: la etiqueta visual cambia, la
+// capacidad estructural (qué campos opcionales admite) no.
+const BLOCK_RENDER_CONFIG = {
+  orientation:      { kind: "orientation", cssClass: "jintia-orientation",  label: "Orientación" },
+  opening:          { kind: "orientation", cssClass: "jintia-orientation",  label: "Apertura" },
+  theory:           { kind: "plain",       cssClass: "jintia-theory",      label: "Teoría",        tag: "section" },
+  concept:          { kind: "plain",       cssClass: "jintia-concept",     label: "Concepto",      tag: "section" },
+  comparison:       { kind: "plain",       cssClass: "jintia-concept",     label: "Comparación",   tag: "section" },
+  case:             { kind: "structured",  cssClass: "jintia-theory",      label: "Caso" },
+  practice:         { kind: "structured",  cssClass: "jintia-practice",    label: "Práctica guiada" },
+  activity:         { kind: "structured",  cssClass: "jintia-practice",    label: "Actividad" },
+  scenario:         { kind: "structured",  cssClass: "jintia-scenario",    label: "Escenario" },
+  reflection:       { kind: "structured",  cssClass: "jintia-scenario",    label: "Reflexión" },
+  warning:          { kind: "plain",       cssClass: "jintia-warning",         label: "Advertencia" },
+  "critical-error": { kind: "plain",       cssClass: "jintia-critical-error", label: "Error crítico" },
+};
+
+const PRACTICE_MODE_LABELS = {
+  guided:      "Práctica guiada",
+  retrieval:   "Recuperación",
+  independent: "Práctica autónoma",
+  transfer:    "Transferencia",
+};
+
+/** kind:"orientation" — content libre + campos estructurados opcionales
+ * (purpose, priorKnowledge, materials, route, successCriteria). */
+function renderOrientationLike(node, cssClass, label, bib, style) {
+  const base = renderBlock(node, cssClass, label, bib, style);
 
   const listBlock = (className, heading, value) => {
     if (!Array.isArray(value) || value.length === 0) return "";
@@ -277,26 +310,16 @@ function renderOrientation(node, bib, style) {
   if (!extraHtml) return base;
   return base.replace(/<\/aside>$/, `  ${extraHtml}\n</aside>`);
 }
-function renderTheory(node, bib, style)         { return renderBlock(node, "jintia-theory",         "Teoría",       bib, style, "section"); }
-function renderConcept(node, bib, style)        { return renderBlock(node, "jintia-concept",        "Concepto",     bib, style, "section"); }
 
-const PRACTICE_MODE_LABELS = {
-  guided:      "Práctica guiada",
-  retrieval:   "Recuperación",
-  independent: "Práctica autónoma",
-  transfer:    "Transferencia",
-};
-
-/**
- * Practice: además del content libre, renderiza los campos estructurados
- * opcionales de guide.schema.json (workedExample, prompt, steps, hints,
- * successCriteria, selfCheck, feedback, remediation, transfer). La etiqueta
- * del bloque depende de `mode`. Reutiliza las mismas clases y jerarquía de
- * encabezado que el resto de bloques — no introduce CSS nueva.
- */
-function renderPractice(node, bib, style) {
-  const mode       = node.mode || "guided";
-  const label      = PRACTICE_MODE_LABELS[mode] || PRACTICE_MODE_LABELS.guided;
+/** kind:"structured" — content libre + campos estructurados opcionales de
+ * guide.schema.json (workedExample, prompt, steps, hints, successCriteria,
+ * selfCheck, feedback, remediation, transfer). Si el nodo declara `mode`
+ * (guided/retrieval/independent/transfer), la etiqueta la refleja; si no,
+ * usa la etiqueta por defecto del tipo (p. ej. "Caso", "Actividad"). Cada
+ * campo es independiente y opcional — un nodo puede usar solo uno o
+ * ninguno, no son obligatorios entre sí. */
+function renderStructuredBlock(node, cssClass, defaultLabel, bib, style) {
+  const label      = node.mode ? (PRACTICE_MODE_LABELS[node.mode] || defaultLabel) : defaultLabel;
   const pagination = node.pagination || "atomic";
   const idAttr     = node.id ? ` id="${escapeHtml(node.id)}"` : "";
   const titleHtml  = node.title ? `<h2 class="jintia-block__title">${escapeHtml(node.title)}</h2>` : "";
@@ -317,19 +340,19 @@ function renderPractice(node, bib, style) {
   };
 
   const extraHtml = [
-    extraBlock("jintia-practice__worked-example", "Ejemplo trabajado", node.workedExample),
-    extraBlock("jintia-practice__prompt", "Ahora inténtalo tú", node.prompt),
-    extraBlock("jintia-practice__steps", "Pasos", node.steps, true),
-    extraBlock("jintia-practice__hints", "Pistas", node.hints, true),
-    extraBlock("jintia-practice__success-criteria", "Criterios de éxito", node.successCriteria, true),
-    extraBlock("jintia-practice__self-check", "Comprueba tu respuesta", node.selfCheck),
-    extraBlock("jintia-practice__feedback", "Retroalimentación", node.feedback),
-    extraBlock("jintia-practice__remediation", "¿No coincidió?", node.remediation),
-    extraBlock("jintia-practice__transfer", "Transferencia", node.transfer),
+    extraBlock(`${cssClass}__worked-example`, "Ejemplo trabajado", node.workedExample),
+    extraBlock(`${cssClass}__prompt`, "Ahora inténtalo tú", node.prompt),
+    extraBlock(`${cssClass}__steps`, "Pasos", node.steps, true),
+    extraBlock(`${cssClass}__hints`, "Pistas", node.hints, true),
+    extraBlock(`${cssClass}__success-criteria`, "Criterios de éxito", node.successCriteria, true),
+    extraBlock(`${cssClass}__self-check`, "Comprueba tu respuesta", node.selfCheck),
+    extraBlock(`${cssClass}__feedback`, "Retroalimentación", node.feedback),
+    extraBlock(`${cssClass}__remediation`, "¿No coincidió?", node.remediation),
+    extraBlock(`${cssClass}__transfer`, "Transferencia", node.transfer),
   ].filter(Boolean).join("\n  ");
 
   return `
-<section class="jintia-block jintia-practice"
+<section class="jintia-block ${cssClass}"
        data-pagination="${escapeHtml(pagination)}"${idAttr}>
   <span class="jintia-block__label" aria-hidden="true">${escapeHtml(label)}</span>
   ${titleHtml}
@@ -341,9 +364,11 @@ ${renderContent(node.content, bib, style)}
 </section>`;
 }
 
-function renderWarning(node, bib, style)        { return renderBlock(node, "jintia-warning",        "Advertencia",  bib, style); }
-function renderCriticalError(node, bib, style)  { return renderBlock(node, "jintia-critical-error", "Error crítico", bib, style); }
-function renderScenario(node, bib, style)       { return renderBlock(node, "jintia-scenario",       "Escenario",    bib, style); }
+function renderConfiguredBlock(node, config, bib, style) {
+  if (config.kind === "orientation") return renderOrientationLike(node, config.cssClass, config.label, bib, style);
+  if (config.kind === "structured") return renderStructuredBlock(node, config.cssClass, config.label, bib, style);
+  return renderBlock(node, config.cssClass, config.label, bib, style, config.tag || "aside");
+}
 
 function renderMarginNote(node, bib, style) {
   const idAttr = node.id ? ` id="${escapeHtml(node.id)}"` : "";
@@ -496,21 +521,18 @@ function renderCitation(node, bib, style = "apa") {
 
 // ─── Dispatcher de nodos ─────────────────────────────────────────────────────
 
-const RENDERERS = {
-  orientation:      renderOrientation,
-  theory:           renderTheory,
-  concept:          renderConcept,
-  practice:         renderPractice,
-  warning:          renderWarning,
-  "critical-error": renderCriticalError,
-  scenario:         renderScenario,
+const RENDERERS = {};
+for (const [type, config] of Object.entries(BLOCK_RENDER_CONFIG)) {
+  RENDERERS[type] = (node, bib, style) => renderConfiguredBlock(node, config, bib, style);
+}
+Object.assign(RENDERERS, {
   "margin-note":    renderMarginNote,
   figure:           renderFigure,
   table:            renderTable,
   assessment:       renderAssessment,
   bibliography:     renderBibliography,
   citation:         renderCitation,
-};
+});
 
 /**
  * Carga el logotipo oficial de Jintia (SVG vectorial) para incrustarlo en la

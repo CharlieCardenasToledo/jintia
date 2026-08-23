@@ -5,6 +5,27 @@ y versionado semántico.
 
 ## Sin publicar
 
+## `jintia-skill` 12.5.0 — 2026-08-23
+
+Flexibiliza el AST de `guide.json` para que la IA autora ya no esté
+limitada a un vocabulario cerrado de tipos de sección, y le da a Jintia
+Desktop un canal real para mostrar el progreso de `jintia ready`/`jintia
+plan approve` en vez de adivinarlo del texto del agente.
+
+### Añadido
+
+- **`type` de sección deja de ser un enum cerrado.** Ahora es un string libre: la IA puede escribir `"type": "debate"`, `"timeline"`, `"decision-tree"` o cualquier etiqueta que describa mejor el nodo, sin disfrazarla de un tipo clásico (`practice`, `concept`, `scenario`...).
+- **Nuevo campo `role`** (`orientation | teaching | practice | assessment | supplement`): ancla determinista para las reglas pedagógicas de familia (JIN-ALN-\*, JIN-SELF-\*, JIN-WRK-\*), independiente de `type`. Con un `type` clásico se infiere automáticamente (compatibilidad total con guías existentes); con un `type` personalizado, se exige explícito para recibir esa validación — sin él, el nodo renderiza igual pero queda fuera de esas reglas (aviso `JIN-CNT-006`, no error).
+- **Nuevo campo `children`**: composición recursiva de una sección en piezas semánticas más pequeñas (`example`, `prompt`, `hint`, `narrative`, `question`, `step`, `feedback`, `remediation`...) como alternativa o complemento a los campos planos (`workedExample`, `prompt`, `steps`, etc.). Las reglas pedagógicas detectan la capacidad (¿hay ejemplo trabajado?, ¿hay retroalimentación?) en cualquiera de las dos vías, buscando en todo el subárbol de `children`, no solo el primer nivel.
+- **`content` acepta un objeto estructurado** (ej. `{"question":"...","answer":"..."}`) y se renderiza como lista de definición, en vez de colapsar a `[object Object]`.
+- Los tipos `opening`/`case`/`comparison`/`activity`/`reflection` quedan como alias de primera clase de `orientation`/`theory`-`concept`/`practice`/`scenario` respectivamente (misma capacidad estructural, distinta etiqueta visual).
+- Un `type` fuera de `BLOCK_RENDER_CONFIG` ya no se descarta al renderizar: usa un bloque genérico cuya forma depende del `role`, así ninguna guía pierde contenido por usar una etiqueta nueva.
+- **Eventos de progreso deterministas** (`scripts/progress-events.js`): `jintia ready` y `jintia plan approve` emiten una línea `##JINTIA-EVENT##{...}` a stderr por cada paso real de su cadena (validate, evidencia, bibliografía, render, html-lint, preflight, compile / sílabo, semana, targets, matriz de alineación, presupuesto horario, actividades calificadas, evidencia). Pensado para que un orquestador externo (Jintia Desktop) traduzca el progreso real a lenguaje humano en vez de inferirlo del texto del agente — nunca toca stdout, no altera el contrato `--json` existente.
+
+### Corregido
+
+- **`jintia ready --json` nunca reenviaba `--json` al proceso real de `ready.js`** (no estaba en la lista blanca de `runScript()` en `bin/jintia.js`), así que siempre devolvía un reporte vacío (`data: null`) en vez del reporte estructurado real (`steps`, `issues`, `deterministicDecision`). Bug preexistente, independiente de los eventos de progreso — cualquier consumidor de `jintia ready --json` (scripts, agentes, integraciones) llevaba tiempo sin recibir el reporte real.
+
 ## `jintia-skill` 12.4.3 — 2026-08-22
 
 Corrige dos bugs reales de compatibilidad con versiones actuales de
